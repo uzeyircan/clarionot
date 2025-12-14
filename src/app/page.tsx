@@ -66,9 +66,6 @@ export default function Home() {
                 <li>• Etiketler</li>
                 <li>• Gelişmiş arama</li>
               </ul>
-              <div className="mt-4 text-xs text-neutral-400">
-                (Ödeme entegrasyonu daha sonra eklenir)
-              </div>
             </div>
           </div>
         </section>
