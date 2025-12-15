@@ -35,13 +35,20 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Free/Pro limit kontrolü için gerekli
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
+  const proEmails = (process.env.NEXT_PUBLIC_PRO_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const isPro = userEmail ? proEmails.includes(userEmail.toLowerCase()) : false;
 
   const [q, setQ] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
   const [openDetail, setOpenDetail] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft("link"));
-  const [active, setActive] = useState<Item | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   // auth gate
@@ -49,7 +56,12 @@ export default function DashboardPage() {
     supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id ?? null;
       const email = data.session?.user?.email ?? null;
-      if (!uid) router.replace("/login");
+
+      if (!uid) {
+        router.replace("/login");
+        return;
+      }
+
       setUserId(uid);
       setUserEmail(email);
     });
@@ -57,7 +69,12 @@ export default function DashboardPage() {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const uid = session?.user?.id ?? null;
       const email = session?.user?.email ?? null;
-      if (!uid) router.replace("/login");
+
+      if (!uid) {
+        router.replace("/login");
+        return;
+      }
+
       setUserId(uid);
       setUserEmail(email);
     });
@@ -108,11 +125,6 @@ export default function DashboardPage() {
     };
   }, [items, q]);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    router.replace("/login");
-  };
-
   const openNew = (type: ItemType) => {
     setDraft(emptyDraft(type));
     setOpenAdd(true);
@@ -154,6 +166,7 @@ export default function DashboardPage() {
           } catch {
             // sessiz geç
           }
+
           if (!title && content) {
             try {
               const u = new URL(content.split(/\n/)[0].trim());
@@ -170,15 +183,6 @@ export default function DashboardPage() {
         content,
         tags: draft.tags,
       };
-      const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
-      const proEmails = (process.env.NEXT_PUBLIC_PRO_EMAILS ?? "")
-        .split(",")
-        .map((s) => s.trim().toLowerCase())
-        .filter(Boolean);
-
-      const isPro = userEmail
-        ? proEmails.includes(userEmail.toLowerCase())
-        : false;
 
       if (!isPro) {
         const { count, error: countErr } = await supabase
@@ -208,7 +212,6 @@ export default function DashboardPage() {
   };
 
   const openItem = (it: Item) => {
-    setActive(it);
     setDraft({
       id: it.id,
       type: it.type,
