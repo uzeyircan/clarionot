@@ -11,7 +11,6 @@ import Textarea from "@/components/Textarea";
 import TagInput from "@/components/TagInput";
 import ItemCard from "@/components/ItemCard";
 import Header from "@/components/Header";
-import Linkify from "@/components/Linkify";
 
 type Draft = {
   id?: string;
@@ -49,14 +48,18 @@ export default function DashboardPage() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id ?? null;
+      const email = data.session?.user?.email ?? null;
       if (!uid) router.replace("/login");
       setUserId(uid);
+      setUserEmail(email);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const uid = session?.user?.id ?? null;
+      const email = session?.user?.email ?? null;
       if (!uid) router.replace("/login");
       setUserId(uid);
+      setUserEmail(email);
     });
 
     return () => sub.subscription.unsubscribe();
