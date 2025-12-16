@@ -6,8 +6,9 @@ export const metadata: Metadata = {
   description: "Save what matters. Find it fast.",
   manifest: "/manifest.webmanifest",
 };
+
 export const viewport: Viewport = {
-  themeColor: "0a0a0a",
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({
@@ -24,20 +25,6 @@ export default function RootLayout({
           content="black-translucent"
         />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-          if (!isLocalhost) {
-            navigator.serviceWorker.register('/sw.js').catch(() => {});
-          }
-        });
-      }
-    `,
-          }}
-        />
       </head>
       <body>{children}</body>
     </html>
