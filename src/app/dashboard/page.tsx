@@ -35,6 +35,8 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openOnboarding, setOpenOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
 
   // Free/Pro limit kontrolü için gerekli
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -98,6 +100,17 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    if (!userId) return;
+
+    const key = `clario:onboarding:v1:${userId}`;
+    const seen = localStorage.getItem(key);
+
+    if (!seen) {
+      setOpenOnboarding(true);
+      setOnboardingStep(0);
+    }
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -128,6 +141,16 @@ export default function DashboardPage() {
   const openNew = (type: ItemType) => {
     setDraft(emptyDraft(type));
     setOpenAdd(true);
+  };
+  const finishOnboarding = () => {
+    if (userId) {
+      const key = `clario:onboarding:v1:${userId}`;
+      localStorage.setItem(key, "1");
+    }
+    setOpenOnboarding(false);
+
+    // Kullanıcıyı direkt aksiyona sok
+    openNew("link");
   };
 
   const saveDraft = async () => {
@@ -336,6 +359,69 @@ export default function DashboardPage() {
           </div>
         </section>
       </div>
+      {/* ONBOARDING MODAL */}
+      <Modal
+        open={openOnboarding}
+        title="Hoş geldin 👋"
+        onClose={() => setOpenOnboarding(false)}
+      >
+        <div className="space-y-4">
+          {onboardingStep === 0 ? (
+            <>
+              <div className="text-sm font-semibold text-neutral-200">
+                1) Değerli şeyi kaydet
+              </div>
+              <div className="text-sm text-neutral-300">
+                Bir link veya not ekle. “Sonra bakarım” dediğin şey kaybolmasın.
+              </div>
+            </>
+          ) : null}
+
+          {onboardingStep === 1 ? (
+            <>
+              <div className="text-sm font-semibold text-neutral-200">
+                2) Bağlam ekle
+              </div>
+              <div className="text-sm text-neutral-300">
+                Linke kısa bir açıklama yaz ve etiketle. Sonra ararken hayat
+                kurtarır.
+              </div>
+            </>
+          ) : null}
+
+          {onboardingStep === 2 ? (
+            <>
+              <div className="text-sm font-semibold text-neutral-200">
+                3) Saniyede bul
+              </div>
+              <div className="text-sm text-neutral-300">
+                Üstteki arama alanına bir kelime yaz. Başlık, içerik ve
+                etiketlerden tarar.
+              </div>
+            </>
+          ) : null}
+
+          <div className="flex items-center justify-between pt-2">
+            <div className="text-xs text-neutral-500">
+              {onboardingStep + 1} / 3
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => finishOnboarding}>
+                Şimdilik geç
+              </Button>
+
+              {onboardingStep < 2 ? (
+                <Button onClick={() => setOnboardingStep((s) => s + 1)}>
+                  Devam
+                </Button>
+              ) : (
+                <Button onClick={finishOnboarding}>Hadi başlayalım</Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={openAdd}
