@@ -28,6 +28,20 @@ const emptyDraft = (type: ItemType): Draft => ({
   note: "",
   tags: [],
 });
+async function hashToken(token: string) {
+  const enc = new TextEncoder().encode(token);
+  const buf = await crypto.subtle.digest("SHA-256", enc);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function generateToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -37,6 +51,35 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [openOnboarding, setOpenOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const [clipToken, setClipToken] = useState<string | null>(null);
+  const [clipTokenLoading, setClipTokenLoading] = useState(false);
+  const createClipToken = async () => {
+    await supabase
+      .from("clip_tokens")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .is("revoked_at", null);
+
+    if (!userId) return;
+    setClipTokenLoading(true);
+    try {
+      const token = generateToken();
+      const token_hash = await hashToken(token);
+
+      const { error } = await supabase.from("clip_tokens").insert({
+        token_hash,
+        label: "Browser Extension",
+      });
+
+      if (error) throw error;
+
+      setClipToken(token); // ✅ düz token sadece burada gösterilecek
+    } catch (e: any) {
+      setErr(e?.message ?? "Token oluşturulamadı.");
+    } finally {
+      setClipTokenLoading(false);
+    }
+  };
 
   // Free/Pro limit kontrolü için gerekli
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -52,7 +95,13 @@ export default function DashboardPage() {
   const [openDetail, setOpenDetail] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft("link"));
   const [err, setErr] = useState<string | null>(null);
-
+  const skipOnboarding = () => {
+    if (userId) {
+      const key = `clario:onboarding:v1:${userId}`;
+      localStorage.setItem(key, "1");
+    }
+    setOpenOnboarding(false);
+  };
   // auth gate
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -288,6 +337,35 @@ export default function DashboardPage() {
     <main className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-10">
         <Header />
+        {isPro ? (
+          <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-neutral-200">
+                  Clario Clip (PRO)
+                </div>
+                <div className="text-xs text-neutral-400">
+                  Sağ tık menüsü / eklenti ile hızlı kaydetmek için token üret.
+                </div>
+              </div>
+
+              <Button onClick={createClipToken} disabled={clipTokenLoading}>
+                {clipTokenLoading ? "Oluşturuluyor…" : "Token oluştur"}
+              </Button>
+            </div>
+
+            {clipToken ? (
+              <div className="mt-3 rounded-xl border border-neutral-800 bg-neutral-900 p-3">
+                <div className="text-xs text-neutral-400">
+                  Token (1 kere gösterilir, kopyala):
+                </div>
+                <div className="mt-1 break-all text-sm text-neutral-200">
+                  {clipToken}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <section className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="w-full sm:max-w-md">
@@ -407,7 +485,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => finishOnboarding}>
+              <Button variant="ghost" onClick={skipOnboarding}>
                 Şimdilik geç
               </Button>
 
