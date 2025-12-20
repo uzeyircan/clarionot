@@ -1,101 +1,133 @@
-// app/api/clip/route.ts
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
-type Body = {
-  type: "link" | "note";
-  url?: string; // link için
-  text?: string; // seçili metin (note için veya link açıklaması)
-  note?: string; // opsiyonel açıklama
-  tags?: string[];
-  title?: string; // opsiyonel
-};
+export const runtime = "nodejs"; // crypto için net olsun
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  // Netlify env ayarlanmamışsa anlaşılır hata
+  throw new Error(
+    "Missing env vars: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY"
+  );
+}
+const supabaseUrl = process.env.SUPABASE_URL!;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-function sha256(input: string) {
-  return crypto.createHash("sha256").update(input).digest("hex");
+const admin = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { persistSession: false },
+});
+
+function sha256Hex(input: string) {
+  return crypto.createHash("sha256").update(input, "utf8").digest("hex");
+}
+
+function corsHeaders() {
+  // extension/3rd-party çağıracak diye * verdim.
+  // İstersen ileride sadece kendi domainlerine daraltırız.
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders() });
 }
 
 export async function POST(req: Request) {
   try {
-    const auth = req.headers.get("authorization") || "";
-    const token = auth.toLowerCase().startsWith("bearer ")
-      ? auth.slice(7).trim()
-      : "";
-
-    if (!token) {
-      return NextResponse.json({ error: "Missing token" }, { status: 401 });
+    // 1) Token al
+    const auth = req.headers.get("authorization") ?? "";
+    const m = auth.match(/^Bearer\s+(.+)$/i);
+    const rawToken = m?.[1]?.trim();
+    if (!rawToken) {
+      return NextResponse.json(
+        { error: "Missing Authorization Bearer token." },
+        { status: 401, headers: corsHeaders() }
+      );
     }
 
-    const tokenHash = sha256(token);
+    const token_hash = sha256Hex(rawToken);
 
-    // token doğrula
-    const { data: tokenRow, error: tErr } = await supabaseAdmin
+    // 2) Token doğrula (aktif mi?)
+    const { data: tokenRow, error: tokenErr } = await admin
       .from("clip_tokens")
       .select("user_id, revoked_at")
-      .eq("token_hash", tokenHash)
+      .eq("token_hash", token_hash)
       .maybeSingle();
 
-    if (tErr || !tokenRow || tokenRow.revoked_at) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    if (tokenErr) throw tokenErr;
+
+    if (!tokenRow || tokenRow.revoked_at) {
+      return NextResponse.json(
+        { error: "Invalid or revoked token." },
+        { status: 401, headers: corsHeaders() }
+      );
     }
 
-    const body = (await req.json()) as Body;
-    const type = body.type;
+    const userId = tokenRow.user_id as string;
 
-    if (type !== "link" && type !== "note") {
-      return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+    // 3) Body parse et
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400, headers: corsHeaders() }
+      );
     }
 
-    // içerik üret
-    let title = (body.title || "").trim();
-    let content = "";
+    const type = body.type === "note" ? "note" : "link"; // default link
+    const title = String(body.title ?? "").trim();
+    const tags = Array.isArray(body.tags)
+      ? body.tags
+          .map((t: any) => String(t).trim())
+          .filter(Boolean)
+          .slice(0, 20)
+      : [];
 
+    let content = String(body.content ?? "").trim();
+    const note = String(body.note ?? "").trim();
+
+    // link formatını senin uygulamanla uyumlu yapalım:
+    // URL \n\n açıklama
     if (type === "link") {
-      let url = (body.url || "").trim();
+      let url = String(body.url ?? content).trim();
       if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
 
-      if (!url)
-        return NextResponse.json({ error: "Missing url" }, { status: 400 });
-
-      // content formatın: URL \n\n açıklama
-      const parts: string[] = [url];
-      const extra = (body.note || body.text || "").trim();
-      if (extra) parts.push("", extra);
-      content = parts.join("\n");
-
-      if (!title) {
-        // fallback başlık: domain
-        try {
-          const u = new URL(url);
-          title = u.hostname.replace("www.", "");
-        } catch {}
-      }
-    } else {
-      // note
-      content = (body.text || body.note || "").trim();
-      if (!content)
-        return NextResponse.json({ error: "Missing text" }, { status: 400 });
-      if (!title) title = content.slice(0, 60);
+      content = url;
+      if (note) content = `${url}\n\n${note}`;
     }
 
-    const tags = Array.isArray(body.tags) ? body.tags.slice(0, 12) : [];
+    if (!title && !content) {
+      return NextResponse.json(
+        { error: "title or content required." },
+        { status: 400, headers: corsHeaders() }
+      );
+    }
 
-    const { error: insErr } = await supabaseAdmin.from("items").insert({
-      user_id: tokenRow.user_id,
-      type,
-      title,
-      content,
-      tags,
-    });
+    // 4) items insert
+    const { data: inserted, error: insErr } = await admin
+      .from("items")
+      .insert({
+        user_id: userId,
+        type,
+        title,
+        content,
+        tags,
+      })
+      .select("id")
+      .single();
 
     if (insErr) throw insErr;
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json(
+      { ok: true, id: inserted.id },
+      { status: 200, headers: corsHeaders() }
+    );
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? "Server error" },
-      { status: 500 }
+      { status: 500, headers: corsHeaders() }
     );
   }
 }
