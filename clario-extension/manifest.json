@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Clario Clip",
+  "version": "1.0.0",
+  "description": "Right-click to save links/notes to Clario.",
+  "permissions": ["contextMenus", "storage", "activeTab"],
+  "host_permissions": ["https://clasio.netlify.app/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html"
+}
