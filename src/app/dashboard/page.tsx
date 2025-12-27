@@ -51,6 +51,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [openOnboarding, setOpenOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const [clipConnected, setClipConnected] = useState<boolean | null>(null);
+  const [clipCheckLoading, setClipCheckLoading] = useState(false);
 
   // Free/Pro limit kontrolü için gerekli
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -135,8 +137,31 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!userId) return;
     load();
+    checkClipConnected();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+  const checkClipConnected = async () => {
+    if (!userId) return;
+    setClipCheckLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("clip_tokens")
+        .select("id, revoked_at, label")
+        .eq("user_id", userId)
+        .eq("label", "Browser Extension")
+        .is("revoked_at", null)
+        .limit(1);
+
+      if (error) throw error;
+
+      setClipConnected((data ?? []).length > 0);
+    } catch {
+      // RLS izin vermezse "bilinmiyor" gibi davranalım
+      setClipConnected(null);
+    } finally {
+      setClipCheckLoading(false);
+    }
+  };
 
   const { notes, links } = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -315,25 +340,39 @@ export default function DashboardPage() {
                 <div className="text-sm font-semibold text-neutral-200">
                   Clario Clip (PRO)
                 </div>
-                <div className="text-xs text-neutral-400">Eklenti bağlı </div>
+
+                {clipCheckLoading ? (
+                  <div className="text-xs text-neutral-400">
+                    Kontrol ediliyor…
+                  </div>
+                ) : clipConnected === true ? (
+                  <div className="text-xs text-emerald-300">
+                    ✅ Eklenti bağlı
+                  </div>
+                ) : clipConnected === false ? (
+                  <div className="text-xs text-amber-300">
+                    ⚠️ Eklenti bağlı değil (bağlamak için tıkla)
+                  </div>
+                ) : (
+                  <div className="text-xs text-neutral-400">
+                    Durum okunamadı (bağlamak için tıkla)
+                  </div>
+                )}
               </div>
+
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/extension/connect")}
+              >
+                {clipConnected === true ? "Yeniden bağla" : "Eklentiyi bağla"}
+              </Button>
             </div>
-          </div>
-        ) : null}
 
-        <section className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="w-full sm:max-w-md">
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Kaydettiğin şeyi ara…"
-            />
-          </div>
-        </section>
-
-        {err ? (
-          <div className="mt-4 rounded-xl border border-red-900 bg-red-950/30 p-3 text-sm text-red-200">
-            {err}
+            {clipConnected === false ? (
+              <div className="mt-2 text-xs text-neutral-500">
+                Eklenti kuruluysa bu sayfaya gidip otomatik bağlayabilirsin.
+              </div>
+            ) : null}
           </div>
         ) : null}
 

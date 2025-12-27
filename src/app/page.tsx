@@ -1,8 +1,98 @@
-// app/page.tsx
+"use client";
+
 import Header from "@/components/Header";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+const CHROME_STORE_URL =
+  "https://chromewebstore.google.com/detail/clario-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
 
 export default function HomePage() {
+  const [isProUser, setIsProUser] = useState(false);
+  const [checkedPlan, setCheckedPlan] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+      const uid = session?.user?.id;
+
+      setIsAuthed(!!uid);
+
+      if (!uid) {
+        setCheckedPlan(true);
+        return;
+      }
+
+      const { data: planRow } = await supabase
+        .from("user_plan")
+        .select("plan,status")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      setIsProUser(planRow?.plan === "pro" && planRow?.status === "active");
+      setCheckedPlan(true);
+    })();
+  }, []);
+
+  const startProCheckout = async () => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const res = await fetch("/api/billing/checkout", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      alert(json?.error || "Ödeme başlatılamadı.");
+      return;
+    }
+
+    if (json?.checkoutUrl) {
+      window.location.href = json.checkoutUrl;
+      return;
+    }
+
+    // endpoint henüz hazır değilse
+    alert("Ödeme sayfası henüz hazır değil. (checkoutUrl gelmedi)");
+  };
+
+  const goDashboard = () => {
+    window.location.href = "/dashboard";
+  };
+
+  const goLogin = () => {
+    window.location.href = "/login";
+  };
+
+  const primaryCTA = isAuthed ? (
+    <button
+      onClick={goDashboard}
+      className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
+    >
+      Dashboard’a Git
+    </button>
+  ) : (
+    <button
+      onClick={goLogin}
+      className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
+    >
+      Giriş Yap / Kayıt Ol
+    </button>
+  );
+
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-10">
@@ -28,15 +118,12 @@ export default function HomePage() {
             </p>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
-              >
-                Ücretsiz Başla
-              </Link>
+              {primaryCTA}
 
               <div className="text-xs text-neutral-500">
-                Kredi kartı gerekmez · 30 saniyede kur
+                {isAuthed
+                  ? "Kayıtların seni bekliyor"
+                  : "Kredi kartı gerekmez · 30 saniyede kur"}
               </div>
             </div>
 
@@ -93,6 +180,83 @@ export default function HomePage() {
             >
               Demo gibi gör → Dashboard
             </Link>
+
+            <a
+              href={CHROME_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex w-full items-center justify-center rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-sm font-semibold text-neutral-200 hover:bg-neutral-900 transition"
+            >
+              Sağ tıkla kaydetmeyi aç → Extension’ı kur
+            </a>
+          </div>
+        </section>
+
+        {/* CLARIO CLIP */}
+        <section className="mt-12 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-semibold text-emerald-200">
+                Clario Clip (Chrome Extension)
+              </div>
+              <p className="mt-1 text-sm text-emerald-100">
+                İnternette gördüğün linkleri ve seçtiğin metinleri{" "}
+                <span className="font-semibold">
+                  sağ tık → Clario’ya Kaydet
+                </span>{" "}
+                ile tek hamlede arşivle.
+              </p>
+              <p className="mt-2 text-xs text-emerald-200/80">
+                Kurulumdan sonra ekstra ayar yok. Giriş yapınca otomatik
+                bağlanır.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <a
+                href={CHROME_STORE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-400 px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-emerald-300 transition"
+              >
+                Extension’ı Kur
+              </a>
+              <div className="text-xs text-emerald-200/80 text-center sm:text-right">
+                20 sn · ücretsiz kurulum
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-emerald-500/20 bg-neutral-950/40 p-4">
+              <div className="text-xs text-emerald-200/80">1) Kur</div>
+              <div className="mt-1 text-sm text-emerald-100 font-semibold">
+                Chrome Web Store
+              </div>
+              <p className="mt-1 text-sm text-emerald-100/90">
+                “Extension’ı Kur” butonuna bas.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-emerald-500/20 bg-neutral-950/40 p-4">
+              <div className="text-xs text-emerald-200/80">2) Giriş Yap</div>
+              <div className="mt-1 text-sm text-emerald-100 font-semibold">
+                Clario hesabınla
+              </div>
+              <p className="mt-1 text-sm text-emerald-100/90">
+                Giriş yapınca extension otomatik bağlanır.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-emerald-500/20 bg-neutral-950/40 p-4">
+              <div className="text-xs text-emerald-200/80">3) Kaydet</div>
+              <div className="mt-1 text-sm text-emerald-100 font-semibold">
+                Sağ tık → Kaydet
+              </div>
+              <p className="mt-1 text-sm text-emerald-100/90">
+                Linke sağ tıkla: “Clario’ya Kaydet”.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -200,29 +364,69 @@ export default function HomePage() {
           </p>
         </section>
 
-        {/* PRICING LITE */}
-        <section className="mt-12 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-            <div className="text-sm font-semibold text-neutral-200">Free</div>
-            <ul className="mt-3 space-y-2 text-sm text-neutral-300">
-              <li>• Not & link kaydetme</li>
-              <li>• Arama</li>
-              <li>• Etiketleme</li>
-            </ul>
-          </div>
+        {/* PRICING (Pro ise gizle) */}
+        {checkedPlan && !isProUser ? (
+          <section className="mt-12 grid gap-4 sm:grid-cols-2">
+            {/* FREE */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => (isAuthed ? goDashboard() : goLogin())}
+              onKeyDown={(e) =>
+                e.key === "Enter" && (isAuthed ? goDashboard() : goLogin())
+              }
+              className="cursor-pointer rounded-2xl border border-neutral-800 bg-neutral-950 p-6 hover:bg-neutral-900/40 transition"
+            >
+              <div className="text-sm font-semibold text-neutral-200">Free</div>
+              <div className="mt-1 text-xs text-neutral-500">0 TL</div>
 
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6">
-            <div className="text-sm font-semibold text-emerald-200">Pro</div>
-            <ul className="mt-3 space-y-2 text-sm text-emerald-100">
-              <li>• Daha fazla kayıt</li>
-              <li>• Güçlü arşiv</li>
-              <li>• Öncelikli özellikler (yakında)</li>
-            </ul>
-            <p className="mt-3 text-xs text-emerald-200/80">
-              Pro, Clario’yu ikinci beynine dönüştürür.
-            </p>
-          </div>
-        </section>
+              <ul className="mt-4 space-y-2 text-sm text-neutral-300">
+                <li>• 50 kayıt limiti (not + link toplam)</li>
+                <li>• Arama</li>
+                <li>• Etiketleme</li>
+                <li>• Manuel ekleme (dashboard’dan)</li>
+              </ul>
+
+              <p className="mt-4 text-xs text-neutral-500">
+                Tıkla ve kullanmaya başla.
+              </p>
+            </div>
+
+            {/* PRO */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={startProCheckout}
+              onKeyDown={(e) => e.key === "Enter" && startProCheckout()}
+              className="cursor-pointer rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 hover:bg-emerald-500/15 transition"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-emerald-200">
+                    Pro
+                  </div>
+                  <div className="mt-1 text-xs text-emerald-200/80">
+                    99 TL / ay
+                  </div>
+                </div>
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
+                  En iyi deneyim
+                </span>
+              </div>
+
+              <ul className="mt-4 space-y-2 text-sm text-emerald-100">
+                <li>• Sınırsız kayıt</li>
+                <li>• Clario Clip ile sağ tık → tek tık kaydetme</li>
+                <li>• Daha hızlı “ikinci beyin” akışı</li>
+                <li>• Yeni özelliklere erken erişim (yakında)</li>
+              </ul>
+
+              <p className="mt-4 text-xs text-emerald-200/80">
+                Tıkla → Ödeme ekranına git → otomatik yenilenen Pro’yu aç.
+              </p>
+            </div>
+          </section>
+        ) : null}
 
         {/* FINAL CTA */}
         <section className="mt-12 rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
@@ -233,14 +437,7 @@ export default function HomePage() {
             Clario ile önemli olan her şey tek yerde.
           </p>
 
-          <div className="mt-5">
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
-            >
-              Şimdi Ücretsiz Başla
-            </Link>
-          </div>
+          <div className="mt-5">{primaryCTA}</div>
         </section>
 
         <footer className="mt-10 pb-6 text-xs text-neutral-500">
