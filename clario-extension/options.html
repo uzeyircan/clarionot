@@ -1,30 +1,46 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Clario Clip - Ayarlar</title>
     <style>
-      body { font-family: system-ui, -apple-system, Arial; padding: 16px; max-width: 520px; }
-      input { width: 100%; padding: 10px; }
-      button { padding: 10px 14px; margin-top: 10px; cursor: pointer; }
-      .muted { color: #666; font-size: 12px; margin-top: 6px; }
-      .ok { color: #0a7; margin-top: 10px; }
-      .err { color: #c00; margin-top: 10px; }
+      body {
+        font-family: system-ui, -apple-system, Arial;
+        padding: 16px;
+        max-width: 520px;
+      }
+      button {
+        padding: 10px 14px;
+        margin-top: 10px;
+        cursor: pointer;
+      }
+      .muted {
+        color: #666;
+        font-size: 12px;
+        margin-top: 6px;
+      }
+      .ok {
+        color: #0a7;
+        margin-top: 10px;
+      }
+      .err {
+        color: #c00;
+        margin-top: 10px;
+      }
     </style>
   </head>
   <body>
-    <h2>Clario Clip - Token</h2>
+    <h2>Clario Clip</h2>
     <p class="muted">
-      Clario Dashboard’da oluşturduğun token’ı buraya yapıştır.
-      Token’ı kimseyle paylaşma.
+      Token otomatik yönetilir. Bağlı değilse ilk “Kaydet” denemesinde Clario'ya
+      yönlendirilirsin.
     </p>
 
-    <input id="token" placeholder="Token..." />
+    <div id="status"></div>
 
-    <button id="save">Kaydet</button>
-
-    <div id="msg"></div>
+    <button id="connect">Clario'ya Git</button>
+    <button id="reset">Bağlantıyı Sıfırla</button>
 
     <script src="options.js"></script>
   </body>
