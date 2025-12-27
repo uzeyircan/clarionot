@@ -20,6 +20,11 @@ export async function POST(req: Request) {
       },
     });
 
+    // ✅ 4xx/5xx ise patlatma, boş title dön
+    if (!res.ok) {
+      return NextResponse.json({ title: "" }, { status: 200 });
+    }
+
     const html = await res.text();
 
     const og =
@@ -32,7 +37,9 @@ export async function POST(req: Request) {
       )?.[1] ?? "";
     const tt = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ?? "";
 
-    const title = String(og || tw || tt || "").trim();
+    const title = String(og || tw || tt || "")
+      .trim()
+      .slice(0, 140);
 
     return NextResponse.json({ title }, { status: 200 });
   } catch (e: any) {

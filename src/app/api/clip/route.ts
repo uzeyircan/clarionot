@@ -4,7 +4,6 @@ import crypto from "crypto";
 
 export const runtime = "nodejs"; // crypto için net olsun
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  // Netlify env ayarlanmamışsa anlaşılır hata
   throw new Error(
     "Missing env vars: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY"
   );
@@ -21,13 +20,52 @@ function sha256Hex(input: string) {
 }
 
 function corsHeaders() {
-  // extension/3rd-party çağıracak diye * verdim.
-  // İstersen ileride sadece kendi domainlerine daraltırız.
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
+}
+
+function hostnameTitle(url: string) {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./i, "");
+  } catch {
+    return "";
+  }
+}
+
+function firstLineTitle(text: string) {
+  const line = (text || "")
+    .split("\n")
+    .map((s) => s.trim())
+    .find(Boolean);
+  return (line || "").slice(0, 80);
+}
+
+async function fetchTitleFromUrl(url: string) {
+  // Aynı endpoint’i server içinde çağırmak yerine direkt burada yapıyoruz (daha stabil)
+  const res = await fetch(url, {
+    redirect: "follow",
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari",
+      "Accept-Language": "tr-TR,tr;q=0.9,en;q=0.8",
+    },
+  });
+
+  const html = await res.text();
+
+  const og =
+    html.match(/property=["']og:title["']\s*content=["']([^"']+)["']/i)?.[1] ??
+    "";
+  const tw =
+    html.match(/name=["']twitter:title["']\s*content=["']([^"']+)["']/i)?.[1] ??
+    "";
+  const tt = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ?? "";
+
+  return String(og || tw || tt || "").trim();
 }
 
 export async function OPTIONS() {
@@ -77,7 +115,8 @@ export async function POST(req: Request) {
     }
 
     const type = body.type === "note" ? "note" : "link"; // default link
-    const title = String(body.title ?? "").trim();
+    let title = String(body.title ?? "").trim();
+
     const tags = Array.isArray(body.tags)
       ? body.tags
           .map((t: any) => String(t).trim())
@@ -88,14 +127,30 @@ export async function POST(req: Request) {
     let content = String(body.content ?? "").trim();
     const note = String(body.note ?? "").trim();
 
-    // link formatını senin uygulamanla uyumlu yapalım:
-    // URL \n\n açıklama
+    // link formatı: URL \n\n açıklama
     if (type === "link") {
       let url = String(body.url ?? content).trim();
       if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
 
       content = url;
       if (note) content = `${url}\n\n${note}`;
+
+      // ✅ TITLE AUTO: title boşsa URL’den çek
+      if (!title) {
+        try {
+          const fetched = await fetchTitleFromUrl(url);
+          title = fetched || hostnameTitle(url) || "Başlıksız link";
+        } catch {
+          title = hostnameTitle(url) || "Başlıksız link";
+        }
+      }
+    }
+
+    if (type === "note") {
+      // ✅ NOTE TITLE AUTO: title boşsa ilk satır
+      if (!title) {
+        title = firstLineTitle(content) || "Başlıksız not";
+      }
     }
 
     if (!title && !content) {
