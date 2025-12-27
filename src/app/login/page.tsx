@@ -48,7 +48,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
         <div className="mb-6">
           <Link href="/" className="text-sm text-neutral-300 hover:text-white">
-            ← Clario
+            ← clarionot
           </Link>
           <h1 className="mt-3 text-xl font-semibold">
             {mode === "login" ? "Giriş Yap" : "Kayıt Ol"}

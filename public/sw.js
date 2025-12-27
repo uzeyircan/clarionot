@@ -1,4 +1,4 @@
-const CACHE_NAME = "clario-static-v2";
+const CACHE_NAME = "clarionot-static-v2";
 const PRECACHE = [
   "/manifest.webmanifest",
   "/icons/icon-192.png",

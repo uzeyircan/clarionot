@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Clario Clip",
+  "name": "clarionot Clip",
   "version": "1.0.2",
-  "description": "Right-click to save links/notes to Clario.",
+  "description": "Right-click to save links/notes to clarionot.",
   "permissions": ["contextMenus", "storage", "activeTab", "tabs", "scripting"],
   "host_permissions": [
-    "https://clasio.netlify.app/*",
+    "https://clarionotnot.com/*",
     "http://*/*",
     "https://*/*"
   ],
@@ -14,7 +14,7 @@
   "options_page": "options.html",
   "content_scripts": [
     {
-      "matches": ["https://clasio.netlify.app/extension/connect*"],
+      "matches": ["https://clarionotnot.com/extension/connect*"],
       "js": ["content.js"]
     }
   ]

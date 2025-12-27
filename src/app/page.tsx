@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 const CHROME_STORE_URL =
-  "https://chromewebstore.google.com/detail/clario-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
+  "https://chromewebstore.google.com/detail/clarionot-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
 
 export default function HomePage() {
   const [isProUser, setIsProUser] = useState(false);
@@ -113,7 +113,7 @@ export default function HomePage() {
             </h1>
 
             <p className="mt-4 max-w-xl text-sm leading-6 text-neutral-300 sm:text-base">
-              Clario, internette karşılaştığın değerli linkleri, notları ve
+              clarionot, internette karşılaştığın değerli linkleri, notları ve
               fikirleri kaybolmayan bir kişisel hafızaya dönüştürür.
             </p>
 
@@ -192,17 +192,17 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CLARIO CLIP */}
+        {/* clarionot CLIP */}
         <section className="mt-12 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-sm font-semibold text-emerald-200">
-                Clario Clip (Chrome Extension)
+                clarionot Clip (Chrome Extension)
               </div>
               <p className="mt-1 text-sm text-emerald-100">
                 İnternette gördüğün linkleri ve seçtiğin metinleri{" "}
                 <span className="font-semibold">
-                  sağ tık → Clario’ya Kaydet
+                  sağ tık → clarionot’ya Kaydet
                 </span>{" "}
                 ile tek hamlede arşivle.
               </p>
@@ -241,7 +241,7 @@ export default function HomePage() {
             <div className="rounded-xl border border-emerald-500/20 bg-neutral-950/40 p-4">
               <div className="text-xs text-emerald-200/80">2) Giriş Yap</div>
               <div className="mt-1 text-sm text-emerald-100 font-semibold">
-                Clario hesabınla
+                clarionot hesabınla
               </div>
               <p className="mt-1 text-sm text-emerald-100/90">
                 Giriş yapınca extension otomatik bağlanır.
@@ -254,7 +254,7 @@ export default function HomePage() {
                 Sağ tık → Kaydet
               </div>
               <p className="mt-1 text-sm text-emerald-100/90">
-                Linke sağ tıkla: “Clario’ya Kaydet”.
+                Linke sağ tıkla: “clarionot’ya Kaydet”.
               </p>
             </div>
           </div>
@@ -320,7 +320,7 @@ export default function HomePage() {
         {/* WHY */}
         <section className="mt-12">
           <h2 className="text-sm font-semibold text-neutral-200">
-            Neden Clario?
+            Neden clarionot?
           </h2>
 
           <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-800">
@@ -329,7 +329,7 @@ export default function HomePage() {
                 Diğer Notlar
               </div>
               <div className="border-b border-neutral-800 p-4 font-semibold text-neutral-200">
-                Clario
+                clarionot
               </div>
 
               <div className="border-b border-neutral-800 p-4 text-neutral-300">
@@ -416,7 +416,7 @@ export default function HomePage() {
 
               <ul className="mt-4 space-y-2 text-sm text-emerald-100">
                 <li>• Sınırsız kayıt</li>
-                <li>• Clario Clip ile sağ tık → tek tık kaydetme</li>
+                <li>• clarionot Clip ile sağ tık → tek tık kaydetme</li>
                 <li>• Daha hızlı “ikinci beyin” akışı</li>
                 <li>• Yeni özelliklere erken erişim (yakında)</li>
               </ul>
@@ -434,14 +434,14 @@ export default function HomePage() {
             Bilgiyi kaybetmeyi bırak
           </h2>
           <p className="mt-2 text-sm text-neutral-300">
-            Clario ile önemli olan her şey tek yerde.
+            clarionot ile önemli olan her şey tek yerde.
           </p>
 
           <div className="mt-5">{primaryCTA}</div>
         </section>
 
         <footer className="mt-10 pb-6 text-xs text-neutral-500">
-          © {new Date().getFullYear()} Clario
+          © {new Date().getFullYear()} clarionot
         </footer>
       </div>
     </main>

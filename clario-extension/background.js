@@ -1,9 +1,9 @@
-const API_BASE = "https://clasio.netlify.app"; // prod domain
+const API_BASE = "https://clarionotnot.com"; // prod domain
 const API_PATH = "/api/clip";
-const TOKEN_KEY = "clario_token";
+const TOKEN_KEY = "clarionot_token";
 
 function notify(title, message) {
-  console.log(`[Clario Clip] ${title}: ${message}`);
+  console.log(`[clarionot Clip] ${title}: ${message}`);
 }
 
 async function getToken() {
@@ -33,20 +33,20 @@ async function clipRequest(payload) {
 function setupMenus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
-      id: "clario_save_link",
-      title: "Clario'ya Kaydet (Link)",
+      id: "clarionot_save_link",
+      title: "clarionot'ya Kaydet (Link)",
       contexts: ["link"],
     });
 
     chrome.contextMenus.create({
-      id: "clario_save_page",
-      title: "Clario'ya Kaydet (Bu Sayfa)",
+      id: "clarionot_save_page",
+      title: "clarionot'ya Kaydet (Bu Sayfa)",
       contexts: ["page"],
     });
 
     chrome.contextMenus.create({
-      id: "clario_save_selection",
-      title: "Clario'ya Kaydet (Not - Seçili Metin)",
+      id: "clarionot_save_selection",
+      title: "clarionot'ya Kaydet (Not - Seçili Metin)",
       contexts: ["selection"],
     });
   });
@@ -68,7 +68,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     let payload = null;
 
-    if (info.menuItemId === "clario_save_link") {
+    if (info.menuItemId === "clarionot_save_link") {
       const url = info.linkUrl;
       if (!url) throw new Error("URL bulunamadı.");
 
@@ -76,7 +76,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       payload = { type: "link", url, title: "", tags: [] };
     }
 
-    if (info.menuItemId === "clario_save_page") {
+    if (info.menuItemId === "clarionot_save_page") {
       const url = tab?.url || info.pageUrl || "";
       if (!url) throw new Error("URL bulunamadı.");
 
@@ -84,7 +84,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       payload = { type: "link", url, title: "", tags: [] };
     }
 
-    if (info.menuItemId === "clario_save_selection") {
+    if (info.menuItemId === "clarionot_save_selection") {
       const text = (info.selectionText || "").trim();
       if (!text) throw new Error("Seçili metin yok.");
 

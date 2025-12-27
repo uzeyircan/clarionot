@@ -70,7 +70,7 @@ export default function DashboardPage() {
   const [err, setErr] = useState<string | null>(null);
   const skipOnboarding = () => {
     if (userId) {
-      const key = `clario:onboarding:v1:${userId}`;
+      const key = `clarionot:onboarding:v1:${userId}`;
       localStorage.setItem(key, "1");
     }
     setOpenOnboarding(false);
@@ -125,7 +125,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!userId) return;
 
-    const key = `clario:onboarding:v1:${userId}`;
+    const key = `clarionot:onboarding:v1:${userId}`;
     const seen = localStorage.getItem(key);
 
     if (!seen) {
@@ -189,7 +189,7 @@ export default function DashboardPage() {
   };
   const finishOnboarding = () => {
     if (userId) {
-      const key = `clario:onboarding:v1:${userId}`;
+      const key = `clarionot:onboarding:v1:${userId}`;
       localStorage.setItem(key, "1");
     }
     setOpenOnboarding(false);
@@ -338,7 +338,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="text-sm font-semibold text-neutral-200">
-                  Clario Clip (PRO)
+                  clarionot Clip (PRO)
                 </div>
 
                 {clipCheckLoading ? (

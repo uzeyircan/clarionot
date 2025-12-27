@@ -44,7 +44,7 @@ export default function ExtensionConnectPage() {
 
         // 3) extension’a gönder (origin’i kısıtla)
         window.postMessage(
-          { type: "CLARIO_TOKEN", token },
+          { type: "clarionot_TOKEN", token },
           window.location.origin
         );
 
@@ -64,7 +64,7 @@ export default function ExtensionConnectPage() {
   if (status === "checking" || status === "connecting") {
     return (
       <div style={{ padding: 24, fontFamily: "system-ui" }}>
-        <h2>Clario Extension Bağlanıyor…</h2>
+        <h2>clarionot Extension Bağlanıyor…</h2>
         <p>Lütfen bu sayfayı kapatma.</p>
       </div>
     );
@@ -75,7 +75,7 @@ export default function ExtensionConnectPage() {
     return (
       <div style={{ padding: 24, fontFamily: "system-ui" }}>
         <h2>Giriş gerekli</h2>
-        <p>Extension’ı bağlamak için Clario hesabına giriş yapmalısın.</p>
+        <p>Extension’ı bağlamak için clarionot hesabına giriş yapmalısın.</p>
         <a href={`/login?redirect=${redirect}`}>Giriş Yap</a>
       </div>
     );

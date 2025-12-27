@@ -51,7 +51,7 @@ export default function Header() {
   return (
     <header className="flex items-center justify-between">
       <Link href="/" className="text-sm font-semibold tracking-wide">
-        Clario
+        clarionot
       </Link>
 
       <div className="flex items-center gap-2">

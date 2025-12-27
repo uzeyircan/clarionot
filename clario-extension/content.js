@@ -1,10 +1,10 @@
 // Sitedeki /extension/connect sayfası window.postMessage ile token gönderecek
 window.addEventListener("message", async (event) => {
   if (event.source !== window) return;
-  if (event.origin !== "https://clasio.netlify.app") return;
+  if (event.origin !== "https://clarionotnot.com") return;
 
   const data = event.data;
-  if (!data || data.type !== "CLARIO_TOKEN") return;
+  if (!data || data.type !== "clarionot_TOKEN") return;
 
   const token = data.token;
   if (!token) return;

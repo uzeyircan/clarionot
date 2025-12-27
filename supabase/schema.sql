@@ -1,4 +1,4 @@
--- Clario schema (run in Supabase SQL Editor)
+-- clarionot schema (run in Supabase SQL Editor)
 
 create table if not exists public.items (
   id uuid primary key default gen_random_uuid(),

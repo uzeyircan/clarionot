@@ -2,7 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "Clario",
+  title: "clarionot",
   description: "Save what matters. Find it fast.",
   manifest: "/manifest.webmanifest",
 };

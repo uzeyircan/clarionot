@@ -1,5 +1,5 @@
 const API_BASE = "https://clasio.netlify.app";
-const TOKEN_KEY = "clario_token";
+const TOKEN_KEY = "clarionot_token";
 
 async function refresh() {
   const data = await chrome.storage.sync.get([TOKEN_KEY]);
