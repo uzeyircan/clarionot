@@ -1,4 +1,4 @@
-const API_BASE = "https://clarionotnot.com"; // prod domain
+const API_BASE = "https://clarionot.com"; // prod domain
 const API_PATH = "/api/clip";
 const TOKEN_KEY = "clarionot_token";
 

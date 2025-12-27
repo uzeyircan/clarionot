@@ -4,17 +4,13 @@
   "version": "1.0.2",
   "description": "Right-click to save links/notes to clarionot.",
   "permissions": ["contextMenus", "storage", "activeTab", "tabs", "scripting"],
-  "host_permissions": [
-    "https://clarionotnot.com/*",
-    "http://*/*",
-    "https://*/*"
-  ],
+  "host_permissions": ["https://clarionot.com/*"],
   "background": { "service_worker": "background.js" },
 
   "options_page": "options.html",
   "content_scripts": [
     {
-      "matches": ["https://clarionotnot.com/extension/connect*"],
+      "matches": ["https://clarionot.com/extension/connect*"],
       "js": ["content.js"]
     }
   ]

@@ -1,4 +1,4 @@
-const API_BASE = "https://clasio.netlify.app";
+const API_BASE = "https://clarionot.com";
 const TOKEN_KEY = "clarionot_token";
 
 async function refresh() {

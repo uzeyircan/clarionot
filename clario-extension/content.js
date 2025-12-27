@@ -1,7 +1,7 @@
 // Sitedeki /extension/connect sayfası window.postMessage ile token gönderecek
 window.addEventListener("message", async (event) => {
   if (event.source !== window) return;
-  if (event.origin !== "https://clarionotnot.com") return;
+  if (event.origin !== "https://clarionot.com") return;
 
   const data = event.data;
   if (!data || data.type !== "clarionot_TOKEN") return;
