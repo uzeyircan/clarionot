@@ -1,6 +1,40 @@
 const API_BASE = "https://clasio.netlify.app"; // prod domain
 const API_PATH = "/api/clip";
 const TOKEN_KEY = "clario_token";
+async function resolveTitleFromPage(tabId, url) {
+  if (!tabId) return "";
+
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId },
+      args: [url],
+      func: (linkUrl) => {
+        try {
+          // Aynı URL’yi taşıyan a elementini bul
+          const a = [...document.querySelectorAll("a[href]")].find((el) => {
+            const href = el.getAttribute("href") || "";
+            // relative link olabilir
+            const full = new URL(href, location.href).toString();
+            return full === linkUrl;
+          });
+
+          const anchorText = a?.textContent?.trim() || "";
+          if (anchorText) return anchorText;
+
+          // Anchor bulunamazsa sayfa title dene
+          const pageTitle = document.title?.trim() || "";
+          return pageTitle;
+        } catch {
+          return document.title?.trim() || "";
+        }
+      },
+    });
+
+    return (result || "").trim();
+  } catch {
+    return "";
+  }
+}
 
 function notify(title, message) {
   console.log(`[Clario Clip] ${title}: ${message}`);
@@ -80,7 +114,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId === "clario_save_link") {
       const url = info.linkUrl;
       if (!url) throw new Error("URL bulunamadı.");
-      payload = { type: "link", url, title: buildTitleFromUrl(url), tags: [] };
+
+      // 1) önce sayfadan gerçek başlığı al
+      let title = await resolveTitleFromPage(tab?.id, url);
+
+      // 2) hâlâ yoksa hostname
+      if (!title) title = buildTitleFromUrl(url);
+
+      payload = { type: "link", url, title, tags: [] };
     }
 
     if (info.menuItemId === "clario_save_page") {
@@ -92,12 +133,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId === "clario_save_selection") {
       const text = (info.selectionText || "").trim();
       if (!text) throw new Error("Seçili metin yok.");
-      payload = {
-        type: "note",
-        content: text,
-        title: text.slice(0, 60),
-        tags: [],
-      };
+
+      // İlk satır / ilk cümle
+      const firstLine = text.split("\n").find(Boolean) || "";
+      const title = firstLine.slice(0, 80) || "Not";
+
+      payload = { type: "note", title, content: text, tags: [] };
     }
 
     if (!payload) return;

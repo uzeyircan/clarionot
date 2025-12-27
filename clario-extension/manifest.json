@@ -3,8 +3,12 @@
   "name": "Clario Clip",
   "version": "1.0.2",
   "description": "Right-click to save links/notes to Clario.",
-  "permissions": ["contextMenus", "storage", "activeTab", "tabs"],
-  "host_permissions": ["https://clasio.netlify.app/*"],
+  "permissions": ["contextMenus", "storage", "activeTab", "tabs", "scripting"],
+  "host_permissions": [
+    "https://clasio.netlify.app/*",
+    "http://*/*",
+    "https://*/*"
+  ],
   "background": { "service_worker": "background.js" },
 
   "options_page": "options.html",
