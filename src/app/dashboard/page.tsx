@@ -315,9 +315,7 @@ export default function DashboardPage() {
                 <div className="text-sm font-semibold text-neutral-200">
                   Clario Clip (PRO)
                 </div>
-                <div className="text-xs text-neutral-400">
-                  Sağ tık menüsü / eklenti ile hızlı kaydetmek için token üret.
-                </div>
+                <div className="text-xs text-neutral-400">Eklenti bağlı </div>
               </div>
             </div>
           </div>
