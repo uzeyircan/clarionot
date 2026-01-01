@@ -28,6 +28,8 @@ const emptyDraft = (type: ItemType): Draft => ({
   note: "",
   tags: [],
 });
+
+// Not: Bu iki fonksiyon şu dosyada kullanılmıyor. Dokunmadım.
 async function hashToken(token: string) {
   const enc = new TextEncoder().encode(token);
   const buf = await crypto.subtle.digest("SHA-256", enc);
@@ -51,8 +53,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [openOnboarding, setOpenOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
-  const [clipConnected, setClipConnected] = useState<boolean | null>(null);
-  const [clipCheckLoading, setClipCheckLoading] = useState(false);
+
+  // ✅ Tek kaynak: extension durumunu sadece buradan göstereceğiz
+  const [extConnected, setExtConnected] = useState<boolean>(false);
+  const [extChecking, setExtChecking] = useState<boolean>(true);
+
+  const CHROME_STORE_URL =
+    "https://chromewebstore.google.com/detail/clario-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
 
   // Free/Pro limit kontrolü için gerekli
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -68,6 +75,7 @@ export default function DashboardPage() {
   const [openDetail, setOpenDetail] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft("link"));
   const [err, setErr] = useState<string | null>(null);
+
   const skipOnboarding = () => {
     if (userId) {
       const key = `clarionot:onboarding:v1:${userId}`;
@@ -75,6 +83,7 @@ export default function DashboardPage() {
     }
     setOpenOnboarding(false);
   };
+
   // auth gate
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -106,6 +115,28 @@ export default function DashboardPage() {
     return () => sub.subscription.unsubscribe();
   }, [router]);
 
+  const checkExtension = async (uid: string) => {
+    setExtChecking(true);
+    try {
+      const { data, error } = await supabase
+        .from("clip_tokens")
+        .select("id, revoked_at, label")
+        .eq("user_id", uid)
+        .eq("label", "Browser Extension")
+        .is("revoked_at", null)
+        .limit(1);
+
+      if (error) throw error;
+
+      setExtConnected((data?.length ?? 0) > 0);
+    } catch {
+      // hata olsa bile kullanıcıya bağlanmadı gibi gösterelim
+      setExtConnected(false);
+    } finally {
+      setExtChecking(false);
+    }
+  };
+
   const load = async () => {
     setErr(null);
     setLoading(true);
@@ -122,6 +153,7 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     if (!userId) return;
 
@@ -137,31 +169,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!userId) return;
     load();
-    checkClipConnected();
+    checkExtension(userId);
+    if (isPro) checkExtension(userId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
-  const checkClipConnected = async () => {
-    if (!userId) return;
-    setClipCheckLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("clip_tokens")
-        .select("id, revoked_at, label")
-        .eq("user_id", userId)
-        .eq("label", "Browser Extension")
-        .is("revoked_at", null)
-        .limit(1);
-
-      if (error) throw error;
-
-      setClipConnected((data ?? []).length > 0);
-    } catch {
-      // RLS izin vermezse "bilinmiyor" gibi davranalım
-      setClipConnected(null);
-    } finally {
-      setClipCheckLoading(false);
-    }
-  };
+  }, [userId, isPro]);
 
   const { notes, links } = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -187,14 +198,13 @@ export default function DashboardPage() {
     setDraft(emptyDraft(type));
     setOpenAdd(true);
   };
+
   const finishOnboarding = () => {
     if (userId) {
       const key = `clarionot:onboarding:v1:${userId}`;
       localStorage.setItem(key, "1");
     }
     setOpenOnboarding(false);
-
-    // Kullanıcıyı direkt aksiyona sok
     openNew("link");
   };
 
@@ -333,44 +343,63 @@ export default function DashboardPage() {
     <main className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-10">
         <Header />
+
+        {/* ✅ TEK KART: Eklenti durumu */}
         {isPro ? (
           <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="text-sm font-semibold text-neutral-200">
-                  clarionot Clip (PRO)
+                  Tarayıcı Eklentisi (PRO)
                 </div>
 
-                {clipCheckLoading ? (
+                {extChecking ? (
                   <div className="text-xs text-neutral-400">
                     Kontrol ediliyor…
                   </div>
-                ) : clipConnected === true ? (
+                ) : extConnected ? (
                   <div className="text-xs text-emerald-300">
                     ✅ Eklenti bağlı
                   </div>
-                ) : clipConnected === false ? (
-                  <div className="text-xs text-amber-300">
-                    ⚠️ Eklenti bağlı değil (bağlamak için tıkla)
-                  </div>
                 ) : (
-                  <div className="text-xs text-neutral-400">
-                    Durum okunamadı (bağlamak için tıkla)
+                  <div className="text-xs text-amber-300">
+                    ⚠️ Eklenti bağlı değil
                   </div>
                 )}
               </div>
 
-              <Button
-                variant="ghost"
-                onClick={() => router.push("/extension/connect")}
-              >
-                {clipConnected === true ? "Yeniden bağla" : "Eklentiyi bağla"}
-              </Button>
+              {!extChecking && !extConnected ? (
+                <div className="flex gap-2">
+                  <a
+                    href={CHROME_STORE_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
+                  >
+                    Extension’ı Kur
+                  </a>
+
+                  <a
+                    href="/extension/connect"
+                    className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-3 py-2 text-xs font-semibold text-neutral-900 hover:bg-neutral-100 transition"
+                  >
+                    Bağla
+                  </a>
+                </div>
+              ) : (
+                <button
+                  onClick={() => router.push("/extension/connect")}
+                  className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
+                >
+                  Yeniden bağla
+                </button>
+              )}
             </div>
 
-            {clipConnected === false ? (
+            {!extChecking && !extConnected ? (
               <div className="mt-2 text-xs text-neutral-500">
-                Eklenti kuruluysa bu sayfaya gidip otomatik bağlayabilirsin.
+                Pro kullanıcılar sağ tık → “clarionot’ya Kaydet” ile tek tık
+                kaydeder.
               </div>
             ) : null}
           </div>
@@ -430,6 +459,7 @@ export default function DashboardPage() {
           </div>
         </section>
       </div>
+
       {/* ONBOARDING MODAL */}
       <Modal
         open={openOnboarding}
@@ -590,6 +620,7 @@ export default function DashboardPage() {
           <div className="text-xs text-neutral-400">
             Tür: {draft.type === "link" ? "Link" : "Not"}
           </div>
+
           <div>
             <div className="mb-1 text-xs text-neutral-400">Başlık</div>
             <Input
@@ -597,6 +628,7 @@ export default function DashboardPage() {
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             />
           </div>
+
           <div>
             <div className="mb-1 text-xs text-neutral-400">İçerik</div>
             <Textarea
@@ -604,6 +636,7 @@ export default function DashboardPage() {
               onChange={(e) => setDraft({ ...draft, content: e.target.value })}
             />
           </div>
+
           <div>
             <div className="mb-1 text-xs text-neutral-400">Etiketler</div>
             <TagInput
@@ -611,6 +644,7 @@ export default function DashboardPage() {
               onChange={(tags) => setDraft({ ...draft, tags })}
             />
           </div>
+
           <div className="flex items-center justify-between pt-2">
             <Button variant="danger" onClick={removeItem}>
               Sil

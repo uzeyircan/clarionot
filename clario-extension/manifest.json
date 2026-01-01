@@ -3,7 +3,7 @@
   "name": "clarionot Clip",
   "version": "1.0.2",
   "description": "Right-click to save links/notes to clarionot.",
-  "permissions": ["contextMenus", "storage", "activeTab", "tabs", "scripting"],
+  "permissions": ["contextMenus", "storage", "activeTab", "tabs"],
   "host_permissions": ["https://clarionot.com/*"],
   "background": { "service_worker": "background.js" },
 
@@ -11,7 +11,8 @@
   "content_scripts": [
     {
       "matches": ["https://clarionot.com/extension/connect*"],
-      "js": ["content.js"]
+      "js": ["content/bridge.js"],
+      "run_at": "document_start"
     }
   ]
 }

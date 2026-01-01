@@ -34,7 +34,7 @@ function setupMenus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: "clarionot_save_link",
-      title: "clarionot'ya Kaydet (Link)",
+      title: "clarionot'a Kaydet (Link)",
       contexts: ["link"],
     });
 

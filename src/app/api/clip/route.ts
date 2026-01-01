@@ -45,27 +45,38 @@ function firstLineTitle(text: string) {
 }
 
 async function fetchTitleFromUrl(url: string) {
-  // Aynı endpoint’i server içinde çağırmak yerine direkt burada yapıyoruz (daha stabil)
-  const res = await fetch(url, {
-    redirect: "follow",
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari",
-      "Accept-Language": "tr-TR,tr;q=0.9,en;q=0.8",
-    },
-  });
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000); // 5 sn timeout
 
-  const html = await res.text();
+    const res = await fetch(url, {
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari",
+        "Accept-Language": "tr-TR,tr;q=0.9,en;q=0.8",
+      },
+    });
 
-  const og =
-    html.match(/property=["']og:title["']\s*content=["']([^"']+)["']/i)?.[1] ??
-    "";
-  const tw =
-    html.match(/name=["']twitter:title["']\s*content=["']([^"']+)["']/i)?.[1] ??
-    "";
-  const tt = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ?? "";
+    clearTimeout(t);
 
-  return String(og || tw || tt || "").trim();
+    const html = await res.text();
+
+    const og =
+      html.match(
+        /property=["']og:title["']\s*content=["']([^"']+)["']/i
+      )?.[1] ?? "";
+    const tw =
+      html.match(
+        /name=["']twitter:title["']\s*content=["']([^"']+)["']/i
+      )?.[1] ?? "";
+    const tt = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ?? "";
+
+    return String(og || tw || tt || "").trim();
+  } catch {
+    return "";
+  }
 }
 
 export async function OPTIONS() {
