@@ -25,6 +25,12 @@ async function clipRequest(payload) {
   });
 
   const json = await res.json().catch(() => ({}));
+
+  // ✅ Token invalid / Pro değil gibi durumlarda token'ı temizle
+  if (res.status === 401 || res.status === 403) {
+    await chrome.storage.sync.remove([TOKEN_KEY]);
+  }
+
   if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
   return json;
 }
@@ -55,6 +61,7 @@ function setupMenus() {
 chrome.runtime.onInstalled.addListener(setupMenus);
 chrome.runtime.onStartup.addListener(setupMenus);
 
+// ✅ bridge.js buraya type:"SAVE_TOKEN" gönderir
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === "SAVE_TOKEN" && msg.token) {
     chrome.storage.sync.set({ [TOKEN_KEY]: msg.token }, () => {
@@ -100,6 +107,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     const msg = e?.message || String(e);
 
     if (msg === "TOKEN_MISSING") {
+      chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
+      return;
+    }
+
+    // ✅ 401/403 sonrası token silindiği için tekrar bağlat
+    if (msg.includes("401") || msg.includes("403")) {
       chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
       return;
     }
