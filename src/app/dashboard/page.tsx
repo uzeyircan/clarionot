@@ -169,8 +169,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!userId) return;
     load();
-    checkExtension(userId);
-    if (isPro) checkExtension(userId);
+    if (isPro) checkExtension(userId); // Pro değilse hiç sorgulama
+    // Pro değilse extChecking'i false'a çekebilirsin
+    if (!isPro) {
+      setExtConnected(false);
+      setExtChecking(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, isPro]);
 
