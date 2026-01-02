@@ -62,13 +62,12 @@ export default function DashboardPage() {
     "https://chromewebstore.google.com/detail/clario-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
 
   // Free/Pro limit kontrolü için gerekli
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
-  const proEmails = (process.env.NEXT_PUBLIC_PRO_EMAILS ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  const isPro = userEmail ? proEmails.includes(userEmail.toLowerCase()) : false;
+
+  // ✅ Pro durumu artık DB’den okunacak
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isPro, setIsPro] = useState<boolean | null>(null); // null = yükleniyor
+  const [planChecking, setPlanChecking] = useState<boolean>(true);
 
   const [q, setQ] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
@@ -84,6 +83,31 @@ export default function DashboardPage() {
     setOpenOnboarding(false);
   };
 
+  // ✅ user_plan üzerinden Pro kontrolü
+  const fetchPlan = async (uid: string) => {
+    setPlanChecking(true);
+    try {
+      const { data, error } = await supabase
+        .from("user_plan")
+        .select("plan,status")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      const ok =
+        data?.plan === "pro" &&
+        (data?.status === "active" || data?.status === "trialing");
+
+      setIsPro(!!ok);
+    } catch {
+      // Plan okunamazsa Free gibi davranalım
+      setIsPro(false);
+    } finally {
+      setPlanChecking(false);
+    }
+  };
+
   // auth gate
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -97,6 +121,7 @@ export default function DashboardPage() {
 
       setUserId(uid);
       setUserEmail(email);
+      fetchPlan(uid);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -110,9 +135,11 @@ export default function DashboardPage() {
 
       setUserId(uid);
       setUserEmail(email);
+      fetchPlan(uid);
     });
 
     return () => sub.subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   const checkExtension = async (uid: string) => {
@@ -166,12 +193,15 @@ export default function DashboardPage() {
     }
   }, [userId]);
 
+  // ✅ data yükle + extension kontrolünü sadece Pro iken yap
   useEffect(() => {
     if (!userId) return;
+
     load();
-    if (isPro) checkExtension(userId); // Pro değilse hiç sorgulama
-    // Pro değilse extChecking'i false'a çekebilirsin
-    if (!isPro) {
+
+    if (isPro === true) {
+      checkExtension(userId);
+    } else if (isPro === false) {
       setExtConnected(false);
       setExtChecking(false);
     }
@@ -266,7 +296,8 @@ export default function DashboardPage() {
         tags: draft.tags,
       };
 
-      if (!isPro) {
+      // ✅ Free limit: Pro değilse uygula (isPro null iken de Free gibi davran)
+      if (isPro !== true) {
         const { count, error: countErr } = await supabase
           .from("items")
           .select("*", { count: "exact", head: true });
@@ -348,8 +379,8 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-5xl px-6 py-10">
         <Header />
 
-        {/* ✅ TEK KART: Eklenti durumu */}
-        {isPro ? (
+        {/* ✅ TEK KART: Sadece Pro kullanıcıya göster */}
+        {isPro === true ? (
           <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
