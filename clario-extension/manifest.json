@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "clarionot Clip",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Right-click to save links/notes to clarionot.",
   "permissions": ["contextMenus", "storage", "tabs"],
   "host_permissions": ["https://clarionot.com/*"],

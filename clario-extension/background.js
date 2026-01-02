@@ -11,6 +11,10 @@ async function getToken() {
   return data[TOKEN_KEY] || "";
 }
 
+async function clearToken() {
+  await chrome.storage.sync.remove([TOKEN_KEY]);
+}
+
 async function clipRequest(payload) {
   const token = await getToken();
   if (!token) throw new Error("TOKEN_MISSING");
@@ -26,9 +30,10 @@ async function clipRequest(payload) {
 
   const json = await res.json().catch(() => ({}));
 
-  // ✅ Token invalid / Pro değil gibi durumlarda token'ı temizle
-  if (res.status === 401 || res.status === 403) {
-    await chrome.storage.sync.remove([TOKEN_KEY]);
+  // Token geçersizse temizleyip yeniden bağlatacağız
+  if (res.status === 401) {
+    await clearToken();
+    throw new Error("TOKEN_INVALID");
   }
 
   if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
@@ -61,9 +66,13 @@ function setupMenus() {
 chrome.runtime.onInstalled.addListener(setupMenus);
 chrome.runtime.onStartup.addListener(setupMenus);
 
-// ✅ bridge.js buraya type:"SAVE_TOKEN" gönderir
+// ✅ bridge.js buraya type:"SAVE_TOKEN" gönderir.
+// Bazı yerlerde type:"clarionot_TOKEN" görülebiliyor; ikisini de kabul ediyoruz.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg?.type === "SAVE_TOKEN" && msg.token) {
+  if (
+    (msg?.type === "SAVE_TOKEN" || msg?.type === "clarionot_TOKEN") &&
+    msg.token
+  ) {
     chrome.storage.sync.set({ [TOKEN_KEY]: msg.token }, () => {
       sendResponse({ ok: true });
     });
@@ -78,24 +87,18 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId === "clarionot_save_link") {
       const url = info.linkUrl;
       if (!url) throw new Error("URL bulunamadı.");
-
-      // ✅ title boş gönderiyoruz, backend üretecek
       payload = { type: "link", url, title: "", tags: [] };
     }
 
     if (info.menuItemId === "clarionot_save_page") {
       const url = tab?.url || info.pageUrl || "";
       if (!url) throw new Error("URL bulunamadı.");
-
-      // ✅ title boş gönderiyoruz, backend üretecek
       payload = { type: "link", url, title: "", tags: [] };
     }
 
     if (info.menuItemId === "clarionot_save_selection") {
       const text = (info.selectionText || "").trim();
       if (!text) throw new Error("Seçili metin yok.");
-
-      // ✅ title boş gönderiyoruz, backend ilk satırı title yapacak
       payload = { type: "note", title: "", content: text, tags: [] };
     }
 
@@ -106,13 +109,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   } catch (e) {
     const msg = e?.message || String(e);
 
-    if (msg === "TOKEN_MISSING") {
-      chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
-      return;
-    }
-
-    // ✅ 401/403 sonrası token silindiği için tekrar bağlat
-    if (msg.includes("401") || msg.includes("403")) {
+    // Token yoksa veya geçersizse connect'e götür
+    if (msg === "TOKEN_MISSING" || msg === "TOKEN_INVALID") {
       chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
       return;
     }
