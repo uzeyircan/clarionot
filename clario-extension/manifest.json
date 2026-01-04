@@ -9,7 +9,7 @@
   "options_page": "options.html",
   "content_scripts": [
     {
-      "matches": ["https://clarionot.com/extension/connect*"],
+      "matches": ["https://clarionot.com/extension/connect"],
       "js": ["content/bridge.js"],
       "run_at": "document_start"
     }
