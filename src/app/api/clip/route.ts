@@ -101,13 +101,14 @@ export async function POST(req: Request) {
     // 2) Token doğrula (aktif mi?)
     const { data: tokenRow, error: tokenErr } = await admin
       .from("clip_tokens")
-      .select("user_id, revoked_at")
+      .select("id, user_id, revoked_at")
       .eq("token_hash", token_hash)
+      .is("revoked_at", null)
       .maybeSingle();
 
     if (tokenErr) throw tokenErr;
 
-    if (!tokenRow || tokenRow.revoked_at) {
+    if (!tokenRow) {
       return NextResponse.json(
         { error: "Invalid or revoked token." },
         { status: 401, headers: corsHeaders() }
@@ -115,6 +116,25 @@ export async function POST(req: Request) {
     }
 
     const userId = tokenRow.user_id as string;
+    // ✅ Pro kontrolü (downgrade olursa çalışmasın)
+    const { data: planRow, error: planErr } = await admin
+      .from("user_plan")
+      .select("plan,status")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (planErr) throw planErr;
+
+    const okPro =
+      planRow?.plan === "pro" &&
+      (planRow?.status === "active" || planRow?.status === "trialing");
+
+    if (!okPro) {
+      return NextResponse.json(
+        { error: "Pro plan required." },
+        { status: 403, headers: corsHeaders() }
+      );
+    }
 
     // 3) Body parse et
     const body = await req.json().catch(() => null);
@@ -185,6 +205,11 @@ export async function POST(req: Request) {
       .single();
 
     if (insErr) throw insErr;
+    // ✅ Token kullanıldı -> last_used_at güncelle
+    await admin
+      .from("clip_tokens")
+      .update({ last_used_at: new Date().toISOString() })
+      .eq("id", tokenRow.id);
 
     return NextResponse.json(
       { ok: true, id: inserted.id },
