@@ -30,20 +30,6 @@ const emptyDraft = (type: ItemType): Draft => ({
 });
 
 // Not: Bu iki fonksiyon şu dosyada kullanılmıyor. Dokunmadım.
-async function hashToken(token: string) {
-  const enc = new TextEncoder().encode(token);
-  const buf = await crypto.subtle.digest("SHA-256", enc);
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function generateToken() {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -65,9 +51,8 @@ export default function DashboardPage() {
   const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
 
   // ✅ Pro durumu artık DB’den okunacak
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+
   const [isPro, setIsPro] = useState<boolean | null>(null); // null = yükleniyor
-  const [planChecking, setPlanChecking] = useState<boolean>(true);
 
   const [q, setQ] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
@@ -85,7 +70,6 @@ export default function DashboardPage() {
 
   // ✅ user_plan üzerinden Pro kontrolü
   const fetchPlan = async (uid: string) => {
-    setPlanChecking(true);
     try {
       const { data, error } = await supabase
         .from("user_plan")
@@ -95,16 +79,13 @@ export default function DashboardPage() {
 
       if (error) throw error;
 
-      const ok =
-        data?.plan === "pro" &&
-        (data?.status === "active" || data?.status === "trialing");
+      const ok = data?.plan === "pro" && data?.status === "active";
 
       setIsPro(!!ok);
     } catch {
       // Plan okunamazsa Free gibi davranalım
       setIsPro(false);
     } finally {
-      setPlanChecking(false);
     }
   };
 
@@ -120,7 +101,7 @@ export default function DashboardPage() {
       }
 
       setUserId(uid);
-      setUserEmail(email);
+
       fetchPlan(uid);
     });
 
@@ -134,7 +115,7 @@ export default function DashboardPage() {
       }
 
       setUserId(uid);
-      setUserEmail(email);
+
       fetchPlan(uid);
     });
 
@@ -378,7 +359,7 @@ export default function DashboardPage() {
     <main className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-10">
         <Header />
-        {!isPro ? (
+        {isPro === false ? (
           <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-300">
             Pro ile tarayıcı eklentisini kullanıp sağ tıkla kaydedebilirsin.{" "}
             <a className="underline text-neutral-100" href="/pro">
