@@ -41,7 +41,10 @@ export default function ExtensionConnectPage() {
           return;
         }
 
-        const isPro = planRow?.plan === "pro" && planRow?.status === "active";
+        const isPro =
+          planRow?.plan === "pro" &&
+          (planRow?.status === "active" || planRow?.status === "trialing");
+
         if (!isPro) {
           setStatus("need_pro");
           return;
@@ -63,11 +66,8 @@ export default function ExtensionConnectPage() {
         const token = json?.token;
         if (!token) throw new Error("Token alınamadı.");
 
-        // 4) extension’a gönder (origin kısıtlı)
-        window.postMessage(
-          { type: "clarionot_TOKEN", token },
-          window.location.origin
-        );
+        // ✅ 4) ACK dinleyicisini ÖNCE kur, sonra postMessage at
+        const ACK_TYPE = "CLARIONOT_TOKEN_SAVED";
 
         await new Promise<void>((resolve, reject) => {
           const t = setTimeout(() => {
@@ -79,17 +79,22 @@ export default function ExtensionConnectPage() {
 
           function onMsg(e: MessageEvent) {
             if (e.origin !== window.location.origin) return;
-            if (e.data?.type === "clarionot_TOKEN_SAVED" && e.data?.ok) {
-              clearTimeout(t);
-              window.removeEventListener("message", onMsg);
-              resolve();
-            }
+            if (e.data?.type !== ACK_TYPE) return;
+
+            clearTimeout(t);
+            window.removeEventListener("message", onMsg);
+            resolve();
           }
 
           window.addEventListener("message", onMsg);
+
+          // ✅ extension’a gönder (origin kısıtlı)
+          window.postMessage(
+            { type: "clarionot_TOKEN", token },
+            window.location.origin
+          );
         });
 
-        setStatus("done");
         setStatus("done");
         setTimeout(() => (window.location.href = "/dashboard"), 800);
       } catch (e: any) {
