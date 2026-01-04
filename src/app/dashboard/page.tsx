@@ -378,6 +378,14 @@ export default function DashboardPage() {
     <main className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-10">
         <Header />
+        {!isPro ? (
+          <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-300">
+            Pro ile tarayıcı eklentisini kullanıp sağ tıkla kaydedebilirsin.{" "}
+            <a className="underline text-neutral-100" href="/pro">
+              Pro planı gör
+            </a>
+          </div>
+        ) : null}
 
         {/* ✅ TEK KART: Sadece Pro kullanıcıya göster */}
         {isPro === true ? (

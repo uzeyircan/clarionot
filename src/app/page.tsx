@@ -82,7 +82,7 @@ export default function HomePage() {
       onClick={goDashboard}
       className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
     >
-      Dashboard’a Git
+      Not Kaydet
     </button>
   ) : (
     <button
