@@ -18,8 +18,8 @@ type Draft = {
   title: string;
   content: string;
   tags: string[];
-  note?: string; // link için opsiyonel açıklama
-  group_id?: string | null; // ✅
+  note?: string;
+  group_id?: string | null;
 };
 
 const emptyDraft = (type: ItemType): Draft => ({
@@ -33,10 +33,16 @@ const emptyDraft = (type: ItemType): Draft => ({
 
 type Group = { id: string; title: string; created_at?: string };
 
+type ToastState = {
+  type: "ok" | "err";
+  text: string;
+} | null;
+
 export default function DashboardPage() {
   const router = useRouter();
 
   const [userId, setUserId] = useState<string | null>(null);
+
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,14 +50,13 @@ export default function DashboardPage() {
   const [openOnboarding, setOpenOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
 
-  // ✅ Tek kaynak: extension durumunu sadece buradan göstereceğiz
+  // ✅ extension durumu
   const [extConnected, setExtConnected] = useState<boolean>(false);
   const [extChecking, setExtChecking] = useState<boolean>(true);
 
   const CHROME_STORE_URL =
     "https://chromewebstore.google.com/detail/clario-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
 
-  // Free/Pro limit kontrolü için gerekli
   const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
 
   // ✅ Pro durumu DB’den
@@ -62,6 +67,23 @@ export default function DashboardPage() {
   const [openDetail, setOpenDetail] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft("link"));
   const [err, setErr] = useState<string | null>(null);
+
+  // ✅ Toast
+  const [toast, setToast] = useState<ToastState>(null);
+  const showToast = (type: "ok" | "err", text: string) =>
+    setToast({ type, text });
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 1800);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
+  // ✅ Drag UI state
+  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<
+    null | "inbox" | { groupId: string }
+  >(null);
 
   // ✅ Groups
   const [groups, setGroups] = useState<Group[]>([]);
@@ -75,10 +97,16 @@ export default function DashboardPage() {
   const [savingGroup, setSavingGroup] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
-  // ✅ Drag state (UI için)
-  const [dragOverTarget, setDragOverTarget] = useState<
-    null | "inbox" | { groupId: string }
-  >(null);
+  // ✅ Rename modal
+  const [openRenameModal, setOpenRenameModal] = useState(false);
+  const [renameGroupId, setRenameGroupId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [renaming, setRenaming] = useState(false);
+
+  // ✅ Collapse state
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggleCollapsed = (key: string) =>
+    setCollapsed((p) => ({ ...p, [key]: !p[key] }));
 
   const skipOnboarding = () => {
     if (userId) {
@@ -104,6 +132,7 @@ export default function DashboardPage() {
     }
   };
 
+  // auth gate
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id ?? null;
@@ -149,53 +178,54 @@ export default function DashboardPage() {
     }
   };
 
-  const load = async () => {
+  const load = async (uid: string) => {
     setErr(null);
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("items")
         .select("*")
+        .eq("user_id", uid) // ✅ net filtre
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       setItems((data ?? []) as Item[]);
     } catch (e: any) {
       setErr(e?.message ?? "Liste alınamadı.");
+      showToast("err", e?.message ?? "Liste alınamadı ❌");
     } finally {
       setLoading(false);
     }
   };
 
-  const loadGroups = async () => {
-    if (!userId) return;
-
+  const loadGroups = async (uid: string) => {
     const { data, error } = await supabase
       .from("groups")
       .select("id,title,created_at")
+      .eq("user_id", uid) // ✅ net filtre
       .order("created_at", { ascending: false });
 
     if (error) throw error;
     setGroups((data ?? []) as any);
   };
 
+  // onboarding
   useEffect(() => {
     if (!userId) return;
-
     const key = `clarionot:onboarding:v1:${userId}`;
     const seen = localStorage.getItem(key);
-
     if (!seen) {
       setOpenOnboarding(true);
       setOnboardingStep(0);
     }
   }, [userId]);
 
+  // initial load
   useEffect(() => {
     if (!userId) return;
 
-    load();
-    loadGroups();
+    load(userId);
+    loadGroups(userId);
 
     if (isPro === true) checkExtension(userId);
     if (isPro === false) {
@@ -205,7 +235,16 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, isPro]);
 
-  // ✅ Search + Group filter
+  const groupCounts = useMemo(() => {
+    const counts: Record<string, number> = { inbox: 0 };
+    for (const it of items as any) {
+      const gid = it.group_id ? String(it.group_id) : "inbox";
+      counts[gid] = (counts[gid] ?? 0) + 1;
+    }
+    return counts;
+  }, [items]);
+
+  // ✅ Search + group filter
   const filteredItems = useMemo(() => {
     const s = q.trim().toLowerCase();
 
@@ -223,8 +262,7 @@ export default function DashboardPage() {
     if (activeGroupId === "all") return base;
     if (activeGroupId === "inbox")
       return base.filter((it: any) => !it.group_id);
-
-    return base.filter((it: any) => it.group_id === activeGroupId);
+    return base.filter((it: any) => String(it.group_id) === activeGroupId);
   }, [items, q, activeGroupId]);
 
   const { notes, links } = useMemo(() => {
@@ -234,6 +272,25 @@ export default function DashboardPage() {
     };
   }, [filteredItems]);
 
+  // ✅ All view için gruplama
+  const notesByGroup = useMemo(() => {
+    const map: Record<string, Item[]> = { inbox: [] };
+    for (const it of notes) {
+      const gid = (it as any).group_id ? String((it as any).group_id) : "inbox";
+      (map[gid] ||= []).push(it);
+    }
+    return map;
+  }, [notes]);
+
+  const linksByGroup = useMemo(() => {
+    const map: Record<string, Item[]> = { inbox: [] };
+    for (const it of links) {
+      const gid = (it as any).group_id ? String((it as any).group_id) : "inbox";
+      (map[gid] ||= []).push(it);
+    }
+    return map;
+  }, [links]);
+
   const ungroupedItems = useMemo(() => {
     return items.filter((it: any) => !it.group_id);
   }, [items]);
@@ -242,33 +299,90 @@ export default function DashboardPage() {
     setDraft(emptyDraft(type));
     setOpenAdd(true);
   };
+
+  // ✅ Group silme
   const deleteGroup = async (groupId: string) => {
     if (!userId) return;
 
     const ok = confirm(
-      "Bu grubu silmek istiyor musun?\nGruba ait tüm notlar Inbox'a taşınacak."
+      "Bu grubu silmek istiyor musun?\nBu gruptaki tüm kayıtlar Inbox’a taşınacak."
     );
     if (!ok) return;
 
-    try {
-      // Optimistic UI: aktif grup siliniyorsa Inbox'a dön
-      if (activeGroupId === groupId) {
-        setActiveGroupId("inbox");
-      }
+    const groupTitle = groups.find((g) => g.id === groupId)?.title ?? "Group";
 
-      const { error } = await supabase
+    try {
+      setErr(null);
+
+      // 1) DB: önce item'ları inbox'a taşı
+      const { error: moveErr } = await supabase
+        .from("items")
+        .update({ group_id: null, updated_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .eq("group_id", groupId);
+
+      if (moveErr) throw moveErr;
+
+      // 2) DB: sonra group'u sil
+      const { error: delErr } = await supabase
         .from("groups")
         .delete()
         .eq("id", groupId)
         .eq("user_id", userId);
 
-      if (error) throw error;
+      if (delErr) throw delErr;
 
-      // UI refresh
-      await loadGroups();
-      await load();
+      // 3) UI refresh (en temiz)
+      if (activeGroupId === groupId) setActiveGroupId("inbox");
+      await loadGroups(userId);
+      await load(userId);
+
+      showToast("ok", `🗑️ "${groupTitle}" silindi (Inbox’a taşındı)`);
     } catch (e: any) {
       setErr(e?.message ?? "Group silinemedi.");
+      showToast("err", e?.message ?? "Group silinemedi ❌");
+    }
+  };
+
+  const openRename = (g: Group) => {
+    setRenameGroupId(g.id);
+    setRenameTitle(g.title);
+    setOpenRenameModal(true);
+  };
+
+  const saveRename = async () => {
+    if (!userId || !renameGroupId) return;
+
+    const t = renameTitle.trim();
+    if (!t) {
+      setErr("Group title boş olamaz.");
+      showToast("err", "Group title boş olamaz ❌");
+      return;
+    }
+
+    try {
+      setRenaming(true);
+      setErr(null);
+
+      const { error } = await supabase
+        .from("groups")
+        .update({ title: t })
+        .eq("id", renameGroupId)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      setOpenRenameModal(false);
+      setRenameGroupId(null);
+      setRenameTitle("");
+
+      await loadGroups(userId);
+      showToast("ok", "✅ Grup adı güncellendi");
+    } catch (e: any) {
+      setErr(e?.message ?? "Group adı güncellenemedi.");
+      showToast("err", e?.message ?? "Group adı güncellenemedi ❌");
+    } finally {
+      setRenaming(false);
     }
   };
 
@@ -285,10 +399,14 @@ export default function DashboardPage() {
     setErr(null);
     setSaving(true);
     try {
-      if (!userId) return;
+      if (!userId) {
+        showToast("err", "Oturum bulunamadı ❌");
+        return;
+      }
 
       if (!draft.content.trim() && !draft.title.trim()) {
         setErr("En az başlık ya da içerik gir.");
+        showToast("err", "En az başlık ya da içerik gir ❌");
         return;
       }
 
@@ -324,27 +442,28 @@ export default function DashboardPage() {
         }
       }
 
+      // ✅ user_id yine gönderiyoruz (DB default da olsa sorun değil)
       const payload: any = {
         user_id: userId,
         type: draft.type,
         title,
         content,
         tags: draft.tags,
-        group_id: draft.group_id ?? null, // ✅ opsiyonel
+        group_id: draft.group_id ?? null,
       };
 
-      // ✅ Free limit: Pro değilse
       if (isPro !== true) {
         const { count, error: countErr } = await supabase
           .from("items")
-          .select("*", { count: "exact", head: true });
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", userId);
 
         if (countErr) throw countErr;
 
         if ((count ?? 0) >= freeLimit) {
-          setErr(
-            `Free planda en fazla ${freeLimit} kayıt ekleyebilirsin. Pro’ya geç.`
-          );
+          const msg = `Free planda en fazla ${freeLimit} kayıt ekleyebilirsin. Pro’ya geç.`;
+          setErr(msg);
+          showToast("err", msg);
           return;
         }
       }
@@ -353,9 +472,11 @@ export default function DashboardPage() {
       if (error) throw error;
 
       setOpenAdd(false);
-      await load();
+      await load(userId);
+      showToast("ok", "✅ Kaydedildi");
     } catch (e: any) {
       setErr(e?.message ?? "Kaydedilemedi.");
+      showToast("err", e?.message ?? "Kaydedilemedi ❌");
     } finally {
       setSaving(false);
     }
@@ -376,6 +497,10 @@ export default function DashboardPage() {
   const updateItem = async () => {
     setErr(null);
     try {
+      if (!userId) {
+        showToast("err", "Oturum bulunamadı ❌");
+        return;
+      }
       if (!draft.id) return;
 
       const { error } = await supabase
@@ -387,20 +512,27 @@ export default function DashboardPage() {
           group_id: draft.group_id ?? null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", draft.id);
+        .eq("id", draft.id)
+        .eq("user_id", userId);
 
       if (error) throw error;
 
       setOpenDetail(false);
-      await load();
+      await load(userId);
+      showToast("ok", "✅ Güncellendi");
     } catch (e: any) {
       setErr(e?.message ?? "Güncellenemedi.");
+      showToast("err", e?.message ?? "Güncellenemedi ❌");
     }
   };
 
   const removeItem = async () => {
     setErr(null);
     try {
+      if (!userId) {
+        showToast("err", "Oturum bulunamadı ❌");
+        return;
+      }
       if (!draft.id) return;
 
       const ok = confirm("Silmek istiyor musun?");
@@ -409,23 +541,31 @@ export default function DashboardPage() {
       const { error } = await supabase
         .from("items")
         .delete()
-        .eq("id", draft.id);
+        .eq("id", draft.id)
+        .eq("user_id", userId);
+
       if (error) throw error;
 
       setOpenDetail(false);
-      await load();
+      await load(userId);
+      showToast("ok", "🗑️ Silindi");
     } catch (e: any) {
       setErr(e?.message ?? "Silinemedi.");
+      showToast("err", e?.message ?? "Silinemedi ❌");
     }
   };
 
   const createGroupAndAssign = async () => {
     try {
-      if (!userId) return;
+      if (!userId) {
+        showToast("err", "Oturum bulunamadı ❌");
+        return;
+      }
 
       const title = groupTitle.trim();
       if (!title) {
         setErr("Group title required.");
+        showToast("err", "Group title required ❌");
         return;
       }
 
@@ -454,27 +594,39 @@ export default function DashboardPage() {
       setGroupTitle("");
       setSelectedItemIds([]);
 
-      await loadGroups();
-      await load();
+      await loadGroups(userId);
+      await load(userId);
+
+      showToast("ok", "✅ Grup oluşturuldu");
     } catch (e: any) {
       setErr(e?.message ?? "Group oluşturulamadı.");
+      showToast("err", e?.message ?? "Grup oluşturulamadı ❌");
     } finally {
       setSavingGroup(false);
     }
   };
 
   // ===========================
-  // ✅ DRAG & DROP HELPERS
+  // ✅ DRAG & DROP
   // ===========================
   const onDragStartItem = (itemId: string) => (e: React.DragEvent) => {
+    setDraggingItemId(itemId);
     e.dataTransfer.setData("text/plain", itemId);
     e.dataTransfer.effectAllowed = "move";
+  };
+
+  const onDragEndItem = () => {
+    setDraggingItemId(null);
+    setDragOverTarget(null);
   };
 
   const moveItemToGroup = async (itemId: string, groupId: string | null) => {
     if (!userId) return;
 
-    // Optimistic UI
+    const prevGroupId =
+      (items as any[]).find((x) => x.id === itemId)?.group_id ?? null;
+
+    // optimistic
     setItems((prev: any) =>
       prev.map((it: any) =>
         it.id === itemId ? { ...it, group_id: groupId } : it
@@ -488,10 +640,16 @@ export default function DashboardPage() {
       .eq("user_id", userId);
 
     if (error) {
-      // rollback: reload
-      await load();
+      // rollback
+      setItems((prev: any) =>
+        prev.map((it: any) =>
+          it.id === itemId ? { ...it, group_id: prevGroupId } : it
+        )
+      );
       throw error;
     }
+
+    showToast("ok", groupId ? "Gruba taşındı ✅" : "Inbox’a alındı ✅");
   };
 
   const makeDropHandlers = (target: "inbox" | { groupId: string }) => {
@@ -501,9 +659,7 @@ export default function DashboardPage() {
       setDragOverTarget(target);
     };
 
-    const onDragLeave = () => {
-      setDragOverTarget(null);
-    };
+    const onDragLeave = () => setDragOverTarget(null);
 
     const onDrop = async (e: React.DragEvent) => {
       e.preventDefault();
@@ -513,13 +669,12 @@ export default function DashboardPage() {
       if (!itemId) return;
 
       try {
-        if (target === "inbox") {
-          await moveItemToGroup(itemId, null);
-          return;
-        }
-        await moveItemToGroup(itemId, target.groupId);
+        if (target === "inbox") await moveItemToGroup(itemId, null);
+        else await moveItemToGroup(itemId, target.groupId);
       } catch (err: any) {
-        setErr(err?.message ?? "Taşıma başarısız.");
+        showToast("err", err?.message ?? "Taşıma başarısız ❌");
+      } finally {
+        setDraggingItemId(null);
       }
     };
 
@@ -527,6 +682,21 @@ export default function DashboardPage() {
   };
 
   const inboxDrop = makeDropHandlers("inbox");
+
+  // ✅ Draggable wrapper
+  const DraggableWrap = ({ it }: { it: any }) => (
+    <div
+      draggable
+      onDragStart={onDragStartItem(it.id)}
+      onDragEnd={onDragEndItem}
+      className={`cursor-grab active:cursor-grabbing ${
+        draggingItemId === it.id ? "opacity-60 scale-[0.99]" : ""
+      }`}
+      title="Sürükleyip Inbox/Group’a bırak"
+    >
+      <ItemCard item={it} onOpen={openItem} />
+    </div>
+  );
 
   return (
     <main className="min-h-screen">
@@ -618,8 +788,9 @@ export default function DashboardPage() {
                 All
               </button>
 
-              {/* ✅ Inbox = drop zone */}
+              {/* ✅ Inbox PILL (drop zone) */}
               <button
+                type="button"
                 onClick={() => setActiveGroupId("inbox")}
                 {...inboxDrop}
                 className={`rounded-xl border px-3 py-1 text-xs ${
@@ -628,12 +799,15 @@ export default function DashboardPage() {
                     : "border-neutral-800 bg-neutral-950 text-neutral-300"
                 } ${
                   dragOverTarget === "inbox"
-                    ? "outline outline-2 outline-emerald-500/60"
+                    ? "outline outline-2 outline-emerald-500/60 bg-emerald-500/10 border-emerald-500/40"
                     : ""
                 }`}
                 title="Item’ları buraya sürükleyip Inbox’a alabilirsin"
               >
-                Inbox
+                Inbox{" "}
+                <span className="text-neutral-500">
+                  ({groupCounts["inbox"] ?? 0})
+                </span>
               </button>
 
               {groups.map((g) => {
@@ -643,31 +817,59 @@ export default function DashboardPage() {
                   typeof dragOverTarget === "object" &&
                   dragOverTarget.groupId === g.id;
 
+                const isActive = activeGroupId === g.id;
+                const count = groupCounts[g.id] ?? 0;
+
                 return (
-                  <button
+                  <div
                     key={g.id}
-                    onClick={() => setActiveGroupId(g.id)}
                     {...drop}
-                    className={`rounded-xl border px-3 py-1 text-xs ${
-                      activeGroupId === g.id
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1 text-xs ${
+                      isActive
                         ? "border-neutral-600 bg-neutral-900 text-neutral-100"
                         : "border-neutral-800 bg-neutral-950 text-neutral-300"
                     } ${
-                      isOver ? "outline outline-2 outline-emerald-500/60" : ""
+                      isOver
+                        ? "outline outline-2 outline-emerald-500/60 bg-emerald-500/10 border-emerald-500/40"
+                        : ""
                     }`}
                     title="Item’ları buraya sürükleyip gruba taşı"
                   >
-                    {g.title}
-                    <div> </div>
-                    {/* 🗑️ Delete */}
                     <button
-                      onClick={() => deleteGroup(g.id)}
-                      className="text-xs text-neutral-500 hover:text-red-400"
+                      type="button"
+                      onClick={() => setActiveGroupId(g.id)}
+                      className="flex items-center gap-2"
+                    >
+                      <span className="max-w-[140px] truncate">{g.title}</span>
+                      <span className="rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-400">
+                        {count}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openRename(g);
+                      }}
+                      className="text-[11px] text-neutral-500 hover:text-neutral-200"
+                      title="Grubu yeniden adlandır"
+                    >
+                      ✎
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteGroup(g.id);
+                      }}
+                      className="text-[11px] text-neutral-500 hover:text-red-400"
                       title="Grubu sil"
                     >
                       ✕
                     </button>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -708,18 +910,79 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 text-sm text-neutral-400">
                 Henüz not yok.
               </div>
+            ) : activeGroupId === "all" ? (
+              <div className="space-y-4">
+                {/* Inbox notes section */}
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-950">
+                  <button
+                    onClick={() => toggleCollapsed("inbox_notes")}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left"
+                  >
+                    <div className="text-xs font-semibold text-neutral-200">
+                      Inbox{" "}
+                      <span className="text-neutral-500">
+                        ({(notesByGroup["inbox"] ?? []).length})
+                      </span>
+                    </div>
+                    <div className="text-xs text-neutral-400">
+                      {collapsed["inbox_notes"] ? "▸" : "▾"}
+                    </div>
+                  </button>
+
+                  {!collapsed["inbox_notes"] ? (
+                    <div className="p-4 pt-0 grid gap-3">
+                      {(notesByGroup["inbox"] ?? []).map((it: any) => (
+                        <DraggableWrap key={it.id} it={it} />
+                      ))}
+                      {(notesByGroup["inbox"] ?? []).length === 0 ? (
+                        <div className="text-sm text-neutral-500">
+                          Inbox boş.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Group sections */}
+                {groups.map((g) => {
+                  const list = notesByGroup[g.id] ?? [];
+                  if (list.length === 0) return null;
+
+                  return (
+                    <div
+                      key={g.id}
+                      className="rounded-2xl border border-neutral-800 bg-neutral-950"
+                    >
+                      <button
+                        onClick={() => toggleCollapsed(`notes_${g.id}`)}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left"
+                      >
+                        <div className="text-xs font-semibold text-neutral-200">
+                          {g.title}{" "}
+                          <span className="text-neutral-500">
+                            ({list.length})
+                          </span>
+                        </div>
+                        <div className="text-xs text-neutral-400">
+                          {collapsed[`notes_${g.id}`] ? "▸" : "▾"}
+                        </div>
+                      </button>
+
+                      {!collapsed[`notes_${g.id}`] ? (
+                        <div className="p-4 pt-0 grid gap-3">
+                          {list.map((it: any) => (
+                            <DraggableWrap key={it.id} it={it} />
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <div className="grid gap-3">
                 {notes.map((it: any) => (
-                  <div
-                    key={it.id}
-                    draggable
-                    onDragStart={onDragStartItem(it.id)}
-                    className="cursor-grab active:cursor-grabbing"
-                    title="Sürükleyip Inbox/Group’a bırak"
-                  >
-                    <ItemCard item={it} onOpen={openItem} />
-                  </div>
+                  <DraggableWrap key={it.id} it={it} />
                 ))}
               </div>
             )}
@@ -742,18 +1005,79 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 text-sm text-neutral-400">
                 Henüz link yok.
               </div>
+            ) : activeGroupId === "all" ? (
+              <div className="space-y-4">
+                {/* Inbox links section */}
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-950">
+                  <button
+                    onClick={() => toggleCollapsed("inbox_links")}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left"
+                  >
+                    <div className="text-xs font-semibold text-neutral-200">
+                      Inbox{" "}
+                      <span className="text-neutral-500">
+                        ({(linksByGroup["inbox"] ?? []).length})
+                      </span>
+                    </div>
+                    <div className="text-xs text-neutral-400">
+                      {collapsed["inbox_links"] ? "▸" : "▾"}
+                    </div>
+                  </button>
+
+                  {!collapsed["inbox_links"] ? (
+                    <div className="p-4 pt-0 grid gap-3">
+                      {(linksByGroup["inbox"] ?? []).map((it: any) => (
+                        <DraggableWrap key={it.id} it={it} />
+                      ))}
+                      {(linksByGroup["inbox"] ?? []).length === 0 ? (
+                        <div className="text-sm text-neutral-500">
+                          Inbox boş.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Group sections */}
+                {groups.map((g) => {
+                  const list = linksByGroup[g.id] ?? [];
+                  if (list.length === 0) return null;
+
+                  return (
+                    <div
+                      key={g.id}
+                      className="rounded-2xl border border-neutral-800 bg-neutral-950"
+                    >
+                      <button
+                        onClick={() => toggleCollapsed(`links_${g.id}`)}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left"
+                      >
+                        <div className="text-xs font-semibold text-neutral-200">
+                          {g.title}{" "}
+                          <span className="text-neutral-500">
+                            ({list.length})
+                          </span>
+                        </div>
+                        <div className="text-xs text-neutral-400">
+                          {collapsed[`links_${g.id}`] ? "▸" : "▾"}
+                        </div>
+                      </button>
+
+                      {!collapsed[`links_${g.id}`] ? (
+                        <div className="p-4 pt-0 grid gap-3">
+                          {list.map((it: any) => (
+                            <DraggableWrap key={it.id} it={it} />
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <div className="grid gap-3">
                 {links.map((it: any) => (
-                  <div
-                    key={it.id}
-                    draggable
-                    onDragStart={onDragStartItem(it.id)}
-                    className="cursor-grab active:cursor-grabbing"
-                    title="Sürükleyip Inbox/Group’a bırak"
-                  >
-                    <ItemCard item={it} onOpen={openItem} />
-                  </div>
+                  <DraggableWrap key={it.id} it={it} />
                 ))}
               </div>
             )}
@@ -794,13 +1118,12 @@ export default function DashboardPage() {
                       type="checkbox"
                       checked={checked}
                       onChange={(e) => {
-                        if (e.target.checked) {
+                        if (e.target.checked)
                           setSelectedItemIds((prev) => [...prev, it.id]);
-                        } else {
+                        else
                           setSelectedItemIds((prev) =>
                             prev.filter((x) => x !== it.id)
                           );
-                        }
                       }}
                     />
                     <span className="truncate">
@@ -825,6 +1148,33 @@ export default function DashboardPage() {
             </Button>
             <Button onClick={createGroupAndAssign} disabled={savingGroup}>
               {savingGroup ? "Saving..." : "Create"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ✅ RENAME MODAL */}
+      <Modal
+        open={openRenameModal}
+        title="Rename group"
+        onClose={() => setOpenRenameModal(false)}
+      >
+        <div className="space-y-3">
+          <div>
+            <div className="mb-1 text-xs text-neutral-400">New title</div>
+            <Input
+              value={renameTitle}
+              onChange={(e) => setRenameTitle(e.target.value)}
+              placeholder="Group name..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setOpenRenameModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveRename} disabled={renaming}>
+              {renaming ? "Saving..." : "Save"}
             </Button>
           </div>
         </div>
@@ -959,7 +1309,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* ✅ Group select (optional) */}
           <div>
             <div className="mb-1 text-xs text-neutral-400">
               Group (optional)
@@ -1033,7 +1382,6 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* ✅ Group select in detail */}
           <div>
             <div className="mb-1 text-xs text-neutral-400">Group</div>
             <select
@@ -1077,9 +1425,23 @@ export default function DashboardPage() {
         </div>
       </Modal>
 
+      {/* ✅ ERR */}
       {err ? (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-xl border border-red-900/40 bg-red-950/60 px-4 py-2 text-sm text-red-200">
           {err}
+        </div>
+      ) : null}
+
+      {/* ✅ TOAST */}
+      {toast ? (
+        <div
+          className={`fixed bottom-16 left-1/2 -translate-x-1/2 rounded-xl border px-4 py-2 text-sm ${
+            toast.type === "ok"
+              ? "border-emerald-900/40 bg-emerald-950/40 text-emerald-100"
+              : "border-red-900/40 bg-red-950/40 text-red-100"
+          }`}
+        >
+          {toast.text}
         </div>
       ) : null}
     </main>
