@@ -72,7 +72,7 @@ export default function Header() {
           href="/pro"
           className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
         >
-          Pro Plan
+          Planlar
         </Link>
 
         {/* LOGIN / LOGOUT */}

@@ -19,6 +19,7 @@ type Draft = {
   content: string;
   tags: string[];
   note?: string; // link için opsiyonel açıklama
+  group_id?: string | null; // ✅
 };
 
 const emptyDraft = (type: ItemType): Draft => ({
@@ -27,16 +28,19 @@ const emptyDraft = (type: ItemType): Draft => ({
   content: "",
   note: "",
   tags: [],
+  group_id: null,
 });
 
-// Not: Bu iki fonksiyon şu dosyada kullanılmıyor. Dokunmadım.
+type Group = { id: string; title: string; created_at?: string };
 
 export default function DashboardPage() {
   const router = useRouter();
+
   const [userId, setUserId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [openOnboarding, setOpenOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
 
@@ -50,15 +54,31 @@ export default function DashboardPage() {
   // Free/Pro limit kontrolü için gerekli
   const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
 
-  // ✅ Pro durumu artık DB’den okunacak
-
-  const [isPro, setIsPro] = useState<boolean | null>(null); // null = yükleniyor
+  // ✅ Pro durumu DB’den
+  const [isPro, setIsPro] = useState<boolean | null>(null);
 
   const [q, setQ] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
   const [openDetail, setOpenDetail] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft("link"));
   const [err, setErr] = useState<string | null>(null);
+
+  // ✅ Groups
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [activeGroupId, setActiveGroupId] = useState<string | "all" | "inbox">(
+    "all"
+  );
+
+  // ✅ Create group modal
+  const [openGroupModal, setOpenGroupModal] = useState(false);
+  const [groupTitle, setGroupTitle] = useState("");
+  const [savingGroup, setSavingGroup] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+
+  // ✅ Drag state (UI için)
+  const [dragOverTarget, setDragOverTarget] = useState<
+    null | "inbox" | { groupId: string }
+  >(null);
 
   const skipOnboarding = () => {
     if (userId) {
@@ -68,7 +88,6 @@ export default function DashboardPage() {
     setOpenOnboarding(false);
   };
 
-  // ✅ user_plan üzerinden Pro kontrolü
   const fetchPlan = async (uid: string) => {
     try {
       const { data, error } = await supabase
@@ -78,44 +97,31 @@ export default function DashboardPage() {
         .maybeSingle();
 
       if (error) throw error;
-
       const ok = data?.plan === "pro" && data?.status === "active";
-
       setIsPro(!!ok);
     } catch {
-      // Plan okunamazsa Free gibi davranalım
       setIsPro(false);
-    } finally {
     }
   };
 
-  // auth gate
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id ?? null;
-      const email = data.session?.user?.email ?? null;
-
       if (!uid) {
         router.replace("/login");
         return;
       }
-
       setUserId(uid);
-
       fetchPlan(uid);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const uid = session?.user?.id ?? null;
-      const email = session?.user?.email ?? null;
-
       if (!uid) {
         router.replace("/login");
         return;
       }
-
       setUserId(uid);
-
       fetchPlan(uid);
     });
 
@@ -135,10 +141,8 @@ export default function DashboardPage() {
         .limit(1);
 
       if (error) throw error;
-
       setExtConnected((data?.length ?? 0) > 0);
     } catch {
-      // hata olsa bile kullanıcıya bağlanmadı gibi gösterelim
       setExtConnected(false);
     } finally {
       setExtChecking(false);
@@ -153,6 +157,7 @@ export default function DashboardPage() {
         .from("items")
         .select("*")
         .order("created_at", { ascending: false });
+
       if (error) throw error;
       setItems((data ?? []) as Item[]);
     } catch (e: any) {
@@ -160,6 +165,18 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadGroups = async () => {
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from("groups")
+      .select("id,title,created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    setGroups((data ?? []) as any);
   };
 
   useEffect(() => {
@@ -174,44 +191,85 @@ export default function DashboardPage() {
     }
   }, [userId]);
 
-  // ✅ data yükle + extension kontrolünü sadece Pro iken yap
   useEffect(() => {
     if (!userId) return;
 
     load();
+    loadGroups();
 
-    if (isPro === true) {
-      checkExtension(userId);
-    } else if (isPro === false) {
+    if (isPro === true) checkExtension(userId);
+    if (isPro === false) {
       setExtConnected(false);
       setExtChecking(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, isPro]);
 
-  const { notes, links } = useMemo(() => {
+  // ✅ Search + Group filter
+  const filteredItems = useMemo(() => {
     const s = q.trim().toLowerCase();
 
     const base = !s
       ? items
-      : items.filter((it) => {
+      : items.filter((it: any) => {
           const inTitle = (it.title ?? "").toLowerCase().includes(s);
           const inContent = (it.content ?? "").toLowerCase().includes(s);
-          const inTags = (it.tags ?? []).some((t) =>
+          const inTags = (it.tags ?? []).some((t: string) =>
             t.toLowerCase().includes(s)
           );
           return inTitle || inContent || inTags;
         });
 
+    if (activeGroupId === "all") return base;
+    if (activeGroupId === "inbox")
+      return base.filter((it: any) => !it.group_id);
+
+    return base.filter((it: any) => it.group_id === activeGroupId);
+  }, [items, q, activeGroupId]);
+
+  const { notes, links } = useMemo(() => {
     return {
-      notes: base.filter((it) => it.type === "note"),
-      links: base.filter((it) => it.type === "link"),
+      notes: filteredItems.filter((it) => it.type === "note"),
+      links: filteredItems.filter((it) => it.type === "link"),
     };
-  }, [items, q]);
+  }, [filteredItems]);
+
+  const ungroupedItems = useMemo(() => {
+    return items.filter((it: any) => !it.group_id);
+  }, [items]);
 
   const openNew = (type: ItemType) => {
     setDraft(emptyDraft(type));
     setOpenAdd(true);
+  };
+  const deleteGroup = async (groupId: string) => {
+    if (!userId) return;
+
+    const ok = confirm(
+      "Bu grubu silmek istiyor musun?\nGruba ait tüm notlar Inbox'a taşınacak."
+    );
+    if (!ok) return;
+
+    try {
+      // Optimistic UI: aktif grup siliniyorsa Inbox'a dön
+      if (activeGroupId === groupId) {
+        setActiveGroupId("inbox");
+      }
+
+      const { error } = await supabase
+        .from("groups")
+        .delete()
+        .eq("id", groupId)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      // UI refresh
+      await loadGroups();
+      await load();
+    } catch (e: any) {
+      setErr(e?.message ?? "Group silinemedi.");
+    }
   };
 
   const finishOnboarding = () => {
@@ -238,9 +296,8 @@ export default function DashboardPage() {
       let content = draft.content.trim();
 
       if (draft.type === "link") {
-        if (content && !/^https?:\/\//i.test(content)) {
+        if (content && !/^https?:\/\//i.test(content))
           content = "https://" + content;
-        }
 
         const note = (draft.note ?? "").trim();
         if (note) content = `${content}\n\n${note}`;
@@ -256,9 +313,7 @@ export default function DashboardPage() {
             });
             const data = await r.json();
             if (data?.title) title = data.title;
-          } catch {
-            // sessiz geç
-          }
+          } catch {}
 
           if (!title && content) {
             try {
@@ -269,15 +324,16 @@ export default function DashboardPage() {
         }
       }
 
-      const payload = {
+      const payload: any = {
         user_id: userId,
         type: draft.type,
         title,
         content,
         tags: draft.tags,
+        group_id: draft.group_id ?? null, // ✅ opsiyonel
       };
 
-      // ✅ Free limit: Pro değilse uygula (isPro null iken de Free gibi davran)
+      // ✅ Free limit: Pro değilse
       if (isPro !== true) {
         const { count, error: countErr } = await supabase
           .from("items")
@@ -305,13 +361,14 @@ export default function DashboardPage() {
     }
   };
 
-  const openItem = (it: Item) => {
+  const openItem = (it: any) => {
     setDraft({
       id: it.id,
       type: it.type,
       title: it.title ?? "",
       content: it.content ?? "",
       tags: it.tags ?? [],
+      group_id: it.group_id ?? null,
     });
     setOpenDetail(true);
   };
@@ -320,16 +377,20 @@ export default function DashboardPage() {
     setErr(null);
     try {
       if (!draft.id) return;
+
       const { error } = await supabase
         .from("items")
         .update({
           title: draft.title.trim(),
           content: draft.content.trim(),
           tags: draft.tags,
+          group_id: draft.group_id ?? null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", draft.id);
+
       if (error) throw error;
+
       setOpenDetail(false);
       await load();
     } catch (e: any) {
@@ -341,13 +402,16 @@ export default function DashboardPage() {
     setErr(null);
     try {
       if (!draft.id) return;
+
       const ok = confirm("Silmek istiyor musun?");
       if (!ok) return;
+
       const { error } = await supabase
         .from("items")
         .delete()
         .eq("id", draft.id);
       if (error) throw error;
+
       setOpenDetail(false);
       await load();
     } catch (e: any) {
@@ -355,10 +419,120 @@ export default function DashboardPage() {
     }
   };
 
+  const createGroupAndAssign = async () => {
+    try {
+      if (!userId) return;
+
+      const title = groupTitle.trim();
+      if (!title) {
+        setErr("Group title required.");
+        return;
+      }
+
+      setSavingGroup(true);
+      setErr(null);
+
+      const { data: g, error: gErr } = await supabase
+        .from("groups")
+        .insert({ user_id: userId, title })
+        .select("id,title,created_at")
+        .single();
+
+      if (gErr) throw gErr;
+
+      if (selectedItemIds.length > 0) {
+        const { error: uErr } = await supabase
+          .from("items")
+          .update({ group_id: g.id, updated_at: new Date().toISOString() })
+          .in("id", selectedItemIds)
+          .eq("user_id", userId);
+
+        if (uErr) throw uErr;
+      }
+
+      setOpenGroupModal(false);
+      setGroupTitle("");
+      setSelectedItemIds([]);
+
+      await loadGroups();
+      await load();
+    } catch (e: any) {
+      setErr(e?.message ?? "Group oluşturulamadı.");
+    } finally {
+      setSavingGroup(false);
+    }
+  };
+
+  // ===========================
+  // ✅ DRAG & DROP HELPERS
+  // ===========================
+  const onDragStartItem = (itemId: string) => (e: React.DragEvent) => {
+    e.dataTransfer.setData("text/plain", itemId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const moveItemToGroup = async (itemId: string, groupId: string | null) => {
+    if (!userId) return;
+
+    // Optimistic UI
+    setItems((prev: any) =>
+      prev.map((it: any) =>
+        it.id === itemId ? { ...it, group_id: groupId } : it
+      )
+    );
+
+    const { error } = await supabase
+      .from("items")
+      .update({ group_id: groupId, updated_at: new Date().toISOString() })
+      .eq("id", itemId)
+      .eq("user_id", userId);
+
+    if (error) {
+      // rollback: reload
+      await load();
+      throw error;
+    }
+  };
+
+  const makeDropHandlers = (target: "inbox" | { groupId: string }) => {
+    const onDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setDragOverTarget(target);
+    };
+
+    const onDragLeave = () => {
+      setDragOverTarget(null);
+    };
+
+    const onDrop = async (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOverTarget(null);
+
+      const itemId = e.dataTransfer.getData("text/plain") || "";
+      if (!itemId) return;
+
+      try {
+        if (target === "inbox") {
+          await moveItemToGroup(itemId, null);
+          return;
+        }
+        await moveItemToGroup(itemId, target.groupId);
+      } catch (err: any) {
+        setErr(err?.message ?? "Taşıma başarısız.");
+      }
+    };
+
+    return { onDragOver, onDragLeave, onDrop };
+  };
+
+  const inboxDrop = makeDropHandlers("inbox");
+
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-10">
         <Header />
+
         {isPro === false ? (
           <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-300">
             Pro ile tarayıcı eklentisini kullanıp sağ tıkla kaydedebilirsin.{" "}
@@ -368,7 +542,7 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
-        {/* ✅ TEK KART: Sadece Pro kullanıcıya göster */}
+        {/* ✅ Extension card only Pro */}
         {isPro === true ? (
           <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -429,6 +603,93 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
+        {/* ✅ Groups bar + Drop zones */}
+        <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setActiveGroupId("all")}
+                className={`rounded-xl border px-3 py-1 text-xs ${
+                  activeGroupId === "all"
+                    ? "border-neutral-600 bg-neutral-900 text-neutral-100"
+                    : "border-neutral-800 bg-neutral-950 text-neutral-300"
+                }`}
+              >
+                All
+              </button>
+
+              {/* ✅ Inbox = drop zone */}
+              <button
+                onClick={() => setActiveGroupId("inbox")}
+                {...inboxDrop}
+                className={`rounded-xl border px-3 py-1 text-xs ${
+                  activeGroupId === "inbox"
+                    ? "border-neutral-600 bg-neutral-900 text-neutral-100"
+                    : "border-neutral-800 bg-neutral-950 text-neutral-300"
+                } ${
+                  dragOverTarget === "inbox"
+                    ? "outline outline-2 outline-emerald-500/60"
+                    : ""
+                }`}
+                title="Item’ları buraya sürükleyip Inbox’a alabilirsin"
+              >
+                Inbox
+              </button>
+
+              {groups.map((g) => {
+                const drop = makeDropHandlers({ groupId: g.id });
+                const isOver =
+                  dragOverTarget !== null &&
+                  typeof dragOverTarget === "object" &&
+                  dragOverTarget.groupId === g.id;
+
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => setActiveGroupId(g.id)}
+                    {...drop}
+                    className={`rounded-xl border px-3 py-1 text-xs ${
+                      activeGroupId === g.id
+                        ? "border-neutral-600 bg-neutral-900 text-neutral-100"
+                        : "border-neutral-800 bg-neutral-950 text-neutral-300"
+                    } ${
+                      isOver ? "outline outline-2 outline-emerald-500/60" : ""
+                    }`}
+                    title="Item’ları buraya sürükleyip gruba taşı"
+                  >
+                    {g.title}
+                    <div> </div>
+                    {/* 🗑️ Delete */}
+                    <button
+                      onClick={() => deleteGroup(g.id)}
+                      className="text-xs text-neutral-500 hover:text-red-400"
+                      title="Grubu sil"
+                    >
+                      ✕
+                    </button>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setOpenGroupModal(true)}>
+                + Group
+              </Button>
+
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Ara..."
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 text-xs text-neutral-500">
+            İpucu: Bir not/link kartını sürükleyip Inbox veya bir gruba bırak.
+          </div>
+        </div>
+
         <section className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* SOL: NOTLAR */}
           <div className="space-y-3">
@@ -449,8 +710,16 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="grid gap-3">
-                {notes.map((it) => (
-                  <ItemCard key={it.id} item={it} onOpen={openItem} />
+                {notes.map((it: any) => (
+                  <div
+                    key={it.id}
+                    draggable
+                    onDragStart={onDragStartItem(it.id)}
+                    className="cursor-grab active:cursor-grabbing"
+                    title="Sürükleyip Inbox/Group’a bırak"
+                  >
+                    <ItemCard item={it} onOpen={openItem} />
+                  </div>
                 ))}
               </div>
             )}
@@ -475,14 +744,91 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="grid gap-3">
-                {links.map((it) => (
-                  <ItemCard key={it.id} item={it} onOpen={openItem} />
+                {links.map((it: any) => (
+                  <div
+                    key={it.id}
+                    draggable
+                    onDragStart={onDragStartItem(it.id)}
+                    className="cursor-grab active:cursor-grabbing"
+                    title="Sürükleyip Inbox/Group’a bırak"
+                  >
+                    <ItemCard item={it} onOpen={openItem} />
+                  </div>
                 ))}
               </div>
             )}
           </div>
         </section>
       </div>
+
+      {/* ✅ CREATE GROUP MODAL */}
+      <Modal
+        open={openGroupModal}
+        title="Create group"
+        onClose={() => setOpenGroupModal(false)}
+      >
+        <div className="space-y-3">
+          <div>
+            <div className="mb-1 text-xs text-neutral-400">Title</div>
+            <Input
+              value={groupTitle}
+              onChange={(e) => setGroupTitle(e.target.value)}
+              placeholder="e.g. Work, Learn, Ideas..."
+            />
+          </div>
+
+          <div>
+            <div className="mb-2 text-xs text-neutral-400">
+              Add items (optional) — only Inbox items selectable
+            </div>
+
+            <div className="max-h-64 overflow-auto rounded-xl border border-neutral-800">
+              {ungroupedItems.map((it: any) => {
+                const checked = selectedItemIds.includes(it.id);
+                return (
+                  <label
+                    key={it.id}
+                    className="flex items-center gap-2 px-3 py-2 border-b border-neutral-900 text-sm text-neutral-200"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedItemIds((prev) => [...prev, it.id]);
+                        } else {
+                          setSelectedItemIds((prev) =>
+                            prev.filter((x) => x !== it.id)
+                          );
+                        }
+                      }}
+                    />
+                    <span className="truncate">
+                      {it.type === "note" ? "📝" : "🔗"}{" "}
+                      {it.title || it.content}
+                    </span>
+                  </label>
+                );
+              })}
+
+              {ungroupedItems.length === 0 ? (
+                <div className="p-3 text-sm text-neutral-500">
+                  Inbox boş (group’suz item yok).
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setOpenGroupModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={createGroupAndAssign} disabled={savingGroup}>
+              {savingGroup ? "Saving..." : "Create"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ONBOARDING MODAL */}
       <Modal
@@ -548,6 +894,7 @@ export default function DashboardPage() {
         </div>
       </Modal>
 
+      {/* ADD MODAL */}
       <Modal
         open={openAdd}
         title={draft.type === "link" ? "Link ekle" : "Not ekle"}
@@ -612,6 +959,30 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* ✅ Group select (optional) */}
+          <div>
+            <div className="mb-1 text-xs text-neutral-400">
+              Group (optional)
+            </div>
+            <select
+              value={draft.group_id ?? ""}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  group_id: e.target.value ? e.target.value : null,
+                })
+              }
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+            >
+              <option value="">Inbox (no group)</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <div className="mb-1 text-xs text-neutral-400">Etiketler</div>
             <TagInput
@@ -635,6 +1006,7 @@ export default function DashboardPage() {
         </div>
       </Modal>
 
+      {/* DETAIL MODAL */}
       <Modal
         open={openDetail}
         title="Detay"
@@ -661,6 +1033,28 @@ export default function DashboardPage() {
             />
           </div>
 
+          {/* ✅ Group select in detail */}
+          <div>
+            <div className="mb-1 text-xs text-neutral-400">Group</div>
+            <select
+              value={draft.group_id ?? ""}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  group_id: e.target.value ? e.target.value : null,
+                })
+              }
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+            >
+              <option value="">Inbox (no group)</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <div className="mb-1 text-xs text-neutral-400">Etiketler</div>
             <TagInput
@@ -682,6 +1076,12 @@ export default function DashboardPage() {
           </div>
         </div>
       </Modal>
+
+      {err ? (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-xl border border-red-900/40 bg-red-950/60 px-4 py-2 text-sm text-red-200">
+          {err}
+        </div>
+      ) : null}
     </main>
   );
 }
