@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Item, ItemType } from "@/lib/types";
@@ -58,6 +58,9 @@ export default function DashboardPage() {
     "https://chromewebstore.google.com/detail/clario-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
 
   const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
+  const [forgottenSort, setForgottenSort] = useState<"oldest" | "newest">(
+    "oldest"
+  );
 
   // ✅ Pro durumu DB’den
   const [isPro, setIsPro] = useState<boolean | null>(null);
@@ -72,6 +75,7 @@ export default function DashboardPage() {
   const [toast, setToast] = useState<ToastState>(null);
   const showToast = (type: "ok" | "err", text: string) =>
     setToast({ type, text });
+  const viewTimersRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     if (!toast) return;
@@ -87,9 +91,9 @@ export default function DashboardPage() {
 
   // ✅ Groups
   const [groups, setGroups] = useState<Group[]>([]);
-  const [activeGroupId, setActiveGroupId] = useState<string | "all" | "inbox">(
-    "all"
-  );
+  const [activeGroupId, setActiveGroupId] = useState<
+    string | "all" | "inbox" | "forgotten"
+  >("all");
 
   // ✅ Create group modal
   const [openGroupModal, setOpenGroupModal] = useState(false);
@@ -108,12 +112,60 @@ export default function DashboardPage() {
   const toggleCollapsed = (key: string) =>
     setCollapsed((p) => ({ ...p, [key]: !p[key] }));
 
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  const [forgottenSelection, setForgottenSelection] = useState<string[]>([]);
+
+  const isForgotten = useCallback((it: any) => {
+    const base = it.last_viewed_at
+      ? new Date(it.last_viewed_at)
+      : new Date(it.created_at);
+    return Date.now() - base.getTime() > THIRTY_DAYS_MS;
+  }, []);
+  const baseDateOf = (it: any) => new Date(it.last_viewed_at ?? it.created_at);
+
+  const daysAgo = (it: any) => {
+    const ms = Date.now() - baseDateOf(it).getTime();
+    return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
+  };
+
   const skipOnboarding = () => {
     if (userId) {
       const key = `clarionot:onboarding:v1:${userId}`;
       localStorage.setItem(key, "1");
     }
     setOpenOnboarding(false);
+  };
+  const markViewed = (itemId: string) => {
+    if (!userId) return;
+
+    const nowIso = new Date().toISOString();
+
+    // ✅ optimistic UI: anında güncelle
+    setItems((prev: any) =>
+      prev.map((it: any) =>
+        it.id === itemId ? { ...it, last_viewed_at: nowIso } : it
+      )
+    );
+
+    // ✅ debounce: DB spam olmasın
+    const prevTimer = viewTimersRef.current[itemId];
+    if (prevTimer) window.clearTimeout(prevTimer);
+
+    viewTimersRef.current[itemId] = window.setTimeout(async () => {
+      try {
+        const { error } = await supabase
+          .from("items")
+          .update({ last_viewed_at: nowIso })
+          .eq("id", itemId)
+          .eq("user_id", userId);
+
+        if (error) throw error;
+      } catch {
+        // kritik değil: sessiz geçiyoruz (istersen tek seferlik toast ekleriz)
+      } finally {
+        delete viewTimersRef.current[itemId];
+      }
+    }, 600);
   };
 
   const fetchPlan = async (uid: string) => {
@@ -208,6 +260,14 @@ export default function DashboardPage() {
     if (error) throw error;
     setGroups((data ?? []) as any);
   };
+  useEffect(() => {
+    return () => {
+      Object.values(viewTimersRef.current).forEach((t) =>
+        window.clearTimeout(t)
+      );
+      viewTimersRef.current = {};
+    };
+  }, []);
 
   // onboarding
   useEffect(() => {
@@ -234,17 +294,23 @@ export default function DashboardPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, isPro]);
+  useEffect(() => {
+    if (activeGroupId !== "forgotten") {
+      setForgottenSelection([]);
+    }
+  }, [activeGroupId]);
 
   const groupCounts = useMemo(() => {
-    const counts: Record<string, number> = { inbox: 0 };
+    const counts: Record<string, number> = { inbox: 0, forgotten: 0 };
     for (const it of items as any) {
       const gid = it.group_id ? String(it.group_id) : "inbox";
       counts[gid] = (counts[gid] ?? 0) + 1;
+      if (isForgotten(it)) counts["forgotten"] = (counts["forgotten"] ?? 0) + 1;
     }
     return counts;
-  }, [items]);
+  }, [items, isForgotten]);
 
-  // ✅ Search + group filter
+  // ✅ Search + group filter (+ forgotten)
   const filteredItems = useMemo(() => {
     const s = q.trim().toLowerCase();
 
@@ -260,17 +326,34 @@ export default function DashboardPage() {
         });
 
     if (activeGroupId === "all") return base;
+
+    if (activeGroupId === "forgotten") {
+      return base.filter((it: any) => isForgotten(it));
+    }
+
     if (activeGroupId === "inbox")
       return base.filter((it: any) => !it.group_id);
+
     return base.filter((it: any) => String(it.group_id) === activeGroupId);
   }, [items, q, activeGroupId]);
 
+  const finalItems = useMemo(() => {
+    if (activeGroupId !== "forgotten") return filteredItems;
+
+    const sorted = [...filteredItems].sort((a: any, b: any) => {
+      const da = baseDateOf(a).getTime();
+      const db = baseDateOf(b).getTime();
+      return forgottenSort === "oldest" ? da - db : db - da;
+    });
+
+    return sorted;
+  }, [filteredItems, activeGroupId, forgottenSort]);
   const { notes, links } = useMemo(() => {
     return {
-      notes: filteredItems.filter((it) => it.type === "note"),
-      links: filteredItems.filter((it) => it.type === "link"),
+      notes: finalItems.filter((it) => it.type === "note"),
+      links: finalItems.filter((it) => it.type === "link"),
     };
-  }, [filteredItems]);
+  }, [finalItems]);
 
   // ✅ All view için gruplama
   const notesByGroup = useMemo(() => {
@@ -492,6 +575,7 @@ export default function DashboardPage() {
       group_id: it.group_id ?? null,
     });
     setOpenDetail(true);
+    markViewed(it.id);
   };
 
   const updateItem = async () => {
@@ -684,19 +768,40 @@ export default function DashboardPage() {
   const inboxDrop = makeDropHandlers("inbox");
 
   // ✅ Draggable wrapper
-  const DraggableWrap = ({ it }: { it: any }) => (
-    <div
-      draggable
-      onDragStart={onDragStartItem(it.id)}
-      onDragEnd={onDragEndItem}
-      className={`cursor-grab active:cursor-grabbing ${
-        draggingItemId === it.id ? "opacity-60 scale-[0.99]" : ""
-      }`}
-      title="Sürükleyip Inbox/Group’a bırak"
-    >
-      <ItemCard item={it} onOpen={openItem} />
-    </div>
-  );
+  const DraggableWrap = ({ it }: { it: any }) => {
+    const isForgottenMode = activeGroupId === "forgotten";
+    const checked = forgottenSelection.includes(it.id);
+
+    return (
+      <div className="relative">
+        {isForgottenMode ? (
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(e) => {
+              setForgottenSelection((prev) =>
+                e.target.checked
+                  ? [...prev, it.id]
+                  : prev.filter((x) => x !== it.id)
+              );
+            }}
+            className="absolute top-2 left-2 z-10"
+          />
+        ) : null}
+
+        <div
+          draggable={!isForgottenMode}
+          onDragStart={!isForgottenMode ? onDragStartItem(it.id) : undefined}
+          onDragEnd={!isForgottenMode ? onDragEndItem : undefined}
+          className={`cursor-grab ${
+            draggingItemId === it.id ? "opacity-60 scale-[0.99]" : ""
+          }`}
+        >
+          <ItemCard item={it} onOpen={openItem} />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <main className="min-h-screen">
@@ -788,6 +893,65 @@ export default function DashboardPage() {
                 All
               </button>
 
+              {/* ✅ Forgotten PILL */}
+              <button
+                onClick={() => setActiveGroupId("forgotten")}
+                className={`rounded-xl border px-3 py-1 text-xs ${
+                  activeGroupId === "forgotten"
+                    ? "border-neutral-600 bg-neutral-900 text-neutral-100"
+                    : "border-neutral-800 bg-neutral-950 text-neutral-300"
+                }`}
+                title="30+ gündür açılmayan kayıtlar"
+              >
+                Unutulanlar{" "}
+                <span className="text-neutral-500">
+                  ({groupCounts["forgotten"] ?? 0})
+                </span>
+              </button>
+              {activeGroupId === "forgotten" &&
+              forgottenSelection.length > 0 ? (
+                <div className="mt-3 flex gap-2 text-xs">
+                  <button
+                    onClick={async () => {
+                      if (!userId) return;
+                      await supabase
+                        .from("items")
+                        .update({ group_id: null })
+                        .in("id", forgottenSelection)
+                        .eq("user_id", userId);
+
+                      setForgottenSelection([]);
+                      await load(userId);
+                      showToast("ok", "Inbox’a taşındı");
+                    }}
+                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-neutral-300 hover:bg-neutral-900"
+                  >
+                    Inbox’a al
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (!userId) return;
+                      const ok = confirm("Seçili kayıtlar silinsin mi?");
+                      if (!ok) return;
+
+                      await supabase
+                        .from("items")
+                        .delete()
+                        .in("id", forgottenSelection)
+                        .eq("user_id", userId);
+
+                      setForgottenSelection([]);
+                      await load(userId);
+                      showToast("ok", "Silindi");
+                    }}
+                    className="rounded-xl border border-red-900/40 bg-red-950/40 px-3 py-1 text-red-300 hover:bg-red-900/40"
+                  >
+                    Sil
+                  </button>
+                </div>
+              ) : null}
+
               {/* ✅ Inbox PILL (drop zone) */}
               <button
                 type="button"
@@ -874,10 +1038,29 @@ export default function DashboardPage() {
               })}
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setOpenGroupModal(true)}>
+            <div className="flex gap-2 items-center">
+              <button
+                type="button"
+                onClick={() => setOpenGroupModal(true)}
+                className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-900 transition"
+              >
                 + Group
-              </Button>
+              </button>
+
+              {activeGroupId === "forgotten" ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForgottenSort((p) =>
+                      p === "oldest" ? "newest" : "oldest"
+                    )
+                  }
+                  className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-900 transition"
+                  title="Unutulanları sırala"
+                >
+                  {forgottenSort === "oldest" ? "En eski" : "En yeni"}
+                </button>
+              ) : null}
 
               <Input
                 value={q}

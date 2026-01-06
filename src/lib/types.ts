@@ -6,7 +6,9 @@ export type Item = {
   type: ItemType;
   title: string;
   content: string;
-  tags: string[]; // stored as text[] in Postgres
+  tags: string[];
+  group_id?: string | null;
+  last_viewed_at?: string | null;
   created_at: string;
   updated_at: string;
 };
