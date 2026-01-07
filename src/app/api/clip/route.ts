@@ -116,6 +116,7 @@ export async function POST(req: Request) {
     }
 
     const userId = tokenRow.user_id as string;
+
     // ✅ Pro kontrolü (downgrade olursa çalışmasın)
     const { data: planRow, error: planErr } = await admin
       .from("user_plan")
@@ -158,6 +159,26 @@ export async function POST(req: Request) {
     let content = String(body.content ?? "").trim();
     const note = String(body.note ?? "").trim();
 
+    // ✅✅✅ GROUP_ID: body’den al + doğrula (bu user’ın grubu mu?)
+    let group_id: string | null =
+      body.group_id === undefined ||
+      body.group_id === null ||
+      body.group_id === ""
+        ? null
+        : String(body.group_id);
+
+    if (group_id) {
+      const { data: g, error: gErr } = await admin
+        .from("groups")
+        .select("id")
+        .eq("id", group_id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (gErr) throw gErr;
+      if (!g) group_id = null; // user’a ait değilse inbox’a düşsün
+    }
+
     // link formatı: URL \n\n açıklama
     if (type === "link") {
       let url = String(body.url ?? content).trim();
@@ -191,7 +212,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4) items insert
+    // 4) items insert  ✅✅✅ group_id EKLENDİ
     const { data: inserted, error: insErr } = await admin
       .from("items")
       .insert({
@@ -200,11 +221,13 @@ export async function POST(req: Request) {
         title,
         content,
         tags,
+        group_id, // ✅ burası kritik
       })
       .select("id")
       .single();
 
     if (insErr) throw insErr;
+
     // ✅ Token kullanıldı -> last_used_at güncelle
     await admin
       .from("clip_tokens")

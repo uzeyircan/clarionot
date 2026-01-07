@@ -92,20 +92,6 @@ function setupMenus() {
 chrome.runtime.onInstalled.addListener(setupMenus);
 chrome.runtime.onStartup.addListener(setupMenus);
 
-// ✅ bridge.js buraya type:"SAVE_TOKEN" gönderir.
-// Bazı yerlerde type:"clarionot_TOKEN" görülebiliyor; ikisini de kabul ediyoruz.
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (
-    (msg?.type === "SAVE_TOKEN" || msg?.type === "clarionot_TOKEN") &&
-    msg.token
-  ) {
-    chrome.storage.sync.set({ [TOKEN_KEY]: msg.token }, () => {
-      sendResponse({ ok: true });
-    });
-    return true;
-  }
-});
-
 /**
  * ✅ SADECE 1 tane onClicked listener:
  * - Direkt kaydetmeyi kaldırdık (modal)
@@ -159,59 +145,105 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 /**
- * ✅ Modal kaydet dediğinde buraya gelir.
- * Burada payload'ı API formatına çevirip clipRequest ile gönderiyoruz.
+ * ✅ Tek onMessage listener (daha sağlam)
+ * - SAVE_TOKEN
+ * - CLARIONOT_SAVE_FROM_MODAL
  */
-chrome.runtime.onMessage.addListener(async (msg) => {
-  if (msg?.type !== "CLARIONOT_SAVE_FROM_MODAL") return;
-
-  try {
-    const p = msg.payload || {};
-
-    // Modal tarafı type göndermese bile dayanıklı olsun
-    const type =
-      p.type ||
-      p.inferredType ||
-      (p.url || p.link || p.pageUrl ? "link" : "note");
-
-    let apiPayload = null;
-
-    if (type === "link") {
-      const url = (p.url || p.link || p.pageUrl || p.content || "").trim();
-      if (!url) throw new Error("URL bulunamadı.");
-
-      apiPayload = {
-        type: "link",
-        url,
-        title: (p.title || "").trim(),
-        tags: Array.isArray(p.tags) ? p.tags : [],
-        note: (p.note || "").trim(),
-        group_id: p.group_id || null, // ✅ grup seçimi
-      };
-    } else {
-      const text = (p.content || p.selection || "").trim();
-      if (!text) throw new Error("Not içeriği boş.");
-
-      apiPayload = {
-        type: "note",
-        title: (p.title || "").trim(),
-        content: text,
-        tags: Array.isArray(p.tags) ? p.tags : [],
-        group_id: p.group_id || null, // ✅ grup seçimi
-      };
-    }
-
-    const out = await clipRequest(apiPayload);
-    notify("Kaydedildi", `id: ${out.id}`);
-  } catch (e) {
-    const emsg = e?.message || String(e);
-
-    if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
-      chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
-      return;
-    }
-
-    notify("Hata", emsg);
-    console.error(e);
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // ✅ bridge.js -> token kaydet
+  if (
+    (msg?.type === "SAVE_TOKEN" || msg?.type === "clarionot_TOKEN") &&
+    msg.token
+  ) {
+    chrome.storage.sync.set({ [TOKEN_KEY]: msg.token }, () => {
+      sendResponse({ ok: true });
+    });
+    return true;
   }
+  // ✅ modal -> groups isteği
+  if (msg?.type === "CLARIONOT_GET_GROUPS") {
+    (async () => {
+      try {
+        const groups = await fetchGroups();
+        sendResponse({ ok: true, groups });
+      } catch (e) {
+        const emsg = e?.message || String(e);
+
+        if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
+          sendResponse({ ok: false, code: emsg });
+          return;
+        }
+
+        sendResponse({ ok: false, code: "GROUPS_FETCH_FAILED", error: emsg });
+      }
+    })();
+
+    return true; // async sendResponse
+  }
+
+  // ✅ modal -> kaydet
+  if (msg?.type === "CLARIONOT_SAVE_FROM_MODAL") {
+    (async () => {
+      try {
+        const p = msg.payload || {};
+
+        // Modal bazen type gönderiyor bazen inferredType
+        const inferredType = p.type || p.inferredType || "link";
+
+        let apiPayload = null;
+
+        if (inferredType === "note") {
+          // NOT: içerik için öncelik content, yoksa note/selection
+          const content = String(
+            p.content || p.note || p.selection || ""
+          ).trim();
+          if (!content) throw new Error("Not içeriği boş.");
+
+          apiPayload = {
+            type: "note",
+            title: String(p.title || "").trim(),
+            content,
+            tags: Array.isArray(p.tags) ? p.tags : [],
+            group_id: p.group_id ?? null,
+          };
+        } else {
+          // LINK: url için öncelik url, yoksa content/link/pageUrl
+          const url = String(
+            p.url || p.content || p.link || p.pageUrl || ""
+          ).trim();
+          if (!url) throw new Error("URL bulunamadı.");
+
+          apiPayload = {
+            type: "link",
+            title: String(p.title || "").trim(),
+            url, // ✅ /api/clip bunu bekliyorsa doğru
+            tags: Array.isArray(p.tags) ? p.tags : [],
+            group_id: p.group_id ?? null,
+            note: String(p.note || "").trim(), // backend ignore etse bile sorun olmaz
+          };
+        }
+        console.log("[CLARIONOT] apiPayload", apiPayload); // ✅ doğru yer
+        const out = await clipRequest(apiPayload);
+        notify("Kaydedildi", `id: ${out?.id || "-"}`);
+
+        sendResponse({ ok: true, id: out?.id });
+      } catch (e) {
+        const emsg = e?.message || String(e);
+
+        if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
+          chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
+          sendResponse({ ok: false, error: emsg });
+          return;
+        }
+
+        notify("Hata", emsg);
+        console.error(e);
+        sendResponse({ ok: false, error: emsg });
+      }
+    })();
+
+    return true; // async sendResponse
+  }
+
+  return;
 });
