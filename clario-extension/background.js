@@ -1,6 +1,6 @@
 const API_BASE = "https://clarionot.com"; // prod domain
 const API_PATH = "/api/clip";
-const GROUPS_PATH = "/api/group";
+const GROUPS_PATH = "/api/groups";
 const TOKEN_KEY = "clarionot_token";
 
 function notify(title, message) {
@@ -31,6 +31,7 @@ async function clipRequest(payload) {
 
   const json = await res.json().catch(() => ({}));
 
+  // Token geçersizse temizleyip yeniden bağlatacağız
   if (res.status === 401) {
     await clearToken();
     throw new Error("TOKEN_INVALID");
@@ -40,8 +41,8 @@ async function clipRequest(payload) {
   return json;
 }
 
-// ✅ Groups çek (modal'da dropdown için)
-async function groupsRequest() {
+// ✅ Groups çek (modal dropdown için)
+async function fetchGroups() {
   const token = await getToken();
   if (!token) throw new Error("TOKEN_MISSING");
 
@@ -56,11 +57,13 @@ async function groupsRequest() {
 
   if (res.status === 401) {
     await clearToken();
-    throw new Error("TOKEN_INVALID");
+    throw new Error(json?.error || "TOKEN_INVALID");
   }
 
   if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
-  return json;
+
+  // beklenen format: { groups: [{id,title}, ...] }
+  return Array.isArray(json?.groups) ? json.groups : [];
 }
 
 // Menüleri kur: hem install hem tarayıcı açılışında
@@ -90,6 +93,7 @@ chrome.runtime.onInstalled.addListener(setupMenus);
 chrome.runtime.onStartup.addListener(setupMenus);
 
 // ✅ bridge.js buraya type:"SAVE_TOKEN" gönderir.
+// Bazı yerlerde type:"clarionot_TOKEN" görülebiliyor; ikisini de kabul ediyoruz.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (
     (msg?.type === "SAVE_TOKEN" || msg?.type === "clarionot_TOKEN") &&
@@ -104,24 +108,54 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 /**
  * ✅ SADECE 1 tane onClicked listener:
- * - Direkt kaydetmeyi KALDIRDIK (çünkü modal istiyorsun)
- * - Sağ tık -> modal aç
+ * - Direkt kaydetmeyi kaldırdık (modal)
+ * - Sağ tık -> grupları çek -> modal aç
  */
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (!tab?.id) return;
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  try {
+    if (!tab?.id) return;
 
-  let inferredType = "link";
-  if (info.menuItemId === "clarionot_save_selection") inferredType = "note";
+    // Token yoksa connect’e
+    const token = await getToken();
+    if (!token) {
+      chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
+      return;
+    }
 
-  chrome.tabs.sendMessage(tab.id, {
-    type: "CLARIONOT_OPEN_MODAL",
-    payload: {
-      inferredType,
-      selection: info.selectionText || "",
-      link: info.linkUrl || "",
-      pageUrl: tab.url || info.pageUrl || "",
-    },
-  });
+    // Hangi menüden geldiğine göre type belirleyelim
+    let inferredType = "link";
+    if (info.menuItemId === "clarionot_save_selection") inferredType = "note";
+
+    // ✅ Grupları çek (dropdown için)
+    let groups = [];
+    try {
+      groups = await fetchGroups();
+    } catch (e) {
+      // groups çekilemese bile modal açılsın (UI “Gruplar alınamadı” gösterebilir)
+      groups = [];
+    }
+
+    chrome.tabs.sendMessage(tab.id, {
+      type: "CLARIONOT_OPEN_MODAL",
+      payload: {
+        inferredType,
+        selection: info.selectionText || "",
+        link: info.linkUrl || "",
+        pageUrl: tab.url || info.pageUrl || "",
+        groups, // ✅ modal’a gidiyor
+      },
+    });
+  } catch (e) {
+    const emsg = e?.message || String(e);
+
+    if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
+      chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
+      return;
+    }
+
+    notify("Hata", emsg);
+    console.error(e);
+  }
 });
 
 /**
@@ -134,6 +168,7 @@ chrome.runtime.onMessage.addListener(async (msg) => {
   try {
     const p = msg.payload || {};
 
+    // Modal tarafı type göndermese bile dayanıklı olsun
     const type =
       p.type ||
       p.inferredType ||
@@ -150,8 +185,8 @@ chrome.runtime.onMessage.addListener(async (msg) => {
         url,
         title: (p.title || "").trim(),
         tags: Array.isArray(p.tags) ? p.tags : [],
-        group_id: p.group_id ?? null,
         note: (p.note || "").trim(),
+        group_id: p.group_id || null, // ✅ grup seçimi
       };
     } else {
       const text = (p.content || p.selection || "").trim();
@@ -162,7 +197,7 @@ chrome.runtime.onMessage.addListener(async (msg) => {
         title: (p.title || "").trim(),
         content: text,
         tags: Array.isArray(p.tags) ? p.tags : [],
-        group_id: p.group_id ?? null,
+        group_id: p.group_id || null, // ✅ grup seçimi
       };
     }
 
@@ -179,28 +214,4 @@ chrome.runtime.onMessage.addListener(async (msg) => {
     notify("Hata", emsg);
     console.error(e);
   }
-});
-
-/**
- * ✅ Modal açıldığında group listesini ister.
- * Content script (modal.js) -> background -> API -> modal.js
- */
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg?.type !== "CLARIONOT_GET_GROUPS") return;
-
-  (async () => {
-    try {
-      const out = await groupsRequest(); // { groups: [...] }
-      sendResponse({ ok: true, groups: out.groups || [] });
-    } catch (e) {
-      const emsg = e?.message || String(e);
-      if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
-        sendResponse({ ok: false, code: emsg });
-      } else {
-        sendResponse({ ok: false, code: "ERR", error: emsg });
-      }
-    }
-  })();
-
-  return true;
 });

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdminFromAuthHeader";
+import crypto from "crypto";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
+function sha256Hex(input: string) {
+  return crypto.createHash("sha256").update(input).digest("hex");
+}
 
 export async function GET(req: Request) {
   try {
@@ -10,11 +15,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "TOKEN_MISSING" }, { status: 401 });
     }
 
-    // 1) Clip token -> user_id (revoke edilmemiş olmalı)
+    // ✅ token -> token_hash
+    const tokenHash = sha256Hex(token);
+
+    // 1) Clip token hash -> user_id (revoke edilmemiş olmalı)
     const { data: tok, error: tokErr } = await supabaseAdmin
       .from("clip_tokens")
-      .select("user_id, revoked_at")
-      .eq("token", token)
+      .select("id,user_id,revoked_at")
+      .eq("token_hash", tokenHash)
       .is("revoked_at", null)
       .maybeSingle();
 
