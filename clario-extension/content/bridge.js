@@ -4,10 +4,50 @@
   const ACK_OK = "CLARIONOT_TOKEN_SAVED";
   const ACK_FAIL = "CLARIONOT_TOKEN_SAVE_FAILED";
 
+  // ✅ son sağ tık koordinatı
+  let lastRightClick = { x: 0, y: 0 };
+
   function log(...args) {
     console.log("[clarionot bridge]", ...args);
   }
 
+  // ✅ sağ tık koordinatını yakala
+  document.addEventListener(
+    "contextmenu",
+    (e) => {
+      lastRightClick = { x: e.clientX, y: e.clientY };
+    },
+    true
+  );
+
+  // ✅ background -> content: modal açma mesajını yakala ve koordinat ekle
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    try {
+      if (msg?.type !== "CLARIONOT_OPEN_MODAL") return;
+
+      // modal.js zaten chrome.runtime.onMessage dinliyor,
+      // o yüzden aynı mesajı tekrar göndermiyoruz.
+      // Ama payload'a koordinat eklemek için custom event dispatch ediyoruz.
+      const payload = msg.payload || {};
+
+      window.dispatchEvent(
+        new CustomEvent("CLARIONOT_OPEN_MODAL", {
+          detail: {
+            ...payload,
+            clickX: lastRightClick.x,
+            clickY: lastRightClick.y,
+          },
+        })
+      );
+
+      sendResponse?.({ ok: true });
+      return true;
+    } catch {
+      // sessiz geç
+    }
+  });
+
+  // ✅ Token köprüsü (senin kodun)
   window.addEventListener("message", (event) => {
     try {
       // sadece aynı sayfadan gelen mesajları al

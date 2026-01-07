@@ -335,7 +335,7 @@ export default function DashboardPage() {
       return base.filter((it: any) => !it.group_id);
 
     return base.filter((it: any) => String(it.group_id) === activeGroupId);
-  }, [items, q, activeGroupId]);
+  }, [items, q, activeGroupId, isForgotten]);
 
   const finalItems = useMemo(() => {
     if (activeGroupId !== "forgotten") return filteredItems;
@@ -348,6 +348,7 @@ export default function DashboardPage() {
 
     return sorted;
   }, [filteredItems, activeGroupId, forgottenSort]);
+
   const { notes, links } = useMemo(() => {
     return {
       notes: finalItems.filter((it) => it.type === "note"),

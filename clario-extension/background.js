@@ -80,42 +80,83 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+/**
+ * ✅ SADECE 1 tane onClicked listener:
+ * - Direkt kaydetmeyi KALDIRDIK (çünkü modal istiyorsun)
+ * - Sağ tık -> modal aç
+ */
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (!tab?.id) return;
+
+  // Hangi menüden geldiğine göre type belirleyelim
+  let inferredType = "link";
+  if (info.menuItemId === "clarionot_save_selection") inferredType = "note";
+
+  chrome.tabs.sendMessage(tab.id, {
+    type: "CLARIONOT_OPEN_MODAL",
+    payload: {
+      inferredType,
+      selection: info.selectionText || "",
+      link: info.linkUrl || "",
+      pageUrl: tab.url || info.pageUrl || "",
+    },
+  });
+});
+
+/**
+ * ✅ Modal kaydet dediğinde buraya gelir.
+ * Burada payload'ı API formatına çevirip clipRequest ile gönderiyoruz.
+ */
+chrome.runtime.onMessage.addListener(async (msg) => {
+  if (msg?.type !== "CLARIONOT_SAVE_FROM_MODAL") return;
+
   try {
-    let payload = null;
+    const p = msg.payload || {};
 
-    if (info.menuItemId === "clarionot_save_link") {
-      const url = info.linkUrl;
+    // Modal tarafı type göndermese bile dayanıklı olsun
+    const type =
+      p.type ||
+      p.inferredType ||
+      (p.url || p.link || p.pageUrl ? "link" : "note");
+
+    let apiPayload = null;
+
+    if (type === "link") {
+      const url = (p.url || p.link || p.pageUrl || p.content || "").trim();
       if (!url) throw new Error("URL bulunamadı.");
-      payload = { type: "link", url, title: "", tags: [] };
+
+      apiPayload = {
+        type: "link",
+        url,
+        title: (p.title || "").trim(),
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        // note alanını API desteklemiyorsa backend ignore eder (zarar vermez)
+        note: (p.note || "").trim(),
+      };
+    } else {
+      const text = (p.content || p.selection || "").trim();
+      if (!text) throw new Error("Not içeriği boş.");
+
+      apiPayload = {
+        type: "note",
+        title: (p.title || "").trim(),
+        content: text,
+        tags: Array.isArray(p.tags) ? p.tags : [],
+      };
     }
 
-    if (info.menuItemId === "clarionot_save_page") {
-      const url = tab?.url || info.pageUrl || "";
-      if (!url) throw new Error("URL bulunamadı.");
-      payload = { type: "link", url, title: "", tags: [] };
-    }
-
-    if (info.menuItemId === "clarionot_save_selection") {
-      const text = (info.selectionText || "").trim();
-      if (!text) throw new Error("Seçili metin yok.");
-      payload = { type: "note", title: "", content: text, tags: [] };
-    }
-
-    if (!payload) return;
-
-    const out = await clipRequest(payload);
+    const out = await clipRequest(apiPayload);
     notify("Kaydedildi", `id: ${out.id}`);
   } catch (e) {
-    const msg = e?.message || String(e);
+    const emsg = e?.message || String(e);
 
     // Token yoksa veya geçersizse connect'e götür
-    if (msg === "TOKEN_MISSING" || msg === "TOKEN_INVALID") {
+    if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
       chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
       return;
     }
 
-    notify("Hata", msg);
+    notify("Hata", emsg);
     console.error(e);
   }
 });

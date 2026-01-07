@@ -1,17 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "clarionot Clip",
-  "version": "1.0.6",
-  "description": "Right-click to save links/notes to clarionot.",
+  "name": "ClarioNot Clip",
+  "version": "1.0.7",
+  "action": { "default_title": "ClarioNot Clip" },
   "permissions": ["contextMenus", "storage", "tabs"],
   "host_permissions": ["https://clarionot.com/*"],
-  "background": { "service_worker": "background.js" },
-  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
-      "matches": ["https://clarionot.com/extension/connect"],
-      "js": ["content/bridge.js"],
-      "run_at": "document_start"
+      "matches": ["<all_urls>"],
+      "js": ["content/bridge.js", "content/modal.js"],
+      "run_at": "document_idle"
     }
   ]
 }
