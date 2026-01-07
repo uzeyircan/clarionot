@@ -10,9 +10,14 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content/bridge.js", "content/modal.js"],
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/modal.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://clarionot.com/extension/connect"],
+      "js": ["content/bridge.js"],
+      "run_at": "document_start"
     }
   ]
 }
