@@ -1,21 +1,27 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "./supabaseAdmin";
+import crypto from "crypto";
 
 export async function supabaseAdminFromAuthHeader(authHeader: string) {
-  const token = (authHeader || "").replace(/^Bearer\\s+/i, "").trim();
-  if (!token) throw new Error("Unauthorized");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new Error("No token");
+  }
 
-  // ⚠️ Buradaki alan adları DB'ne göre:
-  // clip_tokens tablosunda token kolonu farklıysa (ör. access_token) değiştir.
+  const token = authHeader.replace("Bearer ", "").trim();
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
   const { data, error } = await supabaseAdmin
     .from("clip_tokens")
     .select("user_id, revoked_at")
-    .eq("token", token)
-    .is("revoked_at", null)
+    .eq("token_hash", tokenHash)
     .maybeSingle();
 
-  if (error) throw error;
-  if (!data?.user_id) throw new Error("Unauthorized");
+  if (error || !data || data.revoked_at) {
+    throw new Error("Invalid token");
+  }
 
-  return { supabase: supabaseAdmin, userId: data.user_id as string };
+  return {
+    supabase: supabaseAdmin,
+    userId: data.user_id,
+  };
 }
 export { supabaseAdmin };
