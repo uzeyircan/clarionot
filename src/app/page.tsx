@@ -2,7 +2,8 @@
 
 import Header from "@/components/Header";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 const CHROME_STORE_URL =
@@ -12,6 +13,51 @@ export default function HomePage() {
   const [isProUser, setIsProUser] = useState(false);
   const [checkedPlan, setCheckedPlan] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
+
+  // ✅ Product tour state
+  const [activeShot, setActiveShot] = useState<
+    "webstore" | "procard" | "rightclick" | "modal"
+  >("webstore");
+
+  const shots = useMemo(
+    () => [
+      {
+        key: "webstore" as const,
+        kpi: "1/4",
+        title: "Chrome Web Store",
+        desc: "Eklentiyi tek tıkla kur.",
+        badge: "Kur",
+        src: "/landing/ss-1-webstore.png",
+      },
+      {
+        key: "procard" as const,
+        kpi: "2/4",
+        title: "Pro’da Tarayıcı Eklentisi kartı",
+        desc: "İlk kez bağlan → sonrasında kullanım hazır.",
+        badge: "Bağlan",
+        src: "/landing/ss-2-pro-card.png",
+      },
+      {
+        key: "rightclick" as const,
+        kpi: "3/4",
+        title: "Sağ tık → clarionot’ya Kaydet",
+        desc: "Sayfayı/linki/seçili metni anında kaydet.",
+        badge: "Sağ tık",
+        src: "/landing/ss-3-rightclick.png",
+      },
+      {
+        key: "modal" as const,
+        kpi: "4/4",
+        title: "Modal ile düzenle ve kaydet",
+        desc: "Başlık/açıklama/etiket + group seç → Kaydet.",
+        badge: "Modal",
+        src: "/landing/ss-4-modal.png",
+      },
+    ],
+    []
+  );
+
+  const active = shots.find((s) => s.key === activeShot) ?? shots[0];
 
   useEffect(() => {
     (async () => {
@@ -65,7 +111,6 @@ export default function HomePage() {
       return;
     }
 
-    // endpoint henüz hazır değilse
     alert("Ödeme sayfası henüz hazır değil. (checkoutUrl gelmedi)");
   };
 
@@ -189,6 +234,155 @@ export default function HomePage() {
             >
               Sağ tıkla kaydetmeyi aç → Extension’ı kur
             </a>
+          </div>
+        </section>
+
+        {/* ✅ PRODUCT TOUR (Screenshots) */}
+        <section className="mt-12 rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/30 px-3 py-1 text-xs text-neutral-300">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                Product tour
+              </div>
+              <h2 className="mt-3 text-lg font-semibold text-neutral-200">
+                30 saniyede kur, sağ tıkla kaydet, dashboard’da bul
+              </h2>
+              <p className="mt-2 text-sm text-neutral-400">
+                Aşağıdaki adımlara tıklayarak görüntüyü değiştir. Görselin
+                üzerine gelince yakınlaşır.
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <a
+                href={CHROME_STORE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-800 transition"
+              >
+                Extension’ı aç
+              </a>
+
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
+              >
+                Dashboard’a git
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-12">
+            {/* Left: steps */}
+            <div className="lg:col-span-4">
+              <div className="grid gap-2">
+                {shots.map((s) => {
+                  const isActive = s.key === activeShot;
+                  return (
+                    <button
+                      key={s.key}
+                      onClick={() => setActiveShot(s.key)}
+                      className={`text-left rounded-2xl border p-4 transition ${
+                        isActive
+                          ? "border-emerald-500/40 bg-emerald-500/10"
+                          : "border-neutral-800 bg-neutral-950 hover:bg-neutral-900/40"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-neutral-400">{s.kpi}</div>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[11px] ${
+                            isActive
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                              : "border-neutral-800 bg-neutral-900/20 text-neutral-300"
+                          }`}
+                        >
+                          {s.badge}
+                        </span>
+                      </div>
+                      <div
+                        className={`mt-2 text-sm font-semibold ${
+                          isActive ? "text-emerald-100" : "text-neutral-200"
+                        }`}
+                      >
+                        {s.title}
+                      </div>
+                      <div className="mt-1 text-sm text-neutral-400">
+                        {s.desc}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right: screenshot */}
+            <div className="lg:col-span-8">
+              <div className="rounded-2xl border border-neutral-800 bg-black/20 p-3">
+                <div className="flex items-center justify-between px-2 pb-3">
+                  <div className="text-xs text-neutral-400">{active.kpi}</div>
+                  <div className="text-xs font-semibold text-neutral-200">
+                    {active.title}
+                  </div>
+                  <div className="text-xs text-neutral-500">{active.badge}</div>
+                </div>
+
+                {/* “device/frame” + hover zoom */}
+                <div className="group relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950">
+                  <div className="absolute left-4 top-3 z-10 flex gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-red-500/70" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/70" />
+                  </div>
+
+                  <div className="relative aspect-[16/9] w-full">
+                    <Image
+                      src={active.src}
+                      alt={active.title}
+                      fill
+                      className="object-cover transition duration-500 group-hover:scale-[1.06]"
+                      sizes="(max-width: 1024px) 100vw, 760px"
+                      priority
+                    />
+                    {/* soft vignette */}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/10" />
+                  </div>
+                </div>
+
+                {/* Thumbnails */}
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  {shots.map((s) => {
+                    const isActive = s.key === activeShot;
+                    return (
+                      <button
+                        key={s.key}
+                        onClick={() => setActiveShot(s.key)}
+                        className={`relative overflow-hidden rounded-xl border bg-neutral-950 transition ${
+                          isActive
+                            ? "border-emerald-500/40"
+                            : "border-neutral-800 hover:border-neutral-700"
+                        }`}
+                        title={s.title}
+                      >
+                        <div className="relative aspect-[16/10] w-full">
+                          <Image
+                            src={s.src}
+                            alt={s.title}
+                            fill
+                            className="object-cover"
+                            sizes="200px"
+                          />
+                        </div>
+                        <div className="px-2 py-1 text-[10px] text-neutral-400 line-clamp-1">
+                          {s.badge}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 

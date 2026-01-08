@@ -767,6 +767,10 @@ export default function DashboardPage() {
   };
 
   const inboxDrop = makeDropHandlers("inbox");
+  const dropZoneClass = (isOver: boolean) =>
+    isOver
+      ? "outline outline-2 outline-emerald-500/60 bg-emerald-500/10 border-emerald-500/40"
+      : "";
 
   // ✅ Draggable wrapper
   const DraggableWrap = ({ it }: { it: any }) => {
@@ -1097,7 +1101,12 @@ export default function DashboardPage() {
             ) : activeGroupId === "all" ? (
               <div className="space-y-4">
                 {/* Inbox notes section */}
-                <div className="rounded-2xl border border-neutral-800 bg-neutral-950">
+                <div
+                  {...inboxDrop}
+                  className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
+                    dragOverTarget === "inbox"
+                  )}`}
+                >
                   <button
                     onClick={() => toggleCollapsed("inbox_notes")}
                     className="w-full flex items-center justify-between px-4 py-3 text-left"
@@ -1132,10 +1141,19 @@ export default function DashboardPage() {
                   const list = notesByGroup[g.id] ?? [];
                   if (list.length === 0) return null;
 
+                  const drop = makeDropHandlers({ groupId: g.id });
+                  const isOver =
+                    dragOverTarget !== null &&
+                    typeof dragOverTarget === "object" &&
+                    dragOverTarget.groupId === g.id;
+
                   return (
                     <div
                       key={g.id}
-                      className="rounded-2xl border border-neutral-800 bg-neutral-950"
+                      {...drop}
+                      className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
+                        isOver
+                      )}`}
                     >
                       <button
                         onClick={() => toggleCollapsed(`notes_${g.id}`)}
@@ -1192,7 +1210,12 @@ export default function DashboardPage() {
             ) : activeGroupId === "all" ? (
               <div className="space-y-4">
                 {/* Inbox links section */}
-                <div className="rounded-2xl border border-neutral-800 bg-neutral-950">
+                <div
+                  {...inboxDrop}
+                  className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
+                    dragOverTarget === "inbox"
+                  )}`}
+                >
                   <button
                     onClick={() => toggleCollapsed("inbox_links")}
                     className="w-full flex items-center justify-between px-4 py-3 text-left"
@@ -1227,10 +1250,19 @@ export default function DashboardPage() {
                   const list = linksByGroup[g.id] ?? [];
                   if (list.length === 0) return null;
 
+                  const drop = makeDropHandlers({ groupId: g.id });
+                  const isOver =
+                    dragOverTarget !== null &&
+                    typeof dragOverTarget === "object" &&
+                    dragOverTarget.groupId === g.id;
+
                   return (
                     <div
                       key={g.id}
-                      className="rounded-2xl border border-neutral-800 bg-neutral-950"
+                      {...drop}
+                      className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
+                        isOver
+                      )}`}
                     >
                       <button
                         onClick={() => toggleCollapsed(`links_${g.id}`)}
