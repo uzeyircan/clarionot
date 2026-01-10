@@ -127,14 +127,14 @@ export default function HomePage() {
       onClick={goDashboard}
       className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
     >
-      Not Kaydet
+      Unuttuklarını gör
     </button>
   ) : (
     <button
       onClick={goLogin}
       className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
     >
-      Giriş Yap / Kayıt Ol
+      Unuttuklarını gör
     </button>
   );
 
@@ -148,18 +148,19 @@ export default function HomePage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-950 px-3 py-1 text-xs text-neutral-300">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              Kişisel bilgi kasan
+              Unutulanları yakala
             </div>
 
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-5xl">
-              Önemli olanı kaydet.
+              Çok notun yok.
               <br />
-              İhtiyacın olduğunda anında bul.
+              Çok unutulanın var.
             </h1>
 
             <p className="mt-4 max-w-xl text-sm leading-6 text-neutral-300 sm:text-base">
-              clarionot, internette karşılaştığın değerli linkleri, notları ve
-              fikirleri kaybolmayan bir kişisel hafızaya dönüştürür.
+              clarionot, çoğunlukla kaydedip bir daha hiç açmadığın notları,
+              linkleri ve clip’leri ortaya çıkarır — “sonra bakarım” dediğin
+              notlarını geri getirir.
             </p>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -167,20 +168,20 @@ export default function HomePage() {
 
               <div className="text-xs text-neutral-500">
                 {isAuthed
-                  ? "Kayıtların seni bekliyor"
+                  ? "Unuttukların seni bekliyor"
                   : "Kredi kartı gerekmez · 30 saniyede kur"}
               </div>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-2 text-xs text-neutral-400">
               <span className="rounded-full border border-neutral-800 bg-neutral-950 px-3 py-1">
-                Link + açıklama
+                Unutulanları gör
               </span>
               <span className="rounded-full border border-neutral-800 bg-neutral-950 px-3 py-1">
-                Etiket
+                Aç / Sil / Ertele
               </span>
               <span className="rounded-full border border-neutral-800 bg-neutral-950 px-3 py-1">
-                Hızlı arama
+                “Sonra bakarım” kurtarıcısı
               </span>
             </div>
           </div>
@@ -223,7 +224,7 @@ export default function HomePage() {
               href="/dashboard"
               className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-800 transition"
             >
-              Demo gibi gör → Dashboard
+              Unuttuklarını gör → Dashboard
             </Link>
 
             <a
@@ -246,7 +247,7 @@ export default function HomePage() {
                 Product tour
               </div>
               <h2 className="mt-3 text-lg font-semibold text-neutral-200">
-                30 saniyede kur, sağ tıkla kaydet, dashboard’da bul
+                30 saniyede kur, sağ tıkla kaydet, unutulanları gör
               </h2>
               <p className="mt-2 text-sm text-neutral-400">
                 Aşağıdaki adımlara tıklayarak görüntüyü değiştir. Görselin
@@ -462,20 +463,23 @@ export default function HomePage() {
 
           <ul className="mt-4 grid gap-3 text-sm text-neutral-300 sm:grid-cols-2">
             <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-              “Buna sonra bakarım” deyip kaybettiğin linkler
+              “Buna sonra bakarım” deyip bir daha hiç açmadığın linkler
             </li>
             <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-              20 açık sekme… hangisi önemliydi hatırlamamak
+              20 açık sekme… hangisini neden açık tuttuğunu unutmak
             </li>
             <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-              Not aldın ama neden aldığını unutmak
+              Not aldın ama bir daha dönüp bakmamak
             </li>
             <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-              Aylar sonra arayıp bulamamak
+              Asıl mesele: kayıt var, geri dönüş yok
             </li>
           </ul>
 
-          <p className="mt-4 text-sm text-neutral-400">Bilgi çok, düzen yok.</p>
+          <p className="mt-4 text-sm text-neutral-400">
+            Bilgi çok.{" "}
+            <span className="text-neutral-200">Unutulan daha da çok.</span>
+          </p>
         </section>
 
         {/* HOW IT WORKS */}
@@ -486,27 +490,27 @@ export default function HomePage() {
               Link, not, fikir
             </div>
             <p className="mt-2 text-sm text-neutral-300">
-              Tek tıkla ekle. “Sonra bakarım” dediğin şey kaybolmasın.
+              Tek tıkla ekle. Kaydetmek kolay.
             </p>
           </div>
 
           <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-            <div className="text-xs text-neutral-400">2) Anlam kat</div>
+            <div className="text-xs text-neutral-400">2) Unut</div>
             <div className="mt-1 text-sm font-semibold text-neutral-200">
-              Açıklama + etiket
+              (Evet, bu normal)
             </div>
             <p className="mt-2 text-sm text-neutral-300">
-              Neden önemli olduğunu yaz. Etiketle.
+              Çoğu kayıt “sonra” diye kalır. Sonra gelmez.
             </p>
           </div>
 
           <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-            <div className="text-xs text-neutral-400">3) Bul</div>
+            <div className="text-xs text-neutral-400">3) Geri getir</div>
             <div className="mt-1 text-sm font-semibold text-neutral-200">
-              Saniyede geri getir
+              Unutulanları gör
             </div>
             <p className="mt-2 text-sm text-neutral-300">
-              Aylar sonra bile arama ile hemen bul.
+              clarionot sana açılmayanları gösterir: Aç / Sil / Ertele.
             </p>
           </div>
         </section>
@@ -527,34 +531,36 @@ export default function HomePage() {
               </div>
 
               <div className="border-b border-neutral-800 p-4 text-neutral-300">
-                Sadece yazarsın
+                Yazarsın ve kalabalık büyür
               </div>
               <div className="border-b border-neutral-800 p-4 text-neutral-300">
-                Bağlamıyla saklarsın
+                Unutulanları geri getirir
               </div>
 
               <div className="border-b border-neutral-800 p-4 text-neutral-300">
-                Link karmaşası
+                Kaydedersin, sonra kaybolur
               </div>
               <div className="border-b border-neutral-800 p-4 text-neutral-300">
-                Link + açıklama
+                Kaydedersin, sonra yüzüne vurur
               </div>
 
               <div className="border-b border-neutral-800 p-4 text-neutral-300">
-                Zayıf arama
+                “Bir gün bakarım”
               </div>
               <div className="border-b border-neutral-800 p-4 text-neutral-300">
-                Etiket + güçlü arama
+                “Bugün yüzleş”
               </div>
 
-              <div className="p-4 text-neutral-300">Günlük notlar</div>
-              <div className="p-4 text-neutral-300">Uzun vadeli hafıza</div>
+              <div className="p-4 text-neutral-300">Arşiv büyür</div>
+              <div className="p-4 text-neutral-300">
+                Arşiv temizlenir ve işe yarar
+              </div>
             </div>
           </div>
 
           <p className="mt-4 text-sm text-neutral-400">
-            Not almak geçicidir.{" "}
-            <span className="text-neutral-200">Hatırlamak kalıcıdır.</span>
+            Not almak kolay.{" "}
+            <span className="text-neutral-200">Geri dönmek zordur.</span>
           </p>
         </section>
 
@@ -575,14 +581,14 @@ export default function HomePage() {
               <div className="mt-1 text-xs text-neutral-500">0 TL</div>
 
               <ul className="mt-4 space-y-2 text-sm text-neutral-300">
-                <li>• 50 kayıt limiti (not + link toplam)</li>
+                <li>• Unutulanlar: son 7 gün (açılmayan kayıtlar)</li>
+                <li>• Aç / Sil</li>
                 <li>• Arama</li>
-                <li>• Etiketleme</li>
                 <li>• Manuel ekleme (dashboard’dan)</li>
               </ul>
 
               <p className="mt-4 text-xs text-neutral-500">
-                Tıkla ve kullanmaya başla.
+                Tıkla ve unuttuklarını gör.
               </p>
             </div>
 
@@ -604,19 +610,19 @@ export default function HomePage() {
                   </div>
                 </div>
                 <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
-                  En iyi deneyim
+                  Unutulanlar modu
                 </span>
               </div>
 
               <ul className="mt-4 space-y-2 text-sm text-emerald-100">
-                <li>• Sınırsız kayıt</li>
+                <li>• Unutulanlar: 30 / 60 / 90+ gün</li>
+                <li>• Ertele (Snooze)</li>
                 <li>• clarionot Clip ile sağ tık → tek tık kaydetme</li>
-                <li>• Daha hızlı “ikinci beyin” akışı</li>
                 <li>• Yeni özelliklere erken erişim (yakında)</li>
               </ul>
 
               <p className="mt-4 text-xs text-emerald-200/80">
-                Tıkla → Ödeme ekranına git → otomatik yenilenen Pro’yu aç.
+                Tıkla → Ödeme ekranına git → Pro’yu aç.
               </p>
             </div>
           </section>
@@ -625,10 +631,11 @@ export default function HomePage() {
         {/* FINAL CTA */}
         <section className="mt-12 rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
           <h2 className="text-lg font-semibold text-neutral-200">
-            Bilgiyi kaybetmeyi bırak
+            Unutulanları temizle
           </h2>
           <p className="mt-2 text-sm text-neutral-300">
-            clarionot ile önemli olan her şey tek yerde.
+            Kaydetmek kolay. Geri dönmek zor. clarionot bunu senin yerine
+            başlatır.
           </p>
 
           <div className="mt-5">{primaryCTA}</div>
