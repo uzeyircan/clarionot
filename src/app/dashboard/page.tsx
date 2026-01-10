@@ -137,7 +137,6 @@ export default function DashboardPage() {
     const ms = Date.now() - baseDateOf(it).getTime();
     return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
   };
-
   const skipOnboarding = () => {
     if (userId) {
       const key = `clarionot:onboarding:v1:${userId}`;
@@ -231,12 +230,18 @@ export default function DashboardPage() {
   const checkExtension = async (uid: string) => {
     setExtChecking(true);
     try {
+      const cutoff = new Date(
+        Date.now() - 7 * 24 * 60 * 60 * 1000
+      ).toISOString();
+
       const { data, error } = await supabase
         .from("clip_tokens")
-        .select("id, revoked_at, label")
+        .select("id, revoked_at, label, last_seen_at")
         .eq("user_id", uid)
         .eq("label", "Browser Extension")
         .is("revoked_at", null)
+        .not("last_seen_at", "is", null)
+        .gte("last_seen_at", cutoff)
         .limit(1);
 
       if (error) throw error;
@@ -860,23 +865,14 @@ export default function DashboardPage() {
                     ✅ Eklenti bağlı
                   </div>
                 ) : (
-                  <div className="text-xs text-amber-300">
-                    ⚠️ Eklenti bağlı değil
+                  <div className="text-xs text-rose-300">
+                    ❌ Eklenti bağlı değil
                   </div>
                 )}
               </div>
 
               {!extChecking && !extConnected ? (
                 <div className="flex gap-2">
-                  <a
-                    href={CHROME_STORE_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
-                  >
-                    Extension’ı Kur
-                  </a>
-
                   <a
                     href="/extension/connect"
                     className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-3 py-2 text-xs font-semibold text-neutral-900 hover:bg-neutral-100 transition"
@@ -889,7 +885,7 @@ export default function DashboardPage() {
                   onClick={() => router.push("/extension/connect")}
                   className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
                 >
-                  Yeniden bağla
+                  {extConnected ? "Yeniden bağla" : "Bağlan"}
                 </button>
               )}
             </div>

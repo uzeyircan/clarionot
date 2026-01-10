@@ -116,6 +116,11 @@ export async function POST(req: Request) {
     }
 
     const userId = tokenRow.user_id as string;
+    // token doğrulandıktan sonra, pro kontrolünden önce/sonra fark etmez
+    await admin
+      .from("clip_tokens")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("id", tokenRow.id);
 
     // ✅ Pro kontrolü (downgrade olursa çalışmasın)
     const { data: planRow, error: planErr } = await admin

@@ -15,7 +15,10 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://clarionot.com/extension/connect"],
+      "matches": [
+        "https://clarionot.com/extension/connect*",
+        "http://localhost:3000/extension/connect*"
+      ],
       "js": ["content/bridge.js"],
       "run_at": "document_start"
     }

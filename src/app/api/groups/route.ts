@@ -32,6 +32,10 @@ export async function GET(req: Request) {
     if (!userId) {
       return NextResponse.json({ error: "TOKEN_INVALID" }, { status: 401 });
     }
+    await supabaseAdmin
+      .from("clip_tokens")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("id", tok.id);
 
     // 2) user_id -> groups
     const { data, error } = await supabaseAdmin
