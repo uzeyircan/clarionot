@@ -177,27 +177,64 @@ export default function DashboardPage() {
       }
     }, 600);
   };
-
-  const fetchPlan = async (uid: string) => {
+  const fetchUserSettings = async (uid: string) => {
     try {
       const { data, error } = await supabase
-        .from("user_plan")
-        .select("plan,status,forgotten_days")
+        .from("user_settings")
+        .select("forgotten_days")
         .eq("user_id", uid)
         .maybeSingle();
 
       if (error) throw error;
 
-      const ok = data?.plan === "pro" && data?.status === "active";
-      setIsPro(!!ok);
+      if (!data) {
+        // ilk kez giren kullanıcı → default ayarı oluştur
+        const { error: insErr } = await supabase
+          .from("user_settings")
+          .upsert(
+            { user_id: uid, forgotten_days: 30 },
+            { onConflict: "user_id" }
+          );
 
-      // ✅ Pro ayarı DB'den oku (30/60/90)
-      const fd = Number((data as any)?.forgotten_days);
-      if (fd === 30 || fd === 60 || fd === 90) setProForgottenDays(fd);
+        if (insErr) throw insErr;
+
+        setProForgottenDays(30);
+        return;
+      }
+
+      const value = Number((data as any).forgotten_days);
+      if (value === 30 || value === 60 || value === 90)
+        setProForgottenDays(value);
       else setProForgottenDays(30);
     } catch {
-      setIsPro(false);
       setProForgottenDays(30);
+    }
+  };
+
+  const fetchPlan = async (uid: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("user_plan")
+        .select("plan,status")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      if (error || !data) {
+        setIsPro(false);
+        return;
+      }
+
+      const isProUser =
+        data.plan === "pro" &&
+        (data.status === "active" || data.status === "trialing");
+
+      setIsPro(isProUser);
+
+      if (isProUser) {
+        await fetchUserSettings(uid);
+      }
+    } catch {
+      setIsPro(false);
     }
   };
 
@@ -240,12 +277,30 @@ export default function DashboardPage() {
         .eq("user_id", uid)
         .eq("label", "Browser Extension")
         .is("revoked_at", null)
-        .not("last_seen_at", "is", null)
-        .gte("last_seen_at", cutoff)
+        .order("created_at", { ascending: false })
         .limit(1);
 
       if (error) throw error;
-      setExtConnected((data?.length ?? 0) > 0);
+
+      const row = data?.[0];
+      if (!row) {
+        // hiç token yok => bağlı değil
+        setExtConnected(false);
+        return;
+      }
+
+      // token var => en azından "bağlandı" say (yeniden bağla çıksın)
+      // last_seen_at null ise: extension henüz API'ye vurmadı (ilk bağlantıda normal)
+      // last_seen_at cutoff'tan eski ise: token var ama uzun süredir kullanılmıyor (istersen burada false yapabilirsin)
+      const seen = row.last_seen_at;
+      const isLive = seen ? seen >= cutoff : false;
+
+      // Minimum değişiklik: token varsa true tutuyoruz (UI'da "Bağlan" çıkmasın)
+      // İstersen burada isLive'a göre ayrı bir yazı gösterebilirsin.
+      setExtConnected(true);
+
+      // Eğer "7 günden eskiyse bağlı değil say" istiyorsan:
+      // setExtConnected(isLive);
     } catch {
       setExtConnected(false);
     } finally {
@@ -848,6 +903,35 @@ export default function DashboardPage() {
         ) : null}
 
         {/* ✅ Extension card only Pro */}
+        {/* ✅ Forgotten Upsell (Free users) */}
+        {isPro === false && activeGroupId === "forgotten" ? (
+          <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-neutral-200">
+                  Unutulanlar: Free vs Pro
+                </div>
+                <div className="mt-1 text-xs text-neutral-400">
+                  Free planda{" "}
+                  <span className="text-neutral-200 font-semibold">7+</span>{" "}
+                  gündür bakmadıkların burada görünür. Pro’da{" "}
+                  <span className="text-neutral-200 font-semibold">
+                    30 / 60 / 90+
+                  </span>{" "}
+                  seçip kontrolü eline alırsın.
+                </div>
+              </div>
+
+              <a
+                href="/pro"
+                className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-3 py-2 text-xs font-semibold text-neutral-900 hover:bg-neutral-100 transition"
+              >
+                Pro’ya geç
+              </a>
+            </div>
+          </div>
+        ) : null}
+
         {isPro === true ? (
           <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -925,7 +1009,7 @@ export default function DashboardPage() {
                 title={
                   isPro === true
                     ? `${proForgottenDays}+ gündür açılmayan kayıtlar`
-                    : "7+ gündür açılmayan kayıtlar"
+                    : "Free: 7+ gün | Pro: 30/60/90 seç"
                 }
               >
                 Unutulanlar{" "}
@@ -942,24 +1026,23 @@ export default function DashboardPage() {
                     value={proForgottenDays}
                     onChange={async (e) => {
                       if (!userId) return;
-                      const v = Number(e.target.value) as 30 | 60 | 90;
 
-                      setProForgottenDays(v); // optimistic
+                      const value = Number(e.target.value) as 30 | 60 | 90;
+
+                      setProForgottenDays(value); // optimistic
 
                       const { error } = await supabase
-                        .from("user_plan")
-                        .update({ forgotten_days: v })
+                        .from("user_settings")
+                        .update({ forgotten_days: value })
                         .eq("user_id", userId);
 
                       if (error) {
                         showToast("err", "Ayar kaydedilemedi ❌");
-                        fetchPlan(userId);
+                        fetchUserSettings(userId);
                       } else {
                         showToast("ok", "Ayar kaydedildi ✅");
                       }
                     }}
-                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs text-neutral-200"
-                    title="Unutulanlar eşiği"
                   >
                     <option value={30}>30+</option>
                     <option value={60}>60+</option>
