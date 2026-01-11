@@ -10,7 +10,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": [
+        "https://clarionot.com/*",
+        "https://www.clarionot.com/*",
+        "http://localhost:3000/*"
+      ],
+
       "js": ["content/modal.js"],
       "run_at": "document_idle"
     },

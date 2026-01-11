@@ -19,20 +19,58 @@ export default function UpdatePasswordPage() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  // ✅ Session yoksa formu kilitle
+  const [hasSession, setHasSession] = useState<boolean>(false);
+  const [checking, setChecking] = useState<boolean>(true);
+
   useEffect(() => {
-    // Bu sayfaya mail linkiyle gelince supabase session kurulur.
-    // Session yoksa kullanıcı buraya direkt girmiş olabilir.
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        setMsg(
-          "❌ Geçersiz veya süresi dolmuş bağlantı. Tekrar şifre sıfırla."
-        );
+    let alive = true;
+
+    const check = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!alive) return;
+
+        const ok = !!data.session;
+        setHasSession(ok);
+
+        if (!ok) {
+          setMsg(
+            "❌ Geçersiz veya süresi dolmuş bağlantı. Tekrar şifre sıfırla."
+          );
+        } else {
+          setMsg(null);
+        }
+      } finally {
+        if (alive) setChecking(false);
+      }
+    };
+
+    check();
+
+    // ✅ Bazı durumlarda session URL’den gecikmeli kurulur: dinle
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const ok = !!session;
+      setHasSession(ok);
+
+      if (ok) {
+        setMsg(null);
       }
     });
+
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const submit = async () => {
     setMsg(null);
+
+    if (!hasSession) {
+      setMsg("❌ Bu sayfa sadece sıfırlama linki ile kullanılabilir.");
+      return;
+    }
 
     if (password.length < 6) {
       setMsg("Şifre en az 6 karakter olmalı.");
@@ -81,6 +119,7 @@ export default function UpdatePasswordPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              disabled={checking || !hasSession}
             />
           </div>
 
@@ -93,6 +132,7 @@ export default function UpdatePasswordPage() {
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
               placeholder="••••••••"
+              disabled={checking || !hasSession}
             />
           </div>
 
@@ -102,9 +142,25 @@ export default function UpdatePasswordPage() {
             </div>
           ) : null}
 
-          <Button onClick={submit} disabled={loading} className="w-full">
-            {loading ? "Kaydediliyor..." : "Şifreyi güncelle"}
+          <Button
+            onClick={submit}
+            disabled={checking || !hasSession || loading}
+            className="w-full"
+          >
+            {checking
+              ? "Kontrol ediliyor..."
+              : loading
+              ? "Kaydediliyor..."
+              : "Şifreyi güncelle"}
           </Button>
+
+          {!checking && !hasSession ? (
+            <div className="pt-1 text-xs text-neutral-400">
+              <Link href="/reset-password" className="underline">
+                Tekrar şifre sıfırla
+              </Link>
+            </div>
+          ) : null}
         </div>
       </div>
     </main>

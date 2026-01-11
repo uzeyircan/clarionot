@@ -25,9 +25,6 @@
     try {
       if (msg?.type !== "CLARIONOT_OPEN_MODAL") return;
 
-      // modal.js zaten chrome.runtime.onMessage dinliyor,
-      // o yüzden aynı mesajı tekrar göndermiyoruz.
-      // Ama payload'a koordinat eklemek için custom event dispatch ediyoruz.
       const payload = msg.payload || {};
 
       window.dispatchEvent(
@@ -47,43 +44,46 @@
     }
   });
 
-  // ✅ Token köprüsü (senin kodun)
+  // ✅ Token köprüsü (web -> extension)
   window.addEventListener("message", (event) => {
     try {
-      // sadece aynı sayfadan gelen mesajları al
+      // sadece aynı sayfadan ve aynı origin'den gelen mesajları al
       if (event.source !== window) return;
+      if (event.origin !== window.location.origin) return;
 
       const data = event.data || {};
       if (!TOKEN_MESSAGE_TYPES.includes(data.type)) return;
 
       const token = data.token;
-      if (!token) return;
+      if (!token || typeof token !== "string") return;
 
       log("token received, forwarding to background...");
 
-      // Background'a kaydet
       chrome.runtime.sendMessage({ type: "SAVE_TOKEN", token }, (resp) => {
         const lastErr = chrome.runtime.lastError;
         const ok = !!resp?.ok && !lastErr;
 
         if (!ok) {
+          const errMsg =
+            (lastErr && lastErr.message) ||
+            (typeof resp?.error === "string" ? resp.error : "") ||
+            "SAVE_TOKEN failed";
+
           log("SAVE_TOKEN failed", lastErr || resp);
+
           // ✅ sayfaya FAIL dön (timeout beklemesin)
           window.postMessage(
-            {
-              type: ACK_FAIL,
-              error: (lastErr && lastErr.message) || "SAVE_TOKEN failed",
-            },
+            { type: ACK_FAIL, error: errMsg },
             window.location.origin
           );
           return;
         }
 
-        // Sayfaya ACK dön (page.tsx bunu bekleyecek)
+        // ✅ Sayfaya ACK dön (page.tsx bunu bekleyecek)
         window.postMessage({ type: ACK_OK }, window.location.origin);
         log("ACK sent");
       });
-    } catch (e) {
+    } catch {
       // sessiz geç
     }
   });

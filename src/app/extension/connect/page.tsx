@@ -72,13 +72,16 @@ export default function ExtensionConnectPage() {
 
         await new Promise<void>((resolve, reject) => {
           let resolved = false;
+          let iv: number | null = null;
+          let t: number | null = null;
 
-          const cleanup = (timer?: number) => {
-            if (timer) clearTimeout(timer);
+          const cleanup = () => {
+            if (t) window.clearTimeout(t);
+            if (iv) window.clearInterval(iv);
             window.removeEventListener("message", onMsg);
           };
 
-          const t = window.setTimeout(() => {
+          t = window.setTimeout(() => {
             if (resolved) return;
             cleanup();
             reject(
@@ -87,24 +90,27 @@ export default function ExtensionConnectPage() {
           }, 8000);
 
           function onMsg(e: MessageEvent) {
+            // sadece aynı sayfa içinden gelen mesajlar
+            if (e.source !== window) return;
             if (e.origin !== window.location.origin) return;
 
-            const type = e.data?.type;
+            const type = (e.data as any)?.type;
 
             if (type === ACK_OK) {
               resolved = true;
-              cleanup(t);
+              cleanup();
               resolve();
               return;
             }
 
             if (type === ACK_FAIL) {
               const msg =
-                typeof e.data?.error === "string" && e.data.error.trim()
-                  ? e.data.error
+                typeof (e.data as any)?.error === "string" &&
+                (e.data as any).error.trim()
+                  ? (e.data as any).error
                   : "Token kaydı başarısız.";
               resolved = true;
-              cleanup(t);
+              cleanup();
               reject(new Error(msg));
               return;
             }
@@ -114,20 +120,25 @@ export default function ExtensionConnectPage() {
 
           // ✅ content script geç yüklenebilir: birkaç kez tekrar gönder
           let tries = 0;
-          const iv = window.setInterval(() => {
-            tries++;
+
+          const send = () => {
             window.postMessage(
               { type: "clarionot_TOKEN", token },
               window.location.origin
             );
-            if (tries >= 10) clearInterval(iv);
+          };
+
+          iv = window.setInterval(() => {
+            tries++;
+            send();
+            if (tries >= 10 && iv) {
+              window.clearInterval(iv);
+              iv = null;
+            }
           }, 300);
 
           // ilk gönder
-          window.postMessage(
-            { type: "clarionot_TOKEN", token },
-            window.location.origin
-          );
+          send();
         });
 
         setStatus("done");

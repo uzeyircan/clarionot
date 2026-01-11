@@ -50,8 +50,10 @@ export default function DashboardPage() {
   const [openOnboarding, setOpenOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
 
-  // ✅ extension durumu
+  // ✅ extension durumu (DB token var mı?)
   const [extConnected, setExtConnected] = useState<boolean>(false);
+  // ✅ bu tarayıcıda gerçekten canlı mı?
+  const [extLiveHere, setExtLiveHere] = useState<boolean>(false);
   const [extChecking, setExtChecking] = useState<boolean>(true);
 
   const CHROME_STORE_URL =
@@ -177,6 +179,7 @@ export default function DashboardPage() {
       }
     }, 600);
   };
+
   const fetchUserSettings = async (uid: string) => {
     try {
       const { data, error } = await supabase
@@ -264,8 +267,32 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
+  // ✅ Extension: bu tarayıcıda canlı mı? (PING/PONG)
+  const pingExtension = async () => {
+    const PING = "CLARIONOT_PING";
+    const PONG = "CLARIONOT_PONG";
+
+    return await new Promise<boolean>((resolve) => {
+      const t = window.setTimeout(() => {
+        window.removeEventListener("message", onMsg);
+        resolve(false);
+      }, 1200);
+
+      function onMsg(e: MessageEvent) {
+        if (e.origin !== window.location.origin) return;
+        if ((e.data as any)?.type !== PONG) return;
+
+        window.clearTimeout(t);
+        window.removeEventListener("message", onMsg);
+        resolve(true);
+      }
+
+      window.addEventListener("message", onMsg);
+      window.postMessage({ type: PING }, window.location.origin);
+    });
+  };
+
   const checkExtension = async (uid: string) => {
-    setExtChecking(true);
     try {
       const cutoff = new Date(
         Date.now() - 7 * 24 * 60 * 60 * 1000
@@ -286,25 +313,23 @@ export default function DashboardPage() {
       if (!row) {
         // hiç token yok => bağlı değil
         setExtConnected(false);
-        return;
+        return false;
       }
 
-      // token var => en azından "bağlandı" say (yeniden bağla çıksın)
-      // last_seen_at null ise: extension henüz API'ye vurmadı (ilk bağlantıda normal)
-      // last_seen_at cutoff'tan eski ise: token var ama uzun süredir kullanılmıyor (istersen burada false yapabilirsin)
       const seen = row.last_seen_at;
       const isLive = seen ? seen >= cutoff : false;
 
-      // Minimum değişiklik: token varsa true tutuyoruz (UI'da "Bağlan" çıkmasın)
-      // İstersen burada isLive'a göre ayrı bir yazı gösterebilirsin.
+      // DB açısından: token var mı? => bağlı say
       setExtConnected(true);
 
-      // Eğer "7 günden eskiyse bağlı değil say" istiyorsan:
-      // setExtConnected(isLive);
+      // isLive bilgisi istersen ileride UI'da kullanılır; şimdilik sadece not:
+      // (şu an gerçek "bu tarayıcıda var mı?" kontrolü ping ile)
+      void isLive;
+
+      return true;
     } catch {
       setExtConnected(false);
-    } finally {
-      setExtChecking(false);
+      return false;
     }
   };
 
@@ -366,9 +391,29 @@ export default function DashboardPage() {
     load(userId);
     loadGroups(userId);
 
-    if (isPro === true) checkExtension(userId);
+    if (isPro === true) {
+      (async () => {
+        setExtChecking(true);
+        try {
+          const hasToken = await checkExtension(userId); // DB kontrol
+          if (!hasToken) {
+            setExtLiveHere(false);
+            return;
+          }
+          const live = await pingExtension(); // bu tarayıcı kontrol
+          setExtLiveHere(live);
+        } catch {
+          setExtConnected(false);
+          setExtLiveHere(false);
+        } finally {
+          setExtChecking(false);
+        }
+      })();
+    }
+
     if (isPro === false) {
       setExtConnected(false);
+      setExtLiveHere(false);
       setExtChecking(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -902,7 +947,6 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
-        {/* ✅ Extension card only Pro */}
         {/* ✅ Forgotten Upsell (Free users) */}
         {isPro === false && activeGroupId === "forgotten" ? (
           <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
@@ -932,6 +976,7 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
+        {/* ✅ Extension card only Pro */}
         {isPro === true ? (
           <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -944,9 +989,13 @@ export default function DashboardPage() {
                   <div className="text-xs text-neutral-400">
                     Kontrol ediliyor…
                   </div>
-                ) : extConnected ? (
+                ) : extLiveHere ? (
                   <div className="text-xs text-emerald-300">
-                    ✅ Eklenti bağlı
+                    ✅ Bu tarayıcıda aktif
+                  </div>
+                ) : extConnected ? (
+                  <div className="text-xs text-amber-300">
+                    ⚠️ Bağlı görünüyor ama bu tarayıcıda aktif değil
                   </div>
                 ) : (
                   <div className="text-xs text-rose-300">
@@ -955,7 +1004,7 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {!extChecking && !extConnected ? (
+              {!extChecking && !extLiveHere ? (
                 <div className="flex gap-2">
                   <a
                     href="/extension/connect"
@@ -969,12 +1018,12 @@ export default function DashboardPage() {
                   onClick={() => router.push("/extension/connect")}
                   className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
                 >
-                  {extConnected ? "Yeniden bağla" : "Bağlan"}
+                  Yeniden bağla
                 </button>
               )}
             </div>
 
-            {!extChecking && !extConnected ? (
+            {!extChecking && !extLiveHere ? (
               <div className="mt-2 text-xs text-neutral-500">
                 Pro kullanıcılar sağ tık → “clarionot’ya Kaydet” ile tek tık
                 kaydeder.

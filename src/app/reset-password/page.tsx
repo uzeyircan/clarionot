@@ -17,14 +17,21 @@ export default function ResetPasswordPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const submit = async () => {
+    const mail = email.trim();
     setMsg(null);
+
+    if (!mail) return;
+
     setLoading(true);
     try {
       const origin =
         typeof window !== "undefined" ? window.location.origin : "";
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${origin}/update-password`,
+      // ✅ Prod için sabit site url tercih et, yoksa origin kullan
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "").trim() || origin;
+
+      const { error } = await supabase.auth.resetPasswordForEmail(mail, {
+        redirectTo: `${siteUrl}/update-password`,
       });
 
       if (error) throw error;
@@ -71,7 +78,7 @@ export default function ResetPasswordPage() {
 
           <Button
             onClick={submit}
-            disabled={loading || !email}
+            disabled={loading || !email.trim()}
             className="w-full"
           >
             {loading ? "Gönderiliyor..." : "Sıfırlama linki gönder"}
