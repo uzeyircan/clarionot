@@ -33,7 +33,7 @@ export default function HomePage() {
         key: "procard" as const,
         kpi: "2/4",
         title: "Pro’da Tarayıcı Eklentisi kartı",
-        desc: "İlk kez bağlan → sonrasında kullanım hazır.",
+        desc: "İlk kez bağlan → sonra kullanım hazır.",
         badge: "Bağlan",
         src: "/landing/ss-2-pro-card.png",
       },
@@ -48,9 +48,9 @@ export default function HomePage() {
       {
         key: "modal" as const,
         kpi: "4/4",
-        title: "Modal ile düzenle ve kaydet",
+        title: "Modal ile bağlam ekle",
         desc: "Başlık/açıklama/etiket + group seç → Kaydet.",
-        badge: "Modal",
+        badge: "Bağlam",
         src: "/landing/ss-4-modal.png",
       },
     ],
@@ -127,15 +127,24 @@ export default function HomePage() {
       onClick={goDashboard}
       className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
     >
-      Unuttuklarını gör
+      Dashboard’a git
     </button>
   ) : (
     <button
       onClick={goLogin}
       className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
     >
-      Unuttuklarını gör
+      Ücretsiz başla
     </button>
+  );
+
+  const secondaryCTA = (
+    <a
+      href="#how"
+      className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-sm font-semibold text-neutral-200 hover:bg-neutral-900 transition"
+    >
+      Nasıl çalışıyor?
+    </a>
   );
 
   return (
@@ -143,7 +152,7 @@ export default function HomePage() {
       <div className="mx-auto max-w-5xl px-6 py-10">
         <Header />
 
-        {/* HERO */}
+        {/* 1) HERO */}
         <section className="mt-10 grid gap-8 md:grid-cols-2 md:items-center">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-950 px-3 py-1 text-xs text-neutral-300">
@@ -152,23 +161,27 @@ export default function HomePage() {
             </div>
 
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-5xl">
-              Çok notun yok.
+              Kaydettiğini unutanlar için
               <br />
-              Çok unutulanın var.
+              ikinci beyin.
             </h1>
 
             <p className="mt-4 max-w-xl text-sm leading-6 text-neutral-300 sm:text-base">
-              clarionot, çoğunlukla kaydedip bir daha hiç açmadığın notları,
-              linkleri ve clip’leri ortaya çıkarır — “sonra bakarım” dediğin
-              notlarını geri getirir.
+              clarionot, kaydedip bir daha açmadığın notları/linkleri ortaya
+              çıkarır. “Sonra bakarım” dediklerini önüne koyar:{" "}
+              <span className="text-neutral-100 font-semibold">
+                Aç / Sil / Ertele
+              </span>
+              .
             </p>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
               {primaryCTA}
+              {secondaryCTA}
 
-              <div className="text-xs text-neutral-500">
+              <div className="text-xs text-neutral-500 sm:ml-2">
                 {isAuthed
-                  ? "Unuttukların seni bekliyor"
+                  ? "Kayıtların seni bekliyor"
                   : "Kredi kartı gerekmez · 30 saniyede kur"}
               </div>
             </div>
@@ -181,12 +194,12 @@ export default function HomePage() {
                 Aç / Sil / Ertele
               </span>
               <span className="rounded-full border border-neutral-800 bg-neutral-950 px-3 py-1">
-                “Sonra bakarım” kurtarıcısı
+                Sağ tıkla kaydet (Pro)
               </span>
             </div>
           </div>
 
-          {/* PREVIEW */}
+          {/* Preview (sadece mood) */}
           <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-5">
             <div className="text-xs text-neutral-400">Örnek görünüm</div>
 
@@ -220,38 +233,104 @@ export default function HomePage() {
               </div>
             </div>
 
-            <Link
-              href="/dashboard"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-800 transition"
-            >
-              Unuttuklarını gör → Dashboard
-            </Link>
+            <div className="mt-4 grid gap-2">
+              <Link
+                href="/dashboard"
+                className="inline-flex w-full items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-800 transition"
+              >
+                Dashboard’ı aç
+              </Link>
 
-            <a
-              href={CHROME_STORE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-flex w-full items-center justify-center rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-sm font-semibold text-neutral-200 hover:bg-neutral-900 transition"
-            >
-              Sağ tıkla kaydetmeyi aç → Extension’ı kur
-            </a>
+              <a
+                href={CHROME_STORE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex w-full items-center justify-center rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-sm font-semibold text-neutral-200 hover:bg-neutral-900 transition"
+              >
+                Extension’ı kur
+              </a>
+            </div>
           </div>
         </section>
 
-        {/* ✅ PRODUCT TOUR (Screenshots) */}
+        {/* 2) PROBLEM */}
         <section className="mt-12 rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
+          <h2 className="text-sm font-semibold text-neutral-200">
+            Bunlar sana tanıdık geliyor mu?
+          </h2>
+
+          <ul className="mt-4 grid gap-3 text-sm text-neutral-300 sm:grid-cols-2">
+            <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+              “Buna sonra bakarım” deyip bir daha açmadığın linkler
+            </li>
+            <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+              20 açık sekme… hangisi önemliydi hatırlamamak
+            </li>
+            <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+              Not aldın ama neden aldığını unutmak
+            </li>
+            <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+              Aylar sonra arayıp bulamamak
+            </li>
+          </ul>
+
+          <p className="mt-4 text-sm text-neutral-400">
+            Sorun bilgi değil.{" "}
+            <span className="text-neutral-200">Geri dönmemek.</span>
+          </p>
+        </section>
+
+        {/* 3) ÇÖZÜM / HOW */}
+        <section id="how" className="mt-12 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
+            <div className="text-xs text-neutral-400">1) Kaydet</div>
+            <div className="mt-1 text-sm font-semibold text-neutral-200">
+              Link, not, fikir
+            </div>
+            <p className="mt-2 text-sm text-neutral-300">
+              Kaydetmek kolay. Zaten onu yapıyorsun.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
+            <div className="text-xs text-neutral-400">2) Unut</div>
+            <div className="mt-1 text-sm font-semibold text-neutral-200">
+              (Evet, bu normal)
+            </div>
+            <p className="mt-2 text-sm text-neutral-300">
+              Çoğu kayıt “sonra” diye kalır. Sonra gelmez.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
+            <div className="text-xs text-neutral-400">3) Geri getir</div>
+            <div className="mt-1 text-sm font-semibold text-neutral-200">
+              Unutulanları gör
+            </div>
+            <p className="mt-2 text-sm text-neutral-300">
+              clarionot sana açılmayanları gösterir: Aç / Sil / Ertele.
+            </p>
+          </div>
+        </section>
+
+        {/* 4) 🔥 HERO FEATURE: EXTENSION + TOUR */}
+        <section className="mt-12 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/30 px-3 py-1 text-xs text-neutral-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Product tour
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
+                <span className="h-2 w-2 rounded-full bg-emerald-300" />
+                Sağ tık → Kaydet → Unutma
               </div>
-              <h2 className="mt-3 text-lg font-semibold text-neutral-200">
-                30 saniyede kur, sağ tıkla kaydet, unutulanları gör
+
+              <h2 className="mt-3 text-lg font-semibold text-emerald-100">
+                30 saniyede kur. Refleks gibi kaydet.
               </h2>
-              <p className="mt-2 text-sm text-neutral-400">
-                Aşağıdaki adımlara tıklayarak görüntüyü değiştir. Görselin
-                üzerine gelince yakınlaşır.
+              <p className="mt-2 text-sm text-emerald-100/90">
+                clarionot Clip ile internette gördüğün şeyi sağ tıkla
+                yakalarsın. Sonra “unutulanlar” ekranında yüzleşirsin.
+              </p>
+              <p className="mt-2 text-xs text-emerald-200/80">
+                Aşağıdaki adımlara tıkla. Görselin üzerine gelince yakınlaşır.
               </p>
             </div>
 
@@ -262,14 +341,14 @@ export default function HomePage() {
                 rel="noreferrer"
                 className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-800 transition"
               >
-                Extension’ı aç
+                Extension’ı kur
               </a>
 
               <Link
                 href="/dashboard"
                 className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 transition"
               >
-                Dashboard’a git
+                Dashboard
               </Link>
             </div>
           </div>
@@ -323,13 +402,12 @@ export default function HomePage() {
               <div className="rounded-2xl border border-neutral-800 bg-black/20 p-3">
                 <div className="flex items-center justify-between px-2 pb-3">
                   <div className="text-xs text-neutral-400">{active.kpi}</div>
-                  <div className="text-xs font-semibold text-neutral-200">
+                  <div className="text-xs font-semibold text-neutral-100">
                     {active.title}
                   </div>
-                  <div className="text-xs text-neutral-500">{active.badge}</div>
+                  <div className="text-xs text-neutral-400">{active.badge}</div>
                 </div>
 
-                {/* “device/frame” + hover zoom */}
                 <div className="group relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950">
                   <div className="absolute left-4 top-3 z-10 flex gap-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-red-500/70" />
@@ -346,12 +424,10 @@ export default function HomePage() {
                       sizes="(max-width: 1024px) 100vw, 760px"
                       priority
                     />
-                    {/* soft vignette */}
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/10" />
                   </div>
                 </div>
 
-                {/* Thumbnails */}
                 <div className="mt-3 grid grid-cols-4 gap-2">
                   {shots.map((s) => {
                     const isActive = s.key === activeShot;
@@ -382,140 +458,16 @@ export default function HomePage() {
                     );
                   })}
                 </div>
+
+                <div className="mt-3 text-xs text-emerald-200/80">
+                  Pro’da sağ tıkla tek tık kaydetme. Free’da manuel kaydetme.
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* clarionot CLIP */}
-        <section className="mt-12 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="text-sm font-semibold text-emerald-200">
-                clarionot Clip (Chrome Extension)
-              </div>
-              <p className="mt-1 text-sm text-emerald-100">
-                İnternette gördüğün linkleri ve seçtiğin metinleri{" "}
-                <span className="font-semibold">
-                  sağ tık → clarionot’ya Kaydet
-                </span>{" "}
-                ile tek hamlede arşivle.
-              </p>
-              <p className="mt-2 text-xs text-emerald-200/80">
-                Kurulumdan sonra ekstra ayar yok. Giriş yapınca otomatik
-                bağlanır.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <a
-                href={CHROME_STORE_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-400 px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-emerald-300 transition"
-              >
-                Extension’ı Kur
-              </a>
-              <div className="text-xs text-emerald-200/80 text-center sm:text-right">
-                20 sn · ücretsiz kurulum
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-emerald-500/20 bg-neutral-950/40 p-4">
-              <div className="text-xs text-emerald-200/80">1) Kur</div>
-              <div className="mt-1 text-sm text-emerald-100 font-semibold">
-                Chrome Web Store
-              </div>
-              <p className="mt-1 text-sm text-emerald-100/90">
-                “Extension’ı Kur” butonuna bas.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-emerald-500/20 bg-neutral-950/40 p-4">
-              <div className="text-xs text-emerald-200/80">2) Giriş Yap</div>
-              <div className="mt-1 text-sm text-emerald-100 font-semibold">
-                clarionot hesabınla
-              </div>
-              <p className="mt-1 text-sm text-emerald-100/90">
-                Giriş yapınca extension otomatik bağlanır.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-emerald-500/20 bg-neutral-950/40 p-4">
-              <div className="text-xs text-emerald-200/80">3) Kaydet</div>
-              <div className="mt-1 text-sm text-emerald-100 font-semibold">
-                Sağ tık → Kaydet
-              </div>
-              <p className="mt-1 text-sm text-emerald-100/90">
-                Linke sağ tıkla: “clarionot’ya Kaydet”.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* PROBLEM */}
-        <section className="mt-12 rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-          <h2 className="text-sm font-semibold text-neutral-200">
-            Bunlar sana tanıdık geliyor mu?
-          </h2>
-
-          <ul className="mt-4 grid gap-3 text-sm text-neutral-300 sm:grid-cols-2">
-            <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-              “Buna sonra bakarım” deyip bir daha hiç açmadığın linkler
-            </li>
-            <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-              20 açık sekme… hangisini neden açık tuttuğunu unutmak
-            </li>
-            <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-              Not aldın ama bir daha dönüp bakmamak
-            </li>
-            <li className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-              Asıl mesele: kayıt var, geri dönüş yok
-            </li>
-          </ul>
-
-          <p className="mt-4 text-sm text-neutral-400">
-            Bilgi çok.{" "}
-            <span className="text-neutral-200">Unutulan daha da çok.</span>
-          </p>
-        </section>
-
-        {/* HOW IT WORKS */}
-        <section className="mt-12 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-            <div className="text-xs text-neutral-400">1) Kaydet</div>
-            <div className="mt-1 text-sm font-semibold text-neutral-200">
-              Link, not, fikir
-            </div>
-            <p className="mt-2 text-sm text-neutral-300">
-              Tek tıkla ekle. Kaydetmek kolay.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-            <div className="text-xs text-neutral-400">2) Unut</div>
-            <div className="mt-1 text-sm font-semibold text-neutral-200">
-              (Evet, bu normal)
-            </div>
-            <p className="mt-2 text-sm text-neutral-300">
-              Çoğu kayıt “sonra” diye kalır. Sonra gelmez.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-            <div className="text-xs text-neutral-400">3) Geri getir</div>
-            <div className="mt-1 text-sm font-semibold text-neutral-200">
-              Unutulanları gör
-            </div>
-            <p className="mt-2 text-sm text-neutral-300">
-              clarionot sana açılmayanları gösterir: Aç / Sil / Ertele.
-            </p>
-          </div>
-        </section>
-
-        {/* WHY */}
+        {/* 5) WHY */}
         <section className="mt-12">
           <h2 className="text-sm font-semibold text-neutral-200">
             Neden clarionot?
@@ -538,17 +490,17 @@ export default function HomePage() {
               </div>
 
               <div className="border-b border-neutral-800 p-4 text-neutral-300">
-                Kaydedersin, sonra kaybolur
-              </div>
-              <div className="border-b border-neutral-800 p-4 text-neutral-300">
-                Kaydedersin, sonra yüzüne vurur
-              </div>
-
-              <div className="border-b border-neutral-800 p-4 text-neutral-300">
                 “Bir gün bakarım”
               </div>
               <div className="border-b border-neutral-800 p-4 text-neutral-300">
                 “Bugün yüzleş”
+              </div>
+
+              <div className="border-b border-neutral-800 p-4 text-neutral-300">
+                Link karmaşası
+              </div>
+              <div className="border-b border-neutral-800 p-4 text-neutral-300">
+                Link + bağlam + etiket
               </div>
 
               <div className="p-4 text-neutral-300">Arşiv büyür</div>
@@ -564,7 +516,7 @@ export default function HomePage() {
           </p>
         </section>
 
-        {/* PRICING (Pro ise gizle) */}
+        {/* 6) PRICING (Pro ise gizle) */}
         {checkedPlan && !isProUser ? (
           <section className="mt-12 grid gap-4 sm:grid-cols-2">
             {/* FREE */}
@@ -581,14 +533,14 @@ export default function HomePage() {
               <div className="mt-1 text-xs text-neutral-500">0 TL</div>
 
               <ul className="mt-4 space-y-2 text-sm text-neutral-300">
-                <li>• Unutulanlar: son 7 gün (açılmayan kayıtlar)</li>
+                <li>• Unutulanlar: 7+ gün (açılmayan / bakılmayan)</li>
                 <li>• Aç / Sil</li>
                 <li>• Arama</li>
                 <li>• Manuel ekleme (dashboard’dan)</li>
               </ul>
 
               <p className="mt-4 text-xs text-neutral-500">
-                Tıkla ve unuttuklarını gör.
+                Denemek için yeterli. Rahat etmek için değil.
               </p>
             </div>
 
@@ -610,25 +562,25 @@ export default function HomePage() {
                   </div>
                 </div>
                 <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
-                  Unutulanlar modu
+                  Unutulanlar + Snooze
                 </span>
               </div>
 
               <ul className="mt-4 space-y-2 text-sm text-emerald-100">
-                <li>• Unutulanlar: 30 / 60 / 90+ gün</li>
-                <li>• Ertele (Snooze)</li>
-                <li>• clarionot Clip ile sağ tık → tek tık kaydetme</li>
+                <li>• Unutulanlar: 30 / 60 / 90+ seçilebilir</li>
+                <li>• Snooze: seçili unutulanlar için Ertele</li>
+                <li>• Sağ tık → tek tık kaydetme (Extension)</li>
                 <li>• Yeni özelliklere erken erişim (yakında)</li>
               </ul>
 
               <p className="mt-4 text-xs text-emerald-200/80">
-                Tıkla → Ödeme ekranına git → Pro’yu aç.
+                Tıkla → ödeme ekranı → Pro aktif.
               </p>
             </div>
           </section>
         ) : null}
 
-        {/* FINAL CTA */}
+        {/* 7) FINAL CTA */}
         <section className="mt-12 rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
           <h2 className="text-lg font-semibold text-neutral-200">
             Unutulanları temizle
@@ -638,7 +590,17 @@ export default function HomePage() {
             başlatır.
           </p>
 
-          <div className="mt-5">{primaryCTA}</div>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+            {primaryCTA}
+            <a
+              href={CHROME_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-sm font-semibold text-neutral-200 hover:bg-neutral-900 transition"
+            >
+              Extension’ı kur
+            </a>
+          </div>
         </section>
 
         <footer className="mt-10 pb-6 text-xs text-neutral-500">

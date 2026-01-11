@@ -7,7 +7,6 @@ function parseLinkContent(content: string) {
   const raw = (content ?? "").trim();
   if (!raw) return { url: "", note: "" };
 
-  // Biz linkte content'i şu formatta kaydediyoruz:
   // URL \n\n açıklama
   const parts = raw.split(/\n\s*\n/);
   const url = (parts[0] ?? "").trim();
@@ -15,12 +14,40 @@ function parseLinkContent(content: string) {
   return { url, note };
 }
 
+function baseDateOf(item: any) {
+  return new Date(item.last_viewed_at ?? item.created_at);
+}
+
+function daysAgoFrom(date: Date) {
+  const ms = Date.now() - date.getTime();
+  const d = Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
+  return d;
+}
+
+function formatDaysAgo(d: number) {
+  if (d <= 0) return "bugün";
+  if (d === 1) return "1 gün önce";
+  return `${d} gün önce`;
+}
+
+function snoozeLeftLabel(iso?: string | null) {
+  if (!iso) return null;
+  const until = new Date(iso).getTime();
+  const diff = until - Date.now();
+  if (diff <= 0) return null;
+
+  const days = Math.ceil(diff / (24 * 60 * 60 * 1000));
+  return days <= 1 ? "Snooze: 1g kaldı" : `Snooze: ${days}g kaldı`;
+}
+
 export default function ItemCard({
   item,
   onOpen,
+  className = "",
 }: {
   item: Item;
   onOpen: (item: Item) => void;
+  className?: string;
 }) {
   const isLink = item.type === "link";
 
@@ -28,15 +55,35 @@ export default function ItemCard({
     return isLink ? parseLinkContent(item.content) : { url: "", note: "" };
   }, [isLink, item.content]);
 
+  const baseDate = useMemo(() => baseDateOf(item as any), [item]);
+  const daysAgo = useMemo(() => daysAgoFrom(baseDate), [baseDate]);
+
+  const snoozeLabel = useMemo(
+    () => snoozeLeftLabel((item as any).snoozed_until),
+    [item]
+  );
+
   return (
     <button
       type="button"
       onClick={() => onOpen(item)}
-      className="w-full overflow-hidden text-left rounded-2xl border border-neutral-800 bg-neutral-950 p-4 hover:bg-neutral-900 transition"
+      className={`w-full overflow-hidden text-left rounded-2xl border border-neutral-800 bg-neutral-950 p-4 hover:bg-neutral-900 transition ${className}`}
     >
-      <div className="text-xs text-neutral-400 min-w-0 break-words">
-        {isLink ? "🔗 Link" : "📝 Not"} ·{" "}
-        {new Date(item.created_at).toLocaleString("tr-TR")}
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-xs text-neutral-400 min-w-0 break-words">
+          {isLink ? "🔗 Link" : "📝 Not"} ·{" "}
+          <span className="text-neutral-300">{formatDaysAgo(daysAgo)}</span>
+          <span className="text-neutral-600"> · </span>
+          <span className="text-neutral-500">
+            {baseDate.toLocaleString("tr-TR")}
+          </span>
+        </div>
+
+        {snoozeLabel ? (
+          <span className="shrink-0 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-300">
+            {snoozeLabel}
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-1 text-sm font-semibold min-w-0 break-words line-clamp-1">

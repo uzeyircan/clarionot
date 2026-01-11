@@ -113,7 +113,10 @@ export default function DashboardPage() {
   const [renaming, setRenaming] = useState(false);
 
   // ✅ Collapse state
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
+    inbox_notes: false,
+    inbox_links: false,
+  });
   const toggleCollapsed = (key: string) =>
     setCollapsed((p) => ({ ...p, [key]: !p[key] }));
 
@@ -125,9 +128,16 @@ export default function DashboardPage() {
 
   const isForgotten = useCallback(
     (it: any) => {
+      // ✅ Snooze: süre bitmediyse unutulanlarda GÖSTERME
+      if (it.snoozed_until) {
+        const until = new Date(it.snoozed_until).getTime();
+        if (Date.now() < until) return false;
+      }
+
       const base = it.last_viewed_at
         ? new Date(it.last_viewed_at)
         : new Date(it.created_at);
+
       return Date.now() - base.getTime() > FORGOTTEN_MS;
     },
     [FORGOTTEN_MS]
@@ -420,10 +430,10 @@ export default function DashboardPage() {
   }, [userId, isPro]);
 
   useEffect(() => {
-    if (activeGroupId !== "forgotten") {
+    if (activeGroupId !== "forgotten" || isPro !== true) {
       setForgottenSelection([]);
     }
-  }, [activeGroupId]);
+  }, [activeGroupId, isPro]);
 
   const groupCounts = useMemo(() => {
     const counts: Record<string, number> = { inbox: 0, forgotten: 0 };
@@ -900,23 +910,56 @@ export default function DashboardPage() {
   // ✅ Draggable wrapper
   const DraggableWrap = ({ it }: { it: any }) => {
     const isForgottenMode = activeGroupId === "forgotten";
+    const canBulk = isPro === true && isForgottenMode;
     const checked = forgottenSelection.includes(it.id);
+
+    const toggle = (next: boolean) => {
+      setForgottenSelection((prev) =>
+        next ? [...prev, it.id] : prev.filter((x) => x !== it.id)
+      );
+    };
 
     return (
       <div className="relative">
-        {isForgottenMode ? (
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={(e) => {
-              setForgottenSelection((prev) =>
-                e.target.checked
-                  ? [...prev, it.id]
-                  : prev.filter((x) => x !== it.id)
-              );
-            }}
-            className="absolute top-2 left-2 z-10"
-          />
+        {canBulk ? (
+          <>
+            {/* Bigger hit-area */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggle(!checked);
+              }}
+              className="absolute top-2 left-2 z-20 h-9 w-9 rounded-lg
+                       bg-neutral-950/70 border border-neutral-800
+                       hover:bg-neutral-900 flex items-center justify-center"
+              title="Seç"
+            >
+              <span
+                className={`h-5 w-5 rounded border flex items-center justify-center
+                          ${
+                            checked
+                              ? "bg-emerald-500/20 border-emerald-500/50"
+                              : "border-neutral-600"
+                          }`}
+              >
+                {checked ? "✓" : ""}
+              </span>
+            </button>
+
+            {/* Keyboard/Screen reader için gerçek checkbox */}
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => toggle(e.target.checked)}
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              className="sr-only"
+              aria-label="Seç"
+            />
+          </>
         ) : null}
 
         <div
@@ -925,12 +968,40 @@ export default function DashboardPage() {
           onDragEnd={!isForgottenMode ? onDragEndItem : undefined}
           className={`cursor-grab ${
             draggingItemId === it.id ? "opacity-60 scale-[0.99]" : ""
-          }`}
+          } ${checked ? "ring-2 ring-emerald-500/40" : ""}`}
         >
-          <ItemCard item={it} onOpen={openItem} />
+          <ItemCard
+            item={it}
+            onOpen={openItem}
+            className={canBulk ? "pl-12" : ""}
+          />
         </div>
       </div>
     );
+  };
+
+  const snoozeSelected = async (days: 7 | 14 | 30) => {
+    if (!userId) return;
+    if (forgottenSelection.length === 0) return;
+
+    const untilIso = new Date(
+      Date.now() + days * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const { error } = await supabase
+      .from("items")
+      .update({ snoozed_until: untilIso })
+      .in("id", forgottenSelection)
+      .eq("user_id", userId);
+
+    if (error) {
+      showToast("err", "Ertelenemedi ❌");
+      return;
+    }
+
+    setForgottenSelection([]);
+    await load(userId);
+    showToast("ok", `Ertelendi (${days} gün) ✅`);
   };
 
   return (
@@ -1068,45 +1139,58 @@ export default function DashboardPage() {
               </button>
 
               {/* ✅ Pro: 30/60/90 seçilebilir (DB kalıcı) */}
-              {activeGroupId === "forgotten" && isPro === true ? (
+              {activeGroupId === "forgotten" ? (
                 <div className="flex items-center gap-2">
                   <div className="text-[11px] text-neutral-500">Eşik</div>
-                  <select
-                    value={proForgottenDays}
-                    onChange={async (e) => {
-                      if (!userId) return;
 
-                      const value = Number(e.target.value) as 30 | 60 | 90;
+                  {isPro === true ? (
+                    <select
+                      value={proForgottenDays}
+                      onChange={async (e) => {
+                        if (!userId) return;
+                        const value = Number(e.target.value) as 30 | 60 | 90;
+                        setProForgottenDays(value);
 
-                      setProForgottenDays(value); // optimistic
+                        const { error } = await supabase
+                          .from("user_settings")
+                          .update({ forgotten_days: value })
+                          .eq("user_id", userId);
 
-                      const { error } = await supabase
-                        .from("user_settings")
-                        .update({ forgotten_days: value })
-                        .eq("user_id", userId);
-
-                      if (error) {
-                        showToast("err", "Ayar kaydedilemedi ❌");
-                        fetchUserSettings(userId);
-                      } else {
-                        showToast("ok", "Ayar kaydedildi ✅");
-                      }
-                    }}
-                  >
-                    <option value={30}>30+</option>
-                    <option value={60}>60+</option>
-                    <option value={90}>90+</option>
-                  </select>
+                        if (error) {
+                          showToast("err", "Ayar kaydedilemedi ❌");
+                          fetchUserSettings(userId);
+                        } else {
+                          showToast("ok", "Ayar kaydedildi ✅");
+                        }
+                      }}
+                      className="rounded-xl border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs text-neutral-200"
+                    >
+                      <option value={30}>30+</option>
+                      <option value={60}>60+</option>
+                      <option value={90}>90+</option>
+                    </select>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => (window.location.href = "/pro")}
+                      className="rounded-xl border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-900"
+                      title="30 / 60 / 90 gün seçmek Pro’da"
+                    >
+                      7+ gün <span className="ml-1">🔒</span>
+                    </button>
+                  )}
                 </div>
               ) : null}
 
               {/* ✅ Forgotten aksiyonları */}
               {activeGroupId === "forgotten" &&
+              isPro === true &&
               forgottenSelection.length > 0 ? (
-                <div className="mt-3 flex gap-2 text-xs">
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
                   <button
                     onClick={async () => {
                       if (!userId) return;
+
                       await supabase
                         .from("items")
                         .update({ group_id: null })
@@ -1115,7 +1199,7 @@ export default function DashboardPage() {
 
                       setForgottenSelection([]);
                       await load(userId);
-                      showToast("ok", "Inbox’a taşındı");
+                      showToast("ok", "Inbox’a taşındı ✅");
                     }}
                     className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-neutral-300 hover:bg-neutral-900"
                   >
@@ -1125,6 +1209,7 @@ export default function DashboardPage() {
                   <button
                     onClick={async () => {
                       if (!userId) return;
+
                       const ok = confirm("Seçili kayıtlar silinsin mi?");
                       if (!ok) return;
 
@@ -1136,33 +1221,95 @@ export default function DashboardPage() {
 
                       setForgottenSelection([]);
                       await load(userId);
-                      showToast("ok", "Silindi");
+                      showToast("ok", "Silindi 🗑️");
                     }}
                     className="rounded-xl border border-red-900/40 bg-red-950/40 px-3 py-1 text-red-300 hover:bg-red-900/40"
                   >
                     Sil
                   </button>
 
-                  {/* ✅ Snooze (Ertele): last_viewed_at'ı şimdi yap -> unutulanlardan çıkar */}
+                  {/* ✅ Snooze 7 */}
                   <button
                     onClick={async () => {
                       if (!userId) return;
-                      const nowIso = new Date().toISOString();
 
-                      await supabase
+                      const days = 7 as const;
+                      const untilIso = new Date(
+                        Date.now() + days * 24 * 60 * 60 * 1000
+                      ).toISOString();
+
+                      const { error } = await supabase
                         .from("items")
-                        .update({ last_viewed_at: nowIso })
+                        .update({ snoozed_until: untilIso })
                         .in("id", forgottenSelection)
                         .eq("user_id", userId);
 
+                      if (error) return showToast("err", "Ertelenemedi ❌");
+
                       setForgottenSelection([]);
                       await load(userId);
-                      showToast("ok", "Ertelendi");
+                      showToast("ok", "Ertelendi (7 gün) ✅");
                     }}
                     className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-neutral-300 hover:bg-neutral-900"
-                    title="Şimdi gördüm say -> unutulanlardan çıkar"
+                    title="7 gün gizle"
                   >
-                    Ertele
+                    Ertele 7g
+                  </button>
+
+                  {/* ✅ Snooze 14 */}
+                  <button
+                    onClick={async () => {
+                      if (!userId) return;
+
+                      const days = 14 as const;
+                      const untilIso = new Date(
+                        Date.now() + days * 24 * 60 * 60 * 1000
+                      ).toISOString();
+
+                      const { error } = await supabase
+                        .from("items")
+                        .update({ snoozed_until: untilIso })
+                        .in("id", forgottenSelection)
+                        .eq("user_id", userId);
+
+                      if (error) return showToast("err", "Ertelenemedi ❌");
+
+                      setForgottenSelection([]);
+                      await load(userId);
+                      showToast("ok", "Ertelendi (14 gün) ✅");
+                    }}
+                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-neutral-300 hover:bg-neutral-900"
+                    title="14 gün gizle"
+                  >
+                    Ertele 14g
+                  </button>
+
+                  {/* ✅ Snooze 30 */}
+                  <button
+                    onClick={async () => {
+                      if (!userId) return;
+
+                      const days = 30 as const;
+                      const untilIso = new Date(
+                        Date.now() + days * 24 * 60 * 60 * 1000
+                      ).toISOString();
+
+                      const { error } = await supabase
+                        .from("items")
+                        .update({ snoozed_until: untilIso })
+                        .in("id", forgottenSelection)
+                        .eq("user_id", userId);
+
+                      if (error) return showToast("err", "Ertelenemedi ❌");
+
+                      setForgottenSelection([]);
+                      await load(userId);
+                      showToast("ok", "Ertelendi (30 gün) ✅");
+                    }}
+                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-neutral-300 hover:bg-neutral-900"
+                    title="30 gün gizle"
+                  >
+                    Ertele 30g
                   </button>
                 </div>
               ) : null}
