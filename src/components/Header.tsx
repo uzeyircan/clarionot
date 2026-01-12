@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Button from "@/components/Button";
@@ -24,13 +25,11 @@ export default function Header() {
       setPlan(isPro ? "pro" : "free");
     };
 
-    // İlk session kontrolü
     supabase.auth.getSession().then(({ data }) => {
       setLoggedIn(!!data.session);
       computePlan(data.session);
     });
 
-    // Auth değişikliklerini dinle
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setLoggedIn(!!session);
@@ -50,8 +49,19 @@ export default function Header() {
 
   return (
     <header className="flex items-center justify-between">
-      <Link href="/" className="text-sm font-semibold tracking-wide">
-        clarioNot
+      {/* ✅ Logo + Brand */}
+      <Link href="/" className="flex items-center gap-2">
+        <Image
+          src="/public/icons/android-chrome-192x192.png"
+          alt="ClarioNot"
+          width={24}
+          height={24}
+          priority
+          className="rounded-md"
+        />
+        <span className="text-sm font-semibold tracking-wide text-neutral-100">
+          clarioNot
+        </span>
       </Link>
 
       <div className="flex items-center gap-2">
@@ -67,7 +77,7 @@ export default function Header() {
             {plan === "pro" ? "PRO" : "FREE"}
           </span>
         ) : null}
-        {/* ✅ Pro Plan */}
+
         <Link
           href="/pro"
           className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
@@ -75,7 +85,6 @@ export default function Header() {
           Planlar
         </Link>
 
-        {/* LOGIN / LOGOUT */}
         {loggedIn ? (
           <Button variant="ghost" onClick={logout}>
             Çıkış Yap

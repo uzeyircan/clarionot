@@ -2,9 +2,31 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "clarionot",
-  description: "Save what matters. Find it fast.",
   manifest: "/manifest.webmanifest",
+  title: "ClarioNot",
+  description: "Save notes & links fast",
+  icons: {
+    icon: [
+      {
+        url: "/public/icons/favicon-16x16.png",
+        sizes: "16x16",
+        type: "image/png",
+      },
+      {
+        url: "/public/icons/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+    ],
+    apple: [
+      {
+        url: "/public/icons/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+    shortcut: ["/public/icons/favicon.ico"],
+  },
 };
 
 export const viewport: Viewport = {
