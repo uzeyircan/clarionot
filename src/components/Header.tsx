@@ -51,17 +51,7 @@ export default function Header() {
     <header className="flex items-center justify-between">
       {/* ✅ Logo + Brand */}
       <Link href="/" className="flex items-center gap-2">
-        <Image
-          src="/public/icons/android-chrome-192x192.png"
-          alt="ClarioNot"
-          width={24}
-          height={24}
-          priority
-          className="rounded-md"
-        />
-        <span className="text-sm font-semibold tracking-wide text-neutral-100">
-          clarioNot
-        </span>
+        ClarioNot
       </Link>
 
       <div className="flex items-center gap-2">
