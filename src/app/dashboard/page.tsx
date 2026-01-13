@@ -81,6 +81,7 @@ export default function DashboardPage() {
   const showToast = (type: "ok" | "err", text: string) =>
     setToast({ type, text });
   const viewTimersRef = useRef<Record<string, number>>({});
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -1183,134 +1184,170 @@ export default function DashboardPage() {
               ) : null}
 
               {/* ✅ Forgotten aksiyonları */}
-              {activeGroupId === "forgotten" &&
-              isPro === true &&
-              forgottenSelection.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                  <button
-                    onClick={async () => {
-                      if (!userId) return;
+              {/* ✅ Forgotten aksiyonları (Action Bar) */}
+              {activeGroupId === "forgotten" && isPro === true ? (
+                <div className="mt-3 rounded-2xl border border-neutral-800 bg-neutral-950 p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    {/* Sol: seçili info */}
+                    <div className="flex items-center gap-2 text-xs text-neutral-300">
+                      <span className="rounded-full border border-neutral-800 bg-neutral-900 px-2 py-1">
+                        Seçili:{" "}
+                        <span className="text-neutral-100 font-semibold">
+                          {forgottenSelection.length}
+                        </span>
+                      </span>
 
-                      await supabase
-                        .from("items")
-                        .update({ group_id: null })
-                        .in("id", forgottenSelection)
-                        .eq("user_id", userId);
+                      {forgottenSelection.length === 0 ? (
+                        <span className="text-neutral-500">
+                          (Aksiyonlar için en az 1 kayıt seç)
+                        </span>
+                      ) : null}
+                    </div>
 
-                      setForgottenSelection([]);
-                      await load(userId);
-                      showToast("ok", "Inbox’a taşındı ✅");
-                    }}
-                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-neutral-300 hover:bg-neutral-900"
-                  >
-                    Inbox’a al
-                  </button>
+                    {/* Sağ: aksiyonlar */}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        disabled={
+                          forgottenSelection.length === 0 || bulkLoading
+                        }
+                        onClick={async () => {
+                          if (!userId) return;
+                          if (forgottenSelection.length === 0) return;
 
-                  <button
-                    onClick={async () => {
-                      if (!userId) return;
+                          try {
+                            setBulkLoading(true);
 
-                      const ok = confirm("Seçili kayıtlar silinsin mi?");
-                      if (!ok) return;
+                            const { error } = await supabase
+                              .from("items")
+                              .update({
+                                group_id: null,
+                                updated_at: new Date().toISOString(),
+                              })
+                              .in("id", forgottenSelection)
+                              .eq("user_id", userId);
 
-                      await supabase
-                        .from("items")
-                        .delete()
-                        .in("id", forgottenSelection)
-                        .eq("user_id", userId);
+                            if (error) throw error;
 
-                      setForgottenSelection([]);
-                      await load(userId);
-                      showToast("ok", "Silindi 🗑️");
-                    }}
-                    className="rounded-xl border border-red-900/40 bg-red-950/40 px-3 py-1 text-red-300 hover:bg-red-900/40"
-                  >
-                    Sil
-                  </button>
+                            setForgottenSelection([]);
+                            await load(userId);
+                            showToast("ok", "Inbox’a taşındı ✅");
+                          } catch (e: any) {
+                            showToast(
+                              "err",
+                              e?.message ?? "Inbox’a alınamadı ❌"
+                            );
+                          } finally {
+                            setBulkLoading(false);
+                          }
+                        }}
+                        className={`rounded-xl border px-3 py-1 text-xs transition ${
+                          forgottenSelection.length === 0 || bulkLoading
+                            ? "border-neutral-900 bg-neutral-950 text-neutral-600 cursor-not-allowed"
+                            : "border-neutral-800 bg-neutral-950 text-neutral-300 hover:bg-neutral-900"
+                        }`}
+                      >
+                        Inbox’a al
+                      </button>
 
-                  {/* ✅ Snooze 7 */}
-                  <button
-                    onClick={async () => {
-                      if (!userId) return;
+                      <button
+                        disabled={
+                          forgottenSelection.length === 0 || bulkLoading
+                        }
+                        onClick={async () => {
+                          if (!userId) return;
+                          if (forgottenSelection.length === 0) return;
 
-                      const days = 7 as const;
-                      const untilIso = new Date(
-                        Date.now() + days * 24 * 60 * 60 * 1000
-                      ).toISOString();
+                          const ok = confirm(
+                            `${forgottenSelection.length} kayıt silinecek. Emin misin?`
+                          );
+                          if (!ok) return;
 
-                      const { error } = await supabase
-                        .from("items")
-                        .update({ snoozed_until: untilIso })
-                        .in("id", forgottenSelection)
-                        .eq("user_id", userId);
+                          try {
+                            setBulkLoading(true);
 
-                      if (error) return showToast("err", "Ertelenemedi ❌");
+                            const { error } = await supabase
+                              .from("items")
+                              .delete()
+                              .in("id", forgottenSelection)
+                              .eq("user_id", userId);
 
-                      setForgottenSelection([]);
-                      await load(userId);
-                      showToast("ok", "Ertelendi (7 gün) ✅");
-                    }}
-                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-neutral-300 hover:bg-neutral-900"
-                    title="7 gün gizle"
-                  >
-                    Ertele 7g
-                  </button>
+                            if (error) throw error;
 
-                  {/* ✅ Snooze 14 */}
-                  <button
-                    onClick={async () => {
-                      if (!userId) return;
+                            setForgottenSelection([]);
+                            await load(userId);
+                            showToast("ok", "Silindi 🗑️");
+                          } catch (e: any) {
+                            showToast("err", e?.message ?? "Silinemedi ❌");
+                          } finally {
+                            setBulkLoading(false);
+                          }
+                        }}
+                        className={`rounded-xl border px-3 py-1 text-xs transition ${
+                          forgottenSelection.length === 0 || bulkLoading
+                            ? "border-red-950/40 bg-red-950/10 text-red-400/40 cursor-not-allowed"
+                            : "border-red-900/40 bg-red-950/40 text-red-300 hover:bg-red-900/40"
+                        }`}
+                      >
+                        Sil
+                      </button>
 
-                      const days = 14 as const;
-                      const untilIso = new Date(
-                        Date.now() + days * 24 * 60 * 60 * 1000
-                      ).toISOString();
+                      {/* ✅ Ertele dropdown (7/14/30 buton çöplüğünü kaldırdık) */}
+                      <select
+                        disabled={
+                          forgottenSelection.length === 0 || bulkLoading
+                        }
+                        defaultValue=""
+                        onChange={async (e) => {
+                          if (!userId) return;
+                          const v = Number(e.target.value);
+                          e.currentTarget.value = ""; // seçimi resetle (UI temiz kalsın)
 
-                      const { error } = await supabase
-                        .from("items")
-                        .update({ snoozed_until: untilIso })
-                        .in("id", forgottenSelection)
-                        .eq("user_id", userId);
+                          if (![7, 14, 30].includes(v)) return;
 
-                      if (error) return showToast("err", "Ertelenemedi ❌");
+                          try {
+                            setBulkLoading(true);
 
-                      setForgottenSelection([]);
-                      await load(userId);
-                      showToast("ok", "Ertelendi (14 gün) ✅");
-                    }}
-                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-neutral-300 hover:bg-neutral-900"
-                    title="14 gün gizle"
-                  >
-                    Ertele 14g
-                  </button>
+                            const untilIso = new Date(
+                              Date.now() + v * 24 * 60 * 60 * 1000
+                            ).toISOString();
 
-                  {/* ✅ Snooze 30 */}
-                  <button
-                    onClick={async () => {
-                      if (!userId) return;
+                            const { error } = await supabase
+                              .from("items")
+                              .update({
+                                snoozed_until: untilIso,
+                                updated_at: new Date().toISOString(),
+                              })
+                              .in("id", forgottenSelection)
+                              .eq("user_id", userId);
 
-                      const days = 30 as const;
-                      const untilIso = new Date(
-                        Date.now() + days * 24 * 60 * 60 * 1000
-                      ).toISOString();
+                            if (error) throw error;
 
-                      const { error } = await supabase
-                        .from("items")
-                        .update({ snoozed_until: untilIso })
-                        .in("id", forgottenSelection)
-                        .eq("user_id", userId);
-
-                      if (error) return showToast("err", "Ertelenemedi ❌");
-
-                      setForgottenSelection([]);
-                      await load(userId);
-                      showToast("ok", "Ertelendi (30 gün) ✅");
-                    }}
-                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-neutral-300 hover:bg-neutral-900"
-                    title="30 gün gizle"
-                  >
-                    Ertele 30g
-                  </button>
+                            setForgottenSelection([]);
+                            await load(userId);
+                            showToast("ok", `Ertelendi (${v} gün) ⏳`);
+                          } catch (e2: any) {
+                            showToast(
+                              "err",
+                              e2?.message ?? "Ertele kaydedilemedi ❌"
+                            );
+                          } finally {
+                            setBulkLoading(false);
+                          }
+                        }}
+                        className={`rounded-xl border px-3 py-1 text-xs transition ${
+                          forgottenSelection.length === 0 || bulkLoading
+                            ? "border-neutral-900 bg-neutral-950 text-neutral-600 cursor-not-allowed"
+                            : "border-neutral-800 bg-neutral-950 text-neutral-300 hover:bg-neutral-900"
+                        }`}
+                        title="Seçili kayıtları belirli süre gizle"
+                      >
+                        <option value="">Ertele ▼</option>
+                        <option value={7}>7 gün</option>
+                        <option value={14}>14 gün</option>
+                        <option value={30}>30 gün</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               ) : null}
 

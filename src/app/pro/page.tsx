@@ -30,7 +30,10 @@ export default function ProPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const isPro = useMemo(() => {
-    return plan?.plan === "pro" && plan?.status === "active";
+    return (
+      plan?.plan === "pro" &&
+      (plan?.status === "active" || plan?.status === "trialing")
+    );
   }, [plan]);
 
   useEffect(() => {

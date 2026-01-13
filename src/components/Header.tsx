@@ -10,31 +10,59 @@ export default function Header() {
   const router = useRouter();
   const [loggedIn, setLoggedIn] = useState(false);
   const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [checkingPlan, setCheckingPlan] = useState(true);
+
+  const fetchPlan = async (uid: string) => {
+    setCheckingPlan(true);
+    try {
+      const { data, error } = await supabase
+        .from("user_plan")
+        .select("plan,status")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      if (error || !data) {
+        setPlan("free");
+        return;
+      }
+
+      const isPro =
+        data.plan === "pro" &&
+        (data.status === "active" || data.status === "trialing");
+
+      setPlan(isPro ? "pro" : "free");
+    } finally {
+      setCheckingPlan(false);
+    }
+  };
 
   useEffect(() => {
-    const computePlan = (session: any) => {
-      const email = (session?.user?.email ?? "").toLowerCase();
-
-      const proEmails = (process.env.NEXT_PUBLIC_PRO_EMAILS ?? "")
-        .split(",")
-        .map((s) => s.trim().toLowerCase())
-        .filter(Boolean);
-
-      const isPro = email ? proEmails.includes(email) : false;
-      setPlan(isPro ? "pro" : "free");
-    };
-
-    // İlk session kontrolü
+    // İlk session
     supabase.auth.getSession().then(({ data }) => {
-      setLoggedIn(!!data.session);
-      computePlan(data.session);
+      const session = data.session;
+      const uid = session?.user?.id ?? null;
+
+      setLoggedIn(!!session);
+
+      if (uid) fetchPlan(uid);
+      else {
+        setPlan("free");
+        setCheckingPlan(false);
+      }
     });
 
-    // Auth değişikliklerini dinle
+    // Auth değişimi
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        const uid = session?.user?.id ?? null;
+
         setLoggedIn(!!session);
-        computePlan(session);
+
+        if (uid) fetchPlan(uid);
+        else {
+          setPlan("free");
+          setCheckingPlan(false);
+        }
       }
     );
 
@@ -50,12 +78,15 @@ export default function Header() {
 
   return (
     <header className="flex items-center justify-between">
-      <Link href="/" className="text-sm font-semibold tracking-wide">
-        clarioNot
+      <Link
+        href="/"
+        className="text-sm font-semibold tracking-wide flex items-center gap-2"
+      >
+        {/* Şimdilik text logo. Logo mark ekleyeceğiz */}
+        ClarioNot
       </Link>
 
       <div className="flex items-center gap-2">
-        {/* PLAN BADGE (login olduysa göster) */}
         {loggedIn ? (
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold border ${
@@ -63,11 +94,12 @@ export default function Header() {
                 ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
                 : "bg-neutral-500/15 text-neutral-400 border-neutral-500/30"
             }`}
+            title={checkingPlan ? "Plan kontrol ediliyor" : undefined}
           >
-            {plan === "pro" ? "PRO" : "FREE"}
+            {checkingPlan ? "..." : plan === "pro" ? "PRO" : "FREE"}
           </span>
         ) : null}
-        {/* ✅ Pro Plan */}
+
         <Link
           href="/pro"
           className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
@@ -75,7 +107,6 @@ export default function Header() {
           Planlar
         </Link>
 
-        {/* LOGIN / LOGOUT */}
         {loggedIn ? (
           <Button variant="ghost" onClick={logout}>
             Çıkış Yap
