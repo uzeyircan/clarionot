@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useProPrice } from "@/lib/useProPrice";
 
 type PlanRow = {
   plan: string | null;
@@ -28,6 +29,7 @@ export default function ProPage() {
   const [err, setErr] = useState<string>("");
 
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const { price, loading: priceLoading, error: priceErr } = useProPrice();
 
   const isPro = useMemo(() => {
     return (
@@ -228,11 +230,26 @@ export default function ProPage() {
 
             <div className="mt-2 text-3xl font-semibold text-neutral-100">
               {/* fiyatı sonra bağlayacağız */}
-              $4.99
-              <span className="text-base font-normal text-neutral-400">
-                {" "}
-                / month
-              </span>
+              <div className="mt-2 text-3xl font-semibold text-neutral-100">
+                {priceLoading ? (
+                  <span className="text-neutral-400">…</span>
+                ) : price?.formatted ? (
+                  <>
+                    {price.formatted}
+                    <span className="text-base font-normal text-neutral-400">
+                      {" "}
+                      /{" "}
+                      {price.interval === "month" ? "ay" : price.interval ?? ""}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-red-300">Fiyat alınamadı</span>
+                )}
+              </div>
+
+              {priceErr ? (
+                <div className="mt-2 text-xs text-red-300">{priceErr}</div>
+              ) : null}
             </div>
 
             <div className="mt-2 text-sm text-neutral-400">

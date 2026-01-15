@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useProPrice } from "@/lib/useProPrice";
 
 const CHROME_STORE_URL =
   "https://chromewebstore.google.com/detail/clarionot-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
@@ -13,6 +14,7 @@ export default function HomePage() {
   const [isProUser, setIsProUser] = useState(false);
   const [checkedPlan, setCheckedPlan] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
+  const { price: proPrice, loading: proPriceLoading } = useProPrice();
 
   // ✅ Product tour state
   const [activeShot, setActiveShot] = useState<
@@ -558,7 +560,11 @@ export default function HomePage() {
                     Pro
                   </div>
                   <div className="mt-1 text-xs text-emerald-200/80">
-                    99 TL / ay
+                    {proPriceLoading
+                      ? "…"
+                      : proPrice?.formatted
+                      ? `${proPrice.formatted} / ay`
+                      : "Fiyat yüklenemedi"}
                   </div>
                 </div>
                 <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
