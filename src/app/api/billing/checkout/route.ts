@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { stripe } from "@/lib/stripe";
-import Stripe from "stripe";
 
 export const runtime = "nodejs";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
+  { auth: { persistSession: false } },
 );
 
 async function getUser(req: Request) {
@@ -20,15 +19,39 @@ async function getUser(req: Request) {
   return data.user ?? null;
 }
 
+async function getProPriceIdByLookupKey() {
+  const lookupKey =
+    process.env.STRIPE_LOOKUP_KEY_PRO_MONTHLY_TRY ||
+    process.env.STRIPE_LOOKUP_KEY_PRO_MONTHLY_DEFAULT ||
+    "";
+
+  if (!lookupKey)
+    throw new Error("Missing STRIPE_LOOKUP_KEY_PRO_MONTHLY_* env");
+
+  const prices = await stripe.prices.list({
+    lookup_keys: [lookupKey],
+    active: true,
+    limit: 1,
+  });
+
+  const price = prices.data?.[0];
+  if (!price?.id)
+    throw new Error(`No active price for lookup_key=${lookupKey}`);
+
+  return price.id;
+}
+
 export async function POST(req: Request) {
   const user = await getUser(req);
   if (!user?.id || !user.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const priceId = await getProPriceIdByLookupKey();
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    line_items: [{ price: process.env.STRIPE_PRICE_PRO!, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     customer_email: user.email,
     success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?checkout=success`,
     cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/pro?checkout=cancel`,

@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 
 type ProPrice = {
   id: string;
-  active: boolean;
+  formatted: string;
   currency: string;
-  unit_amount: number | null;
-  formatted: string | null;
   interval: "day" | "week" | "month" | "year" | null;
-  product_name: string | null;
+  unit_amount: number;
+  lookup_key?: string | null;
+  product_name?: string | null;
 };
 
 export function useProPrice() {
@@ -25,14 +25,14 @@ export function useProPrice() {
         setLoading(true);
         setError("");
 
-        const res = await fetch("/api/billing/price", { method: "GET" });
+        const res = await fetch("/api/billing/price", { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
 
         if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
 
-        if (alive) setPrice(json);
+        if (alive) setPrice(json as ProPrice);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? "Price fetch failed");
+        if (alive) setError(e?.message ?? "Fiyat alınamadı");
       } finally {
         if (alive) setLoading(false);
       }

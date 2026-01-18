@@ -1,76 +1,57 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
-import Stripe from "stripe";
 
 export const runtime = "nodejs";
 
-function formatAmount(unitAmount: number, currency: string) {
-  // Stripe unit_amount: kuruş/cent (minor unit)
-  const value = unitAmount / 100;
-
-  try {
-    return new Intl.NumberFormat("tr-TR", {
-      style: "currency",
-      currency: currency.toUpperCase(),
-      maximumFractionDigits: 0, // TRY için genelde 0 mantıklı
-    }).format(value);
-  } catch {
-    // fallback
-    return `${value} ${currency.toUpperCase()}`;
-  }
+function requireEnv(name: string) {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing ${name} env`);
+  return v;
 }
 
 export async function GET() {
   try {
-    const priceId = process.env.STRIPE_PRICE_PRO;
-    if (!priceId) {
+    // ✅ Netlify’de bu env adı olmalı:
+    const lookupKey = requireEnv("STRIPE_LOOKUP_KEY_PRO_MONTHLY");
+
+    const prices = await stripe.prices.list({
+      lookup_keys: [lookupKey],
+      active: true,
+      limit: 1,
+      expand: ["data.product"],
+    });
+
+    const price = prices.data[0];
+    if (!price) {
       return NextResponse.json(
-        { error: "Missing STRIPE_PRICE_PRO" },
-        { status: 500 }
+        { error: "Price not found for lookup_key" },
+        { status: 404 },
       );
     }
 
-    const price = (await stripe.prices.retrieve(priceId, {
-      expand: ["product"],
-    })) as Stripe.Price;
+    const unitAmount = price.unit_amount ?? 0;
+    const currency = (price.currency || "try").toUpperCase();
 
-    if (!price.active) {
-      return NextResponse.json(
-        { error: "Stripe price is not active" },
-        { status: 500 }
-      );
-    }
+    const formatted = new Intl.NumberFormat("tr-TR", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 2,
+    }).format(unitAmount / 100);
 
-    const unit = price.unit_amount ?? null;
-    const currency = (price.currency ?? "try").toLowerCase();
-    const interval = price.recurring?.interval ?? null; // month, year...
-
-    const productName =
-      typeof price.product === "object" && !price.product.deleted
-        ? price.product.name
-        : null;
-
-    return NextResponse.json(
-      {
-        id: price.id,
-        active: price.active,
-        currency,
-        unit_amount: unit,
-        formatted: unit !== null ? formatAmount(unit, currency) : null,
-        interval, // "month"
-        product_name: productName,
-      },
-      {
-        // fiyat çok sık değişmez, cache edelim
-        headers: {
-          "Cache-Control": "s-maxage=600, stale-while-revalidate=3600",
-        },
-      }
-    );
+    return NextResponse.json({
+      id: price.id,
+      lookup_key: price.lookup_key,
+      unit_amount: unitAmount,
+      currency: price.currency,
+      formatted,
+      interval: price.recurring?.interval ?? null,
+      product_name:
+        typeof price.product === "object" && !price.product.deleted ? price.product.name : null,
+    });
   } catch (e: any) {
     return NextResponse.json(
-      { error: e?.message ?? "Server error" },
-      { status: 500 }
+      { error: e?.message ?? "Price fetch failed" },
+      { status: 500 },
     );
   }
 }

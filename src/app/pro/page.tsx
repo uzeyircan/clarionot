@@ -9,8 +9,8 @@ type PlanRow = {
   plan: string | null;
   status: string | null;
   current_period_end: string | null;
+  cancel_at_period_end?: boolean | null;
 };
-
 const FEATURES = [
   { name: "Right-click save (Extension)", free: false, pro: true },
   { name: "Auto title from links", free: true, pro: true },
@@ -29,13 +29,17 @@ export default function ProPage() {
   const [err, setErr] = useState<string>("");
 
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+
   const { price, loading: priceLoading, error: priceErr } = useProPrice();
 
   const isPro = useMemo(() => {
-    return (
-      plan?.plan === "pro" &&
-      (plan?.status === "active" || plan?.status === "trialing")
-    );
+    const statusOk = plan?.status === "active" || plan?.status === "trialing";
+    const stillValid =
+      plan?.current_period_end &&
+      new Date(plan.current_period_end).getTime() > Date.now();
+
+    return plan?.plan === "pro" && (statusOk || stillValid);
   }, [plan]);
 
   useEffect(() => {
@@ -52,10 +56,9 @@ export default function ProPage() {
           return;
         }
 
-        // user_plan oku (RLS: user kendi satırını görebiliyor olmalı)
         const { data: row, error } = await supabase
           .from("user_plan")
-          .select("plan,status,current_period_end")
+          .select("plan,status,current_period_end,cancel_at_period_end")
           .eq("user_id", session.user.id)
           .maybeSingle();
 
@@ -100,6 +103,39 @@ export default function ProPage() {
       setErr(e?.message ?? "Checkout başlatılamadı.");
     } finally {
       setCheckoutLoading(false);
+    }
+  };
+
+  const openBillingPortal = async () => {
+    try {
+      setPortalLoading(true);
+      setErr("");
+
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+      if (!session?.access_token) {
+        setNeedLogin(true);
+        return;
+      }
+
+      const res = await fetch("/api/billing/portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+
+      const url = json?.url;
+      if (!url) throw new Error("Portal URL alınamadı.");
+
+      window.location.href = url;
+    } catch (e: any) {
+      setErr(e?.message ?? "Billing portal açılamadı.");
+    } finally {
+      setPortalLoading(false);
     }
   };
 
@@ -151,7 +187,11 @@ export default function ProPage() {
           <div className="rounded-full border border-neutral-800 bg-neutral-950 px-4 py-2 text-xs text-neutral-300">
             Current plan:{" "}
             <span className={isPro ? "text-emerald-300" : "text-amber-300"}>
-              {isPro ? "PRO" : "FREE"}
+              {plan?.status === "canceling"
+                ? "PRO (cancels at period end)"
+                : isPro
+                  ? "PRO"
+                  : "FREE"}
             </span>
             {plan?.current_period_end ? (
               <span className="text-neutral-500">
@@ -199,7 +239,7 @@ export default function ProPage() {
           <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
             <div className="text-sm font-semibold text-neutral-300">Free</div>
             <div className="mt-2 text-3xl font-semibold text-neutral-100">
-              $0
+              ₺0
             </div>
             <div className="mt-2 text-sm text-neutral-400">
               Save notes & links manually from dashboard.
@@ -229,28 +269,25 @@ export default function ProPage() {
             </div>
 
             <div className="mt-2 text-3xl font-semibold text-neutral-100">
-              {/* fiyatı sonra bağlayacağız */}
-              <div className="mt-2 text-3xl font-semibold text-neutral-100">
-                {priceLoading ? (
-                  <span className="text-neutral-400">…</span>
-                ) : price?.formatted ? (
-                  <>
-                    {price.formatted}
-                    <span className="text-base font-normal text-neutral-400">
-                      {" "}
-                      /{" "}
-                      {price.interval === "month" ? "ay" : price.interval ?? ""}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-red-300">Fiyat alınamadı</span>
-                )}
-              </div>
-
-              {priceErr ? (
-                <div className="mt-2 text-xs text-red-300">{priceErr}</div>
-              ) : null}
+              {priceLoading ? (
+                <span className="text-neutral-400">…</span>
+              ) : price?.formatted ? (
+                <>
+                  {price.formatted}
+                  <span className="text-base font-normal text-neutral-400">
+                    {" "}
+                    /{" "}
+                    {price.interval === "month" ? "ay" : (price.interval ?? "")}
+                  </span>
+                </>
+              ) : (
+                <span className="text-red-300">Fiyat alınamadı</span>
+              )}
             </div>
+
+            {priceErr ? (
+              <div className="mt-2 text-xs text-red-300">{priceErr}</div>
+            ) : null}
 
             <div className="mt-2 text-sm text-neutral-400">
               Right-click to save selections and links. Auto titles. Unlimited
@@ -264,12 +301,24 @@ export default function ProPage() {
             </ul>
 
             {isPro ? (
-              <button
-                onClick={() => router.push("/dashboard")}
-                className="mt-6 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-800"
-              >
-                You are Pro ✅
-              </button>
+              <>
+                <button
+                  onClick={() => router.push("/dashboard")}
+                  className="mt-6 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-800"
+                >
+                  You are Pro ✅
+                </button>
+
+                <button
+                  onClick={openBillingPortal}
+                  disabled={portalLoading}
+                  className="mt-3 w-full rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-900 disabled:opacity-60"
+                >
+                  {portalLoading
+                    ? "Opening…"
+                    : "Manage billing (Cancel / Invoice)"}
+                </button>
+              </>
             ) : (
               <button
                 onClick={startCheckout}
