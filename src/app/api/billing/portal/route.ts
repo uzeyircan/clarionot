@@ -39,9 +39,18 @@ export async function POST(req: Request) {
     );
   }
 
+  const body = await req.json().catch(() => ({}) as any);
+  const returnUrlFromBody =
+    typeof body?.return_url === "string" ? body.return_url : null;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const fallbackReturnUrl = siteUrl
+    ? `${siteUrl}/pro`
+    : "http://localhost:3000/pro";
+
   const portal = await stripe.billingPortal.sessions.create({
     customer: customerId,
-    return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/pro`,
+    return_url: returnUrlFromBody || fallbackReturnUrl,
   });
 
   return NextResponse.json({ url: portal.url });

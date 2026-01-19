@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
+import { sendPaymentFailedEmail, sendPaymentSucceededEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
+const EMAIL_ENABLED = process.env.EMAIL_ENABLED === "true";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -14,6 +16,29 @@ const supabase = createClient(
 function toIsoFromUnix(unix?: number | null) {
   if (!unix) return null;
   return new Date(unix * 1000).toISOString();
+}
+
+function isUniqueViolation(err: any) {
+  return (
+    err?.code === "23505" ||
+    `${err?.message || ""}`.toLowerCase().includes("duplicate key")
+  );
+}
+
+// ✅ Billing portal URL üret (email’de CTA için)
+async function createManageBillingUrl(customerId: string) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const portal = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: `${siteUrl}/pro`,
+  });
+  return portal.url;
+}
+
+function computeGraceUntilIso() {
+  const days = Number(process.env.PAYMENT_GRACE_DAYS ?? 3);
+  const safeDays = Number.isFinite(days) && days > 0 ? days : 3;
+  return new Date(Date.now() + safeDays * 24 * 60 * 60 * 1000).toISOString();
 }
 
 export async function POST(req: Request) {
@@ -35,9 +60,86 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
 
+  const eventId = event.id;
+  const eventType = event.type;
+
+  const STALE_MS = 10 * 60 * 1000;
+
+  const { error: insertErr } = await supabase
+    .from("stripe_webhook_events")
+    .insert({
+      event_id: eventId,
+      type: eventType,
+      status: "processing",
+      processed_at: null,
+      error: null,
+    });
+
+  if (insertErr) {
+    if (isUniqueViolation(insertErr)) {
+      const { data: row, error: readErr } = await supabase
+        .from("stripe_webhook_events")
+        .select("status, processed_at")
+        .eq("event_id", eventId)
+        .maybeSingle();
+
+      if (readErr || !row) {
+        return NextResponse.json(
+          { error: "Idempotency read failed" },
+          { status: 500 },
+        );
+      }
+
+      if (row.status === "processed") {
+        return NextResponse.json({ received: true, duplicate: true });
+      }
+
+      if (row.status === "processing") {
+        const last = row.processed_at
+          ? new Date(row.processed_at).getTime()
+          : 0;
+        const stale = !last || Date.now() - last > STALE_MS;
+
+        if (!stale) {
+          return NextResponse.json({ received: true, duplicate: true });
+        }
+
+        const { error: bumpErr } = await supabase
+          .from("stripe_webhook_events")
+          .update({
+            status: "processing",
+            processed_at: new Date().toISOString(),
+            error: "reprocessing after stale processing",
+          })
+          .eq("event_id", eventId);
+
+        if (bumpErr) {
+          return NextResponse.json(
+            { error: "Idempotency bump failed" },
+            { status: 500 },
+          );
+        }
+      }
+      // failed ise yeniden dene (aşağı devam)
+    } else {
+      return NextResponse.json(
+        { error: "Idempotency insert failed" },
+        { status: 500 },
+      );
+    }
+  }
+
+  await supabase
+    .from("stripe_webhook_events")
+    .update({
+      status: "processing",
+      processed_at: new Date().toISOString(),
+      error: null,
+    })
+    .eq("event_id", eventId);
+
   try {
     switch (event.type) {
-      // 1) Checkout bitti → user_id ile planı PRO’ya çek, subscriptionId yaz
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
@@ -49,7 +151,6 @@ export async function POST(req: Request) {
 
         if (!userId || !subscriptionId) break;
 
-        // Subscription’ı çek → period_end ve cancel_at_period_end için
         const sub = (await stripe.subscriptions.retrieve(
           subscriptionId,
         )) as unknown as Stripe.Subscription;
@@ -65,13 +166,32 @@ export async function POST(req: Request) {
           current_period_end: toIsoFromUnix((sub as any).current_period_end),
           cancel_at_period_end: Boolean((sub as any).cancel_at_period_end),
           cancel_at: toIsoFromUnix((sub as any).cancel_at),
+          grace_until: null, // ✅ ödeme alındı, grace yok
           updated_at: new Date().toISOString(),
         });
+
+        if (EMAIL_ENABLED) {
+          const email =
+            session.customer_details?.email ||
+            (typeof session.customer_email === "string"
+              ? session.customer_email
+              : null);
+
+          const customerId =
+            typeof session.customer === "string" ? session.customer : null;
+
+          if (email) {
+            const manageUrl = customerId
+              ? await createManageBillingUrl(customerId)
+              : null;
+
+            await sendPaymentSucceededEmail({ to: email, manageUrl });
+          }
+        }
 
         break;
       }
 
-      // 2) Subscription değişti → status + period_end + cancel flags sync
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
@@ -84,9 +204,6 @@ export async function POST(req: Request) {
         const cancelAtPeriodEnd = Boolean((sub as any).cancel_at_period_end);
         const cancelAt = (sub as any).cancel_at as number | null | undefined;
 
-        // ✅ KURAL: Cancel edilmiş ama dönem bitmemişse hâlâ PRO göster:
-        // - status "active/trialing" ise zaten pro
-        // - status "canceled" olsa bile period_end gelecekteyse pro göster
         const periodEndIso = toIsoFromUnix(currentPeriodEnd);
         const periodEndMs = currentPeriodEnd ? currentPeriodEnd * 1000 : 0;
         const stillValid = periodEndMs && periodEndMs > Date.now();
@@ -96,6 +213,9 @@ export async function POST(req: Request) {
             ? "pro"
             : "free";
 
+        // ✅ abonelik tekrar active/trialing olduysa grace'i temizle
+        const clearGrace = status === "active" || status === "trialing";
+
         await supabase
           .from("user_plan")
           .update({
@@ -104,6 +224,7 @@ export async function POST(req: Request) {
             current_period_end: periodEndIso,
             cancel_at_period_end: cancelAtPeriodEnd,
             cancel_at: toIsoFromUnix(cancelAt ?? null),
+            grace_until: clearGrace ? null : undefined, // undefined => dokunma
             updated_at: new Date().toISOString(),
           })
           .eq("provider_subscription_id", sub.id);
@@ -111,7 +232,6 @@ export async function POST(req: Request) {
         break;
       }
 
-      // 3) Subscription tamamen bitti → FREE
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
 
@@ -123,6 +243,7 @@ export async function POST(req: Request) {
             current_period_end: null,
             cancel_at_period_end: false,
             cancel_at: null,
+            grace_until: null,
             updated_at: new Date().toISOString(),
           })
           .eq("provider_subscription_id", sub.id);
@@ -130,7 +251,6 @@ export async function POST(req: Request) {
         break;
       }
 
-      // 4) Ödeme başarısız → past_due gibi durumları DB’ye yaz
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
         const subId = (invoice as any).subscription as
@@ -139,18 +259,48 @@ export async function POST(req: Request) {
           | undefined;
         if (!subId) break;
 
+        const graceUntilIso = computeGraceUntilIso();
+
         await supabase
           .from("user_plan")
           .update({
             status: "past_due",
+            grace_until: graceUntilIso, // ✅ grace başlat
             updated_at: new Date().toISOString(),
           })
           .eq("provider_subscription_id", subId);
 
+        if (EMAIL_ENABLED) {
+          try {
+            const { data: planRow } = await supabase
+              .from("user_plan")
+              .select("user_id, provider_customer_id")
+              .eq("provider_subscription_id", subId)
+              .maybeSingle();
+
+            const uid = planRow?.user_id ?? null;
+            const customerId = planRow?.provider_customer_id ?? null;
+
+            if (uid) {
+              const { data: u } = await supabase.auth.admin.getUserById(uid);
+              const to = u.user?.email ?? null;
+
+              if (to) {
+                const manageUrl = customerId
+                  ? await createManageBillingUrl(customerId)
+                  : null;
+
+                await sendPaymentFailedEmail({ to, manageUrl });
+              }
+            }
+          } catch {
+            // best-effort
+          }
+        }
+
         break;
       }
 
-      // 5) Ödeme başarılı → active’a geri çek
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
         const subId = (invoice as any).subscription as
@@ -159,7 +309,6 @@ export async function POST(req: Request) {
           | undefined;
         if (!subId) break;
 
-        // period_end’i de güncellemek istersen subscription retrieve:
         const sub = (await stripe.subscriptions.retrieve(
           subId,
         )) as unknown as Stripe.Subscription;
@@ -172,17 +321,63 @@ export async function POST(req: Request) {
             current_period_end: toIsoFromUnix((sub as any).current_period_end),
             cancel_at_period_end: Boolean((sub as any).cancel_at_period_end),
             cancel_at: toIsoFromUnix((sub as any).cancel_at),
+            grace_until: null, // ✅ ödeme alındı, grace bitti
             updated_at: new Date().toISOString(),
           })
           .eq("provider_subscription_id", subId);
+
+        if (EMAIL_ENABLED) {
+          try {
+            const { data: planRow } = await supabase
+              .from("user_plan")
+              .select("user_id, provider_customer_id")
+              .eq("provider_subscription_id", subId)
+              .maybeSingle();
+
+            const uid = planRow?.user_id ?? null;
+            const customerId = planRow?.provider_customer_id ?? null;
+
+            if (uid) {
+              const { data: u } = await supabase.auth.admin.getUserById(uid);
+              const to = u.user?.email ?? null;
+
+              if (to) {
+                const manageUrl = customerId
+                  ? await createManageBillingUrl(customerId)
+                  : null;
+
+                await sendPaymentSucceededEmail({ to, manageUrl });
+              }
+            }
+          } catch {
+            // best-effort
+          }
+        }
 
         break;
       }
     }
 
+    await supabase
+      .from("stripe_webhook_events")
+      .update({
+        status: "processed",
+        processed_at: new Date().toISOString(),
+        error: null,
+      })
+      .eq("event_id", eventId);
+
     return NextResponse.json({ received: true });
   } catch (e: any) {
-    // Stripe tekrar dener; burada 500 dönmek debug için daha iyi
+    await supabase
+      .from("stripe_webhook_events")
+      .update({
+        status: "failed",
+        processed_at: new Date().toISOString(),
+        error: e?.message ?? "Webhook handler failed",
+      })
+      .eq("event_id", eventId);
+
     return NextResponse.json(
       { error: e?.message ?? "Webhook handler failed" },
       { status: 500 },

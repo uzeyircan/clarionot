@@ -17,7 +17,7 @@ export default function Header() {
     try {
       const { data, error } = await supabase
         .from("user_plan")
-        .select("plan,status")
+        .select("plan,status,current_period_end,grace_until")
         .eq("user_id", uid)
         .maybeSingle();
 
@@ -26,9 +26,17 @@ export default function Header() {
         return;
       }
 
-      const isPro =
-        data.plan === "pro" &&
-        (data.status === "active" || data.status === "trialing");
+      const statusOk = data.status === "active" || data.status === "trialing";
+
+      const stillValid =
+        !!data.current_period_end &&
+        new Date(data.current_period_end).getTime() > Date.now();
+
+      const inGrace =
+        !!(data as any).grace_until &&
+        new Date((data as any).grace_until).getTime() > Date.now();
+
+      const isPro = data.plan === "pro" && (statusOk || stillValid || inGrace);
 
       setPlan(isPro ? "pro" : "free");
     } finally {
@@ -37,7 +45,6 @@ export default function Header() {
   };
 
   useEffect(() => {
-    // İlk session
     supabase.auth.getSession().then(({ data }) => {
       const session = data.session;
       const uid = session?.user?.id ?? null;
@@ -51,7 +58,6 @@ export default function Header() {
       }
     });
 
-    // Auth değişimi
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         const uid = session?.user?.id ?? null;
@@ -63,7 +69,7 @@ export default function Header() {
           setPlan("free");
           setCheckingPlan(false);
         }
-      }
+      },
     );
 
     return () => {
@@ -82,7 +88,6 @@ export default function Header() {
         href="/"
         className="text-sm font-semibold tracking-wide flex items-center gap-2"
       >
-        {/* Şimdilik text logo. Logo mark ekleyeceğiz */}
         ClarioNot
       </Link>
 

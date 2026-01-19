@@ -56,7 +56,7 @@ export default function HomePage() {
         src: "/landing/ss-4-modal.png",
       },
     ],
-    []
+    [],
   );
 
   const active = shots.find((s) => s.key === activeShot) ?? shots[0];
@@ -76,7 +76,7 @@ export default function HomePage() {
 
       const { data: planRow } = await supabase
         .from("user_plan")
-        .select("plan,status")
+        .select("plan,status,current_period_end,grace_until")
         .eq("user_id", uid)
         .maybeSingle();
 
@@ -563,8 +563,8 @@ export default function HomePage() {
                     {proPriceLoading
                       ? "…"
                       : proPrice?.formatted
-                      ? `${proPrice.formatted} / ay`
-                      : "Fiyat yüklenemedi"}
+                        ? `${proPrice.formatted} / ay`
+                        : "Fiyat yüklenemedi"}
                   </div>
                 </div>
                 <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">

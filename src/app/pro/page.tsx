@@ -11,6 +11,7 @@ type PlanRow = {
   current_period_end: string | null;
   cancel_at_period_end?: boolean | null;
 };
+
 const FEATURES = [
   { name: "Right-click save (Extension)", free: false, pro: true },
   { name: "Auto title from links", free: true, pro: true },
@@ -36,11 +37,21 @@ export default function ProPage() {
   const isPro = useMemo(() => {
     const statusOk = plan?.status === "active" || plan?.status === "trialing";
     const stillValid =
-      plan?.current_period_end &&
+      !!plan?.current_period_end &&
       new Date(plan.current_period_end).getTime() > Date.now();
 
     return plan?.plan === "pro" && (statusOk || stillValid);
   }, [plan]);
+
+  const hasPaymentIssue = useMemo(() => {
+    return plan?.status === "past_due" || plan?.status === "unpaid";
+  }, [plan]);
+
+  const planLabel = useMemo(() => {
+    if (!isPro) return "FREE";
+    if (plan?.cancel_at_period_end) return "PRO (cancels at period end)";
+    return "PRO";
+  }, [isPro, plan?.cancel_at_period_end]);
 
   useEffect(() => {
     (async () => {
@@ -122,7 +133,11 @@ export default function ProPage() {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          return_url: window.location.href,
+        }),
       });
 
       const json = await res.json().catch(() => ({}));
@@ -182,18 +197,34 @@ export default function ProPage() {
           </div>
         </div>
 
+        {/* ✅ Sadece Pro sayfasında ödeme sorunu uyarısı (Header'a dokunmuyoruz) */}
+        {isPro && hasPaymentIssue ? (
+          <div className="mt-8 rounded-2xl border border-amber-900/40 bg-amber-950/30 p-4 text-sm text-amber-200">
+            <div className="font-semibold text-amber-100">
+              Ödeme sorunu tespit edildi
+            </div>
+            <div className="mt-1 text-amber-200/90">
+              Kartınızdan ödeme alınamadı. Sorunu çözmek için kartınızı
+              güncelleyin.
+            </div>
+            <button
+              onClick={openBillingPortal}
+              disabled={portalLoading}
+              className="mt-3 rounded-xl bg-amber-200 px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
+            >
+              {portalLoading ? "Opening…" : "Kartı Güncelle"}
+            </button>
+          </div>
+        ) : null}
+
         {/* Plan durum badge */}
         <div className="mt-8 flex justify-center">
           <div className="rounded-full border border-neutral-800 bg-neutral-950 px-4 py-2 text-xs text-neutral-300">
             Current plan:{" "}
             <span className={isPro ? "text-emerald-300" : "text-amber-300"}>
-              {plan?.status === "canceling"
-                ? "PRO (cancels at period end)"
-                : isPro
-                  ? "PRO"
-                  : "FREE"}
+              {planLabel}
             </span>
-            {plan?.current_period_end ? (
+            {isPro && plan?.current_period_end ? (
               <span className="text-neutral-500">
                 {" "}
                 • renews:{" "}

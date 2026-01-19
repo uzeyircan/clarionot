@@ -61,7 +61,7 @@ export default function DashboardPage() {
 
   const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
   const [forgottenSort, setForgottenSort] = useState<"oldest" | "newest">(
-    "oldest"
+    "oldest",
   );
 
   // ✅ Pro durumu DB’den
@@ -112,6 +112,8 @@ export default function DashboardPage() {
   const [renameGroupId, setRenameGroupId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
   const [renaming, setRenaming] = useState(false);
+  const [paymentIssue, setPaymentIssue] = useState<boolean>(false);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   // ✅ Collapse state
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
@@ -141,7 +143,7 @@ export default function DashboardPage() {
 
       return Date.now() - base.getTime() > FORGOTTEN_MS;
     },
-    [FORGOTTEN_MS]
+    [FORGOTTEN_MS],
   );
 
   const baseDateOf = (it: any) => new Date(it.last_viewed_at ?? it.created_at);
@@ -166,8 +168,8 @@ export default function DashboardPage() {
     // ✅ optimistic UI: anında güncelle
     setItems((prev: any) =>
       prev.map((it: any) =>
-        it.id === itemId ? { ...it, last_viewed_at: nowIso } : it
-      )
+        it.id === itemId ? { ...it, last_viewed_at: nowIso } : it,
+      ),
     );
 
     // ✅ debounce: DB spam olmasın
@@ -207,7 +209,7 @@ export default function DashboardPage() {
           .from("user_settings")
           .upsert(
             { user_id: uid, forgotten_days: 30 },
-            { onConflict: "user_id" }
+            { onConflict: "user_id" },
           );
 
         if (insErr) throw insErr;
@@ -229,26 +231,76 @@ export default function DashboardPage() {
     try {
       const { data, error } = await supabase
         .from("user_plan")
-        .select("plan,status")
+        .select("plan,status,current_period_end")
         .eq("user_id", uid)
         .maybeSingle();
 
       if (error || !data) {
         setIsPro(false);
+        setPaymentIssue(false);
         return;
       }
 
+      const statusOk = data.status === "active" || data.status === "trialing";
+
+      const stillValid =
+        !!data.current_period_end &&
+        new Date(data.current_period_end).getTime() > Date.now();
+
+      const inGrace =
+        !!(data as any).grace_until &&
+        new Date((data as any).grace_until).getTime() > Date.now();
+
       const isProUser =
-        data.plan === "pro" &&
-        (data.status === "active" || data.status === "trialing");
+        data.plan === "pro" && (statusOk || stillValid || inGrace);
+
+      const hasIssue = data.status === "past_due" || data.status === "unpaid";
 
       setIsPro(isProUser);
+      setPaymentIssue(isProUser && hasIssue);
 
       if (isProUser) {
         await fetchUserSettings(uid);
       }
     } catch {
       setIsPro(false);
+    }
+  };
+  const openBillingPortal = async () => {
+    try {
+      setPortalLoading(true);
+      setErr(null);
+
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+      if (!session?.access_token) {
+        router.replace("/login");
+        return;
+      }
+
+      const res = await fetch("/api/billing/portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          return_url: window.location.href,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+
+      const url = json?.url;
+      if (!url) throw new Error("Portal URL alınamadı.");
+
+      window.location.href = url;
+    } catch (e: any) {
+      setErr(e?.message ?? "Billing portal açılamadı.");
+      showToast("err", e?.message ?? "Billing portal açılamadı ❌");
+    } finally {
+      setPortalLoading(false);
     }
   };
 
@@ -306,7 +358,7 @@ export default function DashboardPage() {
   const checkExtension = async (uid: string) => {
     try {
       const cutoff = new Date(
-        Date.now() - 7 * 24 * 60 * 60 * 1000
+        Date.now() - 7 * 24 * 60 * 60 * 1000,
       ).toISOString();
 
       const { data, error } = await supabase
@@ -378,7 +430,7 @@ export default function DashboardPage() {
   useEffect(() => {
     return () => {
       Object.values(viewTimersRef.current).forEach((t) =>
-        window.clearTimeout(t)
+        window.clearTimeout(t),
       );
       viewTimersRef.current = {};
     };
@@ -456,7 +508,7 @@ export default function DashboardPage() {
           const inTitle = (it.title ?? "").toLowerCase().includes(s);
           const inContent = (it.content ?? "").toLowerCase().includes(s);
           const inTags = (it.tags ?? []).some((t: string) =>
-            t.toLowerCase().includes(s)
+            t.toLowerCase().includes(s),
           );
           return inTitle || inContent || inTags;
         });
@@ -525,7 +577,7 @@ export default function DashboardPage() {
     if (!userId) return;
 
     const ok = confirm(
-      "Bu grubu silmek istiyor musun?\nBu gruptaki tüm kayıtlar Inbox’a taşınacak."
+      "Bu grubu silmek istiyor musun?\nBu gruptaki tüm kayıtlar Inbox’a taşınacak.",
     );
     if (!ok) return;
 
@@ -850,8 +902,8 @@ export default function DashboardPage() {
     // optimistic
     setItems((prev: any) =>
       prev.map((it: any) =>
-        it.id === itemId ? { ...it, group_id: groupId } : it
-      )
+        it.id === itemId ? { ...it, group_id: groupId } : it,
+      ),
     );
 
     const { error } = await supabase
@@ -864,8 +916,8 @@ export default function DashboardPage() {
       // rollback
       setItems((prev: any) =>
         prev.map((it: any) =>
-          it.id === itemId ? { ...it, group_id: prevGroupId } : it
-        )
+          it.id === itemId ? { ...it, group_id: prevGroupId } : it,
+        ),
       );
       throw error;
     }
@@ -916,7 +968,7 @@ export default function DashboardPage() {
 
     const toggle = (next: boolean) => {
       setForgottenSelection((prev) =>
-        next ? [...prev, it.id] : prev.filter((x) => x !== it.id)
+        next ? [...prev, it.id] : prev.filter((x) => x !== it.id),
       );
     };
 
@@ -986,7 +1038,7 @@ export default function DashboardPage() {
     if (forgottenSelection.length === 0) return;
 
     const untilIso = new Date(
-      Date.now() + days * 24 * 60 * 60 * 1000
+      Date.now() + days * 24 * 60 * 60 * 1000,
     ).toISOString();
 
     const { error } = await supabase
@@ -1009,6 +1061,25 @@ export default function DashboardPage() {
     <main className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-10">
         <Header />
+
+        {isPro === true && paymentIssue ? (
+          <div className="mt-4 rounded-2xl border border-amber-900/40 bg-amber-950/30 p-4 text-sm text-amber-200">
+            <div className="font-semibold text-amber-100">
+              Ödeme sorunu tespit edildi
+            </div>
+            <div className="mt-1 text-amber-200/90">
+              Kartınızdan ödeme alınamadı. Pro erişiminiz dönem sonuna kadar
+              devam edebilir; ama sorun çözülmezse askıya alınabilir.
+            </div>
+            <button
+              onClick={openBillingPortal}
+              disabled={portalLoading}
+              className="mt-3 rounded-xl bg-amber-200 px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
+            >
+              {portalLoading ? "Opening…" : "Kartı Güncelle"}
+            </button>
+          </div>
+        ) : null}
 
         {isPro === false ? (
           <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-300">
@@ -1234,7 +1305,7 @@ export default function DashboardPage() {
                           } catch (e: any) {
                             showToast(
                               "err",
-                              e?.message ?? "Inbox’a alınamadı ❌"
+                              e?.message ?? "Inbox’a alınamadı ❌",
                             );
                           } finally {
                             setBulkLoading(false);
@@ -1258,7 +1329,7 @@ export default function DashboardPage() {
                           if (forgottenSelection.length === 0) return;
 
                           const ok = confirm(
-                            `${forgottenSelection.length} kayıt silinecek. Emin misin?`
+                            `${forgottenSelection.length} kayıt silinecek. Emin misin?`,
                           );
                           if (!ok) return;
 
@@ -1308,7 +1379,7 @@ export default function DashboardPage() {
                             setBulkLoading(true);
 
                             const untilIso = new Date(
-                              Date.now() + v * 24 * 60 * 60 * 1000
+                              Date.now() + v * 24 * 60 * 60 * 1000,
                             ).toISOString();
 
                             const { error } = await supabase
@@ -1328,7 +1399,7 @@ export default function DashboardPage() {
                           } catch (e2: any) {
                             showToast(
                               "err",
-                              e2?.message ?? "Ertele kaydedilemedi ❌"
+                              e2?.message ?? "Ertele kaydedilemedi ❌",
                             );
                           } finally {
                             setBulkLoading(false);
@@ -1451,7 +1522,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() =>
                     setForgottenSort((p) =>
-                      p === "oldest" ? "newest" : "oldest"
+                      p === "oldest" ? "newest" : "oldest",
                     )
                   }
                   className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-900 transition"
@@ -1498,7 +1569,7 @@ export default function DashboardPage() {
                 <div
                   {...inboxDrop}
                   className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
-                    dragOverTarget === "inbox"
+                    dragOverTarget === "inbox",
                   )}`}
                 >
                   <button
@@ -1546,7 +1617,7 @@ export default function DashboardPage() {
                       key={g.id}
                       {...drop}
                       className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
-                        isOver
+                        isOver,
                       )}`}
                     >
                       <button
@@ -1607,7 +1678,7 @@ export default function DashboardPage() {
                 <div
                   {...inboxDrop}
                   className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
-                    dragOverTarget === "inbox"
+                    dragOverTarget === "inbox",
                   )}`}
                 >
                   <button
@@ -1655,7 +1726,7 @@ export default function DashboardPage() {
                       key={g.id}
                       {...drop}
                       className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
-                        isOver
+                        isOver,
                       )}`}
                     >
                       <button
@@ -1732,7 +1803,7 @@ export default function DashboardPage() {
                           setSelectedItemIds((prev) => [...prev, it.id]);
                         else
                           setSelectedItemIds((prev) =>
-                            prev.filter((x) => x !== it.id)
+                            prev.filter((x) => x !== it.id),
                           );
                       }}
                     />
