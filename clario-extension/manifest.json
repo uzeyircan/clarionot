@@ -4,10 +4,12 @@
   "version": "1.1.0",
   "action": { "default_title": "ClarioNot Clip" },
   "permissions": ["contextMenus", "storage", "tabs"],
-  "host_permissions": ["https://clarionot.com/*"],
-  "background": {
-    "service_worker": "background.js"
-  },
+  "host_permissions": [
+    "https://clarionot.com/*",
+    "https://www.clarionot.com/*",
+    "http://localhost:3000/*"
+  ],
+  "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
       "matches": [
@@ -15,13 +17,13 @@
         "https://www.clarionot.com/*",
         "http://localhost:3000/*"
       ],
-
       "js": ["content/modal.js"],
       "run_at": "document_idle"
     },
     {
       "matches": [
         "https://clarionot.com/extension/connect*",
+        "https://www.clarionot.com/extension/connect*",
         "http://localhost:3000/extension/connect*"
       ],
       "js": ["content/bridge.js"],

@@ -4,6 +4,16 @@
   window.__CLARIONOT_MODAL_LOADED__ = true;
 
   const ROOT_ID = "clarionot-modal-root";
+  console.log("[ClarioNot] content script loaded");
+
+  window.postMessage(
+    {
+      source: "clarionot-extension",
+      type: "EXTENSION_READY",
+      version: chrome.runtime?.getManifest?.().version,
+    },
+    "*",
+  );
 
   function escHtml(s) {
     return String(s ?? "")

@@ -56,9 +56,6 @@ export default function DashboardPage() {
   const [extLiveHere, setExtLiveHere] = useState<boolean>(false);
   const [extChecking, setExtChecking] = useState<boolean>(true);
 
-  const CHROME_STORE_URL =
-    "https://chromewebstore.google.com/detail/clario-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
-
   const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
   const [forgottenSort, setForgottenSort] = useState<"oldest" | "newest">(
     "oldest",
@@ -82,7 +79,6 @@ export default function DashboardPage() {
     setToast({ type, text });
   const viewTimersRef = useRef<Record<string, number>>({});
   const [bulkLoading, setBulkLoading] = useState(false);
-
   useEffect(() => {
     if (!toast) return;
     const t = window.setTimeout(() => setToast(null), 1800);
@@ -148,10 +144,6 @@ export default function DashboardPage() {
 
   const baseDateOf = (it: any) => new Date(it.last_viewed_at ?? it.created_at);
 
-  const daysAgo = (it: any) => {
-    const ms = Date.now() - baseDateOf(it).getTime();
-    return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
-  };
   const skipOnboarding = () => {
     if (userId) {
       const key = `clarionot:onboarding:v1:${userId}`;
@@ -231,7 +223,7 @@ export default function DashboardPage() {
     try {
       const { data, error } = await supabase
         .from("user_plan")
-        .select("plan,status,current_period_end")
+        .select("plan,status,current_period_end,grace_until")
         .eq("user_id", uid)
         .maybeSingle();
 
@@ -303,6 +295,26 @@ export default function DashboardPage() {
       setPortalLoading(false);
     }
   };
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      // ✅ sadece bu pencereden gelen postMessage'ları dinle
+      if (e.source !== window) return;
+
+      const data = (e.data ?? {}) as any;
+
+      if (
+        data.source === "clarionot-extension" &&
+        data.type === "EXTENSION_READY"
+      ) {
+        setExtConnected(true);
+        setExtLiveHere(true);
+        setExtChecking(false);
+      }
+    }
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
   // auth gate
   useEffect(() => {
@@ -354,12 +366,21 @@ export default function DashboardPage() {
       window.postMessage({ type: PING }, window.location.origin);
     });
   };
+  const pingExtensionWithRetry = async (
+    retries = 3,
+    delayMs = 300,
+  ): Promise<boolean> => {
+    for (let i = 0; i < retries; i++) {
+      const ok = await pingExtension();
+      if (ok) return true;
+      if (i < retries - 1) await new Promise((r) => setTimeout(r, delayMs));
+    }
+    return false;
+  };
 
   const checkExtension = async (uid: string) => {
     try {
-      const cutoff = new Date(
-        Date.now() - 7 * 24 * 60 * 60 * 1000,
-      ).toISOString();
+      const cutoffMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
       const { data, error } = await supabase
         .from("clip_tokens")
@@ -374,19 +395,16 @@ export default function DashboardPage() {
 
       const row = data?.[0];
       if (!row) {
-        // hiç token yok => bağlı değil
         setExtConnected(false);
         return false;
       }
 
       const seen = row.last_seen_at;
-      const isLive = seen ? seen >= cutoff : false;
+      const isLive = !!seen && new Date(seen).getTime() >= cutoffMs;
 
-      // DB açısından: token var mı? => bağlı say
       setExtConnected(true);
 
-      // isLive bilgisi istersen ileride UI'da kullanılır; şimdilik sadece not:
-      // (şu an gerçek "bu tarayıcıda var mı?" kontrolü ping ile)
+      // isLive'ı şimdilik sadece not olarak tutuyorsun
       void isLive;
 
       return true;
@@ -451,36 +469,58 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!userId) return;
 
+    let cancelled = false;
+
+    // 1) Data load (pro durumundan bağımsız)
     load(userId);
     loadGroups(userId);
 
-    if (isPro === true) {
-      (async () => {
-        setExtChecking(true);
-        try {
-          const hasToken = await checkExtension(userId); // DB kontrol
-          if (!hasToken) {
-            setExtLiveHere(false);
-            return;
-          }
-          const live = await pingExtension(); // bu tarayıcı kontrol
-          setExtLiveHere(live);
-        } catch {
-          setExtConnected(false);
-          setExtLiveHere(false);
-        } finally {
-          setExtChecking(false);
-        }
-      })();
-    }
+    // 2) Extension check yalnızca Pro ise
+    const run = async () => {
+      // isPro henüz belli değilse (null) hiçbir şey yapma
+      if (isPro == null) return;
 
-    if (isPro === false) {
-      setExtConnected(false);
-      setExtLiveHere(false);
-      setExtChecking(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, isPro]);
+      // Pro değilse extension state'lerini temizle
+      if (isPro === false) {
+        if (cancelled) return;
+        setExtConnected(false);
+        setExtLiveHere(false);
+        setExtChecking(false);
+        return;
+      }
+
+      // Pro ise kontrol et
+      if (cancelled) return;
+      setExtChecking(true);
+
+      try {
+        const hasToken = await checkExtension(userId); // DB kontrol
+        if (cancelled) return;
+
+        if (!hasToken) {
+          setExtLiveHere(false);
+          return;
+        }
+
+        const live = await pingExtensionWithRetry(3, 300);
+        if (cancelled) return;
+        setExtLiveHere(live);
+      } catch {
+        if (cancelled) return;
+        setExtConnected(false);
+        setExtLiveHere(false);
+      } finally {
+        if (cancelled) return;
+        setExtChecking(false);
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, isPro]); // load/loadGroups/ping/check fonksiyonların stable değilse useCallback yap
 
   useEffect(() => {
     if (activeGroupId !== "forgotten" || isPro !== true) {
@@ -1033,30 +1073,6 @@ export default function DashboardPage() {
     );
   };
 
-  const snoozeSelected = async (days: 7 | 14 | 30) => {
-    if (!userId) return;
-    if (forgottenSelection.length === 0) return;
-
-    const untilIso = new Date(
-      Date.now() + days * 24 * 60 * 60 * 1000,
-    ).toISOString();
-
-    const { error } = await supabase
-      .from("items")
-      .update({ snoozed_until: untilIso })
-      .in("id", forgottenSelection)
-      .eq("user_id", userId);
-
-    if (error) {
-      showToast("err", "Ertelenemedi ❌");
-      return;
-    }
-
-    setForgottenSelection([]);
-    await load(userId);
-    showToast("ok", `Ertelendi (${days} gün) ✅`);
-  };
-
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-10">
@@ -1147,22 +1163,27 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {!extChecking && !extLiveHere ? (
-                <div className="flex gap-2">
-                  <a
-                    href="/extension/connect"
-                    className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-3 py-2 text-xs font-semibold text-neutral-900 hover:bg-neutral-100 transition"
-                  >
-                    Bağla
-                  </a>
-                </div>
-              ) : (
+              {extChecking ? (
+                <button
+                  disabled
+                  className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs font-semibold text-neutral-500 cursor-not-allowed"
+                >
+                  Kontrol ediliyor…
+                </button>
+              ) : extLiveHere ? (
                 <button
                   onClick={() => router.push("/extension/connect")}
                   className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
                 >
                   Yeniden bağla
                 </button>
+              ) : (
+                <a
+                  href="/extension/connect"
+                  className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-3 py-2 text-xs font-semibold text-neutral-900 hover:bg-neutral-100 transition"
+                >
+                  Bağla
+                </a>
               )}
             </div>
 
