@@ -297,11 +297,12 @@ export default function DashboardPage() {
   };
   useEffect(() => {
     function onMessage(e: MessageEvent) {
-      // ✅ sadece bu pencereden gelen postMessage'ları dinle
+      // 🔒 Sadece aynı window’dan gelen mesajları al
       if (e.source !== window) return;
 
       const data = (e.data ?? {}) as any;
 
+      // ✅ Extension hazır mesajı
       if (
         data.source === "clarionot-extension" &&
         data.type === "EXTENSION_READY"
@@ -313,7 +314,10 @@ export default function DashboardPage() {
     }
 
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+
+    return () => {
+      window.removeEventListener("message", onMessage);
+    };
   }, []);
 
   // auth gate
@@ -354,8 +358,12 @@ export default function DashboardPage() {
       }, 1200);
 
       function onMsg(e: MessageEvent) {
-        if (e.origin !== window.location.origin) return;
-        if ((e.data as any)?.type !== PONG) return;
+        if (e.source !== window) return;
+
+        const data = (e.data ?? {}) as any;
+
+        if (data.type !== PONG) return;
+        if (data.source !== "clarionot-extension") return;
 
         window.clearTimeout(t);
         window.removeEventListener("message", onMsg);
@@ -363,9 +371,10 @@ export default function DashboardPage() {
       }
 
       window.addEventListener("message", onMsg);
-      window.postMessage({ type: PING }, window.location.origin);
+      window.postMessage({ type: PING }, "*");
     });
   };
+
   const pingExtensionWithRetry = async (
     retries = 3,
     delayMs = 300,

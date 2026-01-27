@@ -6,14 +6,40 @@
   const ROOT_ID = "clarionot-modal-root";
   console.log("[ClarioNot] content script loaded");
 
-  window.postMessage(
-    {
-      source: "clarionot-extension",
-      type: "EXTENSION_READY",
-      version: chrome.runtime?.getManifest?.().version,
-    },
-    "*",
-  );
+  // Tell the page we're alive.
+  // NOTE: The app might add its message listener after this runs,
+  // so we ALSO respond to CLARIONOT_PING below.
+  const postReady = () => {
+    try {
+      window.postMessage(
+        {
+          source: "clarionot-extension",
+          type: "EXTENSION_READY",
+          version: chrome.runtime?.getManifest?.().version,
+          ts: Date.now(),
+        },
+        window.location.origin,
+      );
+    } catch {
+      // ignore
+    }
+  };
+
+  postReady();
+
+  // Dashboard uses a ping/pong check to decide "active in THIS tab".
+  // Handle it here because this script runs on /dashboard.
+  window.addEventListener("message", (e) => {
+    if (e.source !== window) return;
+    if (e.origin !== window.location.origin) return;
+
+    const data = e.data ?? {};
+    if (data?.type === "CLARIONOT_PING") {
+      window.postMessage({ type: "CLARIONOT_PONG" }, window.location.origin);
+      // Bonus: also re-announce readiness so the app can update UI.
+      postReady();
+    }
+  });
 
   function escHtml(s) {
     return String(s ?? "")
