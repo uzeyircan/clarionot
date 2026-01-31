@@ -12,11 +12,7 @@
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
-      "matches": [
-        "https://clarionot.com/*",
-        "https://www.clarionot.com/*",
-        "http://localhost:3000/*"
-      ],
+      "matches": ["<all_urls>"],
       "js": ["content/modal.js"],
       "run_at": "document_idle"
     },

@@ -358,12 +358,10 @@ export default function DashboardPage() {
       }, 1200);
 
       function onMsg(e: MessageEvent) {
+        // sadece bu sayfanın kendi mesajları
         if (e.source !== window) return;
 
-        const data = (e.data ?? {}) as any;
-
-        if (data.type !== PONG) return;
-        if (data.source !== "clarionot-extension") return;
+        if ((e.data as any)?.type !== PONG) return;
 
         window.clearTimeout(t);
         window.removeEventListener("message", onMsg);
@@ -513,7 +511,10 @@ export default function DashboardPage() {
 
         const live = await pingExtensionWithRetry(3, 300);
         if (cancelled) return;
-        setExtLiveHere(live);
+
+        // 🔥 Kritik: ping bazen false döner ama extension aslında çalışıyordur.
+        // Zaten EXTENSION_READY aldıysan false ile ezme.
+        setExtLiveHere((prev) => (live ? true : prev));
       } catch {
         if (cancelled) return;
         setExtConnected(false);
