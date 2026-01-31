@@ -96,10 +96,21 @@ chrome.runtime.onStartup.addListener(setupMenus);
  * ✅ SADECE 1 tane onClicked listener:
  * - Direkt kaydetmeyi kaldırdık (modal)
  * - Sağ tık -> grupları çek -> modal aç
+ *
+ * Sigortalar:
+ * 1) Tab URL http/https değilse çık (chrome:// vs)
+ * 2) sendMessage sonrası lastError yakala → Receiving end does not exist
  */
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     if (!tab?.id) return;
+
+    const tabUrl = tab.url || "";
+    if (!tabUrl.startsWith("http://") && !tabUrl.startsWith("https://")) {
+      // chrome:// pages, webstore, etc. -> content script yok
+      notify("Uyarı", "Bu sayfada çalışmaz (http/https değil).");
+      return;
+    }
 
     // Token yoksa connect’e
     const token = await getToken();
@@ -120,15 +131,26 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       groups = [];
     }
 
-    chrome.tabs.sendMessage(tab.id, {
+    const message = {
       type: "CLARIONOT_OPEN_MODAL",
       payload: {
         inferredType,
         selection: info.selectionText || "",
         link: info.linkUrl || "",
-        pageUrl: tab.url || info.pageUrl || "",
+        pageUrl: tabUrl || info.pageUrl || "",
         groups,
       },
+    };
+
+    // ✅ SIGORTA: Receiving end does not exist yakala
+    chrome.tabs.sendMessage(tab.id, message, () => {
+      const err = chrome.runtime.lastError;
+      if (err) {
+        // content script yok / o tab'de enject edilmemiş
+        notify("Uyarı", err.message || "Content script yok.");
+        // İstersen fallback: connect sayfası açtır
+        chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
+      }
     });
   } catch (e) {
     const emsg = e?.message || String(e);
@@ -147,6 +169,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
  * ✅ Tek onMessage listener (daha sağlam)
  * - SAVE_TOKEN
  * - CLARIONOT_SAVE_FROM_MODAL
+ * - CLARIONOT_GET_GROUPS
  */
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // ✅ bridge.js -> token kaydet (GARANTİLİ response + lastError)
@@ -201,7 +224,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         if (inferredType === "note") {
           const content = String(
-            p.content || p.note || p.selection || ""
+            p.content || p.note || p.selection || "",
           ).trim();
           if (!content) throw new Error("Not içeriği boş.");
 
@@ -214,7 +237,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           };
         } else {
           const url = String(
-            p.url || p.content || p.link || p.pageUrl || ""
+            p.url || p.content || p.link || p.pageUrl || "",
           ).trim();
           if (!url) throw new Error("URL bulunamadı.");
 
@@ -231,6 +254,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         console.log("[CLARIONOT] apiPayload", apiPayload);
         const out = await clipRequest(apiPayload);
         notify("Kaydedildi", `id: ${out?.id || "-"}`);
+        // ✅ Kaydedince aktif tab'a "saved" sinyali (dashboard toast için)
+        try {
+          if (sender?.tab?.id) {
+            chrome.tabs.sendMessage(
+              sender.tab.id,
+              { type: "CLARIONOT_SAVED", payload: { id: out?.id || null } },
+              () => {
+                // receiving end yoksa umursama
+                void chrome.runtime.lastError;
+              },
+            );
+          }
+        } catch {
+          // ignore
+        }
 
         sendResponse({ ok: true, id: out?.id });
       } catch (e) {

@@ -3,12 +3,12 @@
   if (window.__CLARIONOT_MODAL_LOADED__) return;
   window.__CLARIONOT_MODAL_LOADED__ = true;
 
-  const HOST_ID = "clarionot-modal-host";
+  const ROOT_ID = "clarionot-modal-root";
+  const STYLE_ID = "clarionot-modal-style";
+
   console.log("[ClarioNot] content script loaded");
 
-  // Tell the page we're alive.
-  // NOTE: The app might add its message listener after this runs,
-  // so we ALSO respond to CLARIONOT_PING below.
+  // Tell the page we're alive (for dashboard badge).
   const postReady = () => {
     try {
       window.postMessage(
@@ -27,19 +27,15 @@
 
   postReady();
 
-  // Dashboard uses a ping/pong check to decide "active in THIS tab".
-  // Handle it here because this script runs on /dashboard.
+  // Dashboard uses ping/pong to decide "active in THIS tab".
   window.addEventListener("message", (e) => {
-    // sadece aynı sayfanın kendi mesajları
     if (e.source !== window) return;
+    if (e.origin !== window.location.origin) return;
 
     const data = e.data ?? {};
     if (data?.type === "CLARIONOT_PING") {
-      // targetOrigin'i '*' yapıyoruz ki dashboard'un origin check’i yüzünden kaçmasın
-      window.postMessage({ type: "CLARIONOT_PONG" }, "*");
-
-      // UI'yı güncellemesi için tekrar READY de bas
-      postReady();
+      window.postMessage({ type: "CLARIONOT_PONG" }, window.location.origin);
+      postReady(); // re-announce
     }
   });
 
@@ -60,261 +56,298 @@
       .slice(0, 20);
   }
 
-  // =======
-  // Shadow DOM modal (CSS isolated from websites like YouTube)
-  // =======
-
   function removeExisting() {
-    const existing = document.getElementById(HOST_ID);
+    const existing = document.getElementById(ROOT_ID);
     if (existing) existing.remove();
-    // also unlock scroll if we locked
-    try {
-      document.documentElement.style.removeProperty("overflow");
-    } catch {}
   }
 
-  function ensureHost() {
-    let host = document.getElementById(HOST_ID);
-    if (host) return host;
+  function ensureStyles() {
+    if (document.getElementById(STYLE_ID)) return;
 
-    host = document.createElement("div");
-    host.id = HOST_ID;
-    host.style.position = "fixed";
-    host.style.inset = "0";
-    host.style.zIndex = "2147483647";
-    host.style.display = "none"; // open -> block
-    host.style.pointerEvents = "auto";
-    document.documentElement.appendChild(host);
+    const css = `
+#${ROOT_ID}{
+  position:fixed; inset:0; z-index:2147483647;
+  display:flex; align-items:center; justify-content:center;
+  background: rgba(0,0,0,0.58);
+  backdrop-filter: blur(6px);
+}
+#${ROOT_ID} *{ box-sizing:border-box; }
+.cn-modal{
+  width: 520px;
+  max-width: calc(100vw - 24px);
+  border-radius: 16px;
+  background: rgba(15,15,15,0.95);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.65);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  overflow:hidden;
+}
+.cn-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.cn-title{
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .2px;
+}
+.cn-x{
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.75);
+  width: 30px; height: 30px;
+  border-radius: 10px;
+  cursor:pointer;
+}
+.cn-x:hover{ background: rgba(255,255,255,0.08); color:#fff; }
 
-    const shadow = host.attachShadow({ mode: "open" });
+.cn-body{ padding: 14px 16px 16px; }
+
+.cn-chiprow{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom: 10px;
+  gap: 10px;
+}
+.cn-chip{
+  display:inline-flex; align-items:center; gap: 8px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.70);
+}
+.cn-pill{
+  display:inline-flex; align-items:center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.85);
+  font-weight: 600;
+}
+
+.cn-grid{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.cn-row2{
+  display:grid;
+  grid-template-columns: 1fr 190px;
+  gap: 10px;
+}
+@media (max-width: 520px){
+  .cn-row2{ grid-template-columns: 1fr; }
+}
+
+.cn-label{
+  font-size: 11px;
+  color: rgba(255,255,255,0.70);
+  margin: 0 0 6px;
+}
+.cn-input, .cn-textarea, .cn-select{
+  width:100%;
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+  outline:none;
+}
+.cn-textarea{ min-height: 92px; resize: vertical; }
+.cn-input::placeholder, .cn-textarea::placeholder{ color: rgba(255,255,255,0.30); }
+
+.cn-input:focus, .cn-textarea:focus, .cn-select:focus{
+  border-color: rgba(16,185,129,0.45);
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.18);
+}
+
+.cn-help{
+  font-size: 11px;
+  color: rgba(255,255,255,0.38);
+  margin-top: 6px;
+}
+
+.cn-error{
+  display:none;
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(255,170,170,0.95);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,80,80,0.20);
+  background: rgba(255,0,0,0.08);
+}
+
+.cn-foot{
+  display:flex;
+  gap: 10px;
+  justify-content:flex-end;
+  padding-top: 12px;
+}
+.cn-btn{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.90);
+  cursor:pointer;
+  font-weight: 600;
+}
+.cn-btn:hover{ background: rgba(255,255,255,0.08); color:#fff; }
+.cn-btn-primary{
+  background: #fff;
+  color: #111;
+  border-color: rgba(0,0,0,0.10);
+  font-weight: 800;
+}
+.cn-btn-primary:hover{ filter: brightness(0.96); }
+
+.cn-btn[disabled]{
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cn-toast{
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(16,185,129,0.25);
+  background: rgba(0,0,0,0.65);
+  color: rgba(236,253,245,0.95);
+  font-size: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+}
+    `.trim();
 
     const style = document.createElement("style");
-    style.textContent = `
-      :host { all: initial; }
-      * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    style.id = STYLE_ID;
+    style.textContent = css;
+    document.documentElement.appendChild(style);
+  }
 
-      .backdrop {
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,.55);
-        backdrop-filter: blur(7px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 18px;
-      }
+  function toast(text) {
+    try {
+      const el = document.createElement("div");
+      el.className = "cn-toast";
+      el.textContent = text;
+      document.body.appendChild(el);
+      window.setTimeout(() => el.remove(), 1400);
+    } catch {
+      // ignore
+    }
+  }
 
-      .card {
-        width: min(540px, 100%);
-        background: #0b0b0f;
-        color: rgba(255,255,255,.92);
-        border: 1px solid rgba(255,255,255,.10);
-        border-radius: 16px;
-        box-shadow: 0 30px 90px rgba(0,0,0,.65);
-        overflow: hidden;
-      }
+  function buildModalHtml(seed) {
+    const inferredType = escHtml(seed.inferredType || "link");
+    const defaultTitle = escHtml(seed.title || "");
+    const defaultUrl = escHtml(seed.url || "");
+    const defaultNote = escHtml(seed.note || "");
 
-      .head {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 14px 16px;
-        border-bottom: 1px solid rgba(255,255,255,.08);
-      }
-
-      .title {
-        font-size: 14px;
-        font-weight: 800;
-        color: rgba(255,255,255,.92);
-        letter-spacing: .2px;
-      }
-
-      .close {
-        appearance: none;
-        border: 0;
-        background: transparent;
-        color: rgba(255,255,255,.7);
-        width: 34px; height: 34px;
-        border-radius: 10px;
-        cursor: pointer;
-        font-size: 16px;
-      }
-      .close:hover { background: rgba(255,255,255,.08); color: rgba(255,255,255,.95); }
-
-      .body {
-        padding: 16px;
-        display: grid;
-        gap: 12px;
-      }
-
-      .row { display: grid; gap: 6px; }
-      .label { font-size: 12px; color: rgba(255,255,255,.62); }
-
-      .input, .textarea, .select {
-        width: 100%;
-        background: rgba(255,255,255,.06);
-        border: 1px solid rgba(255,255,255,.10);
-        color: rgba(255,255,255,.92);
-        border-radius: 12px;
-        padding: 10px 12px;
-        font-size: 13px;
-        outline: none;
-      }
-
-      .textarea { min-height: 96px; resize: vertical; }
-
-      .input:focus, .textarea:focus, .select:focus {
-        border-color: rgba(16,185,129,.55);
-        box-shadow: 0 0 0 4px rgba(16,185,129,.18);
-      }
-
-      .hint {
-        font-size: 12px;
-        color: rgba(255,255,255,.50);
-      }
-
-      .grid2 {
-        display: grid;
-        grid-template-columns: 1fr 200px;
-        gap: 10px;
-      }
-      @media (max-width: 520px) {
-        .grid2 { grid-template-columns: 1fr; }
-      }
-
-      .error {
-        display: none;
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: rgba(244,63,94,.12);
-        border: 1px solid rgba(244,63,94,.25);
-        color: rgba(255,255,255,.90);
-        font-size: 12px;
-      }
-
-      .foot {
-        padding: 14px 16px;
-        border-top: 1px solid rgba(255,255,255,.08);
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-      }
-
-      .btn {
-        border: 1px solid rgba(255,255,255,.12);
-        background: rgba(255,255,255,.06);
-        color: rgba(255,255,255,.90);
-        padding: 9px 12px;
-        border-radius: 12px;
-        font-size: 13px;
-        font-weight: 800;
-        cursor: pointer;
-        user-select: none;
-      }
-      .btn:hover { background: rgba(255,255,255,.10); }
-      .btnPrimary {
-        border-color: rgba(16,185,129,.35);
-        background: rgba(16,185,129,.18);
-      }
-      .btnPrimary:hover { background: rgba(16,185,129,.25); }
-
-      .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: rgba(245, 158, 11, .12);
-        border: 1px solid rgba(245, 158, 11, .25);
-        color: rgba(255,255,255,.88);
-        font-size: 12px;
-      }
-    `;
-    shadow.appendChild(style);
-
-    const wrap = document.createElement("div");
-    wrap.innerHTML = `
-      <div class="backdrop" data-cn="backdrop" role="dialog" aria-modal="true">
-        <div class="card">
-          <div class="head">
-            <div class="title">ClarioNot’a Kaydet</div>
-            <button class="close" data-cn="close" aria-label="Kapat">✕</button>
+    return `
+      <div id="${ROOT_ID}" role="dialog" aria-modal="true">
+        <div class="cn-modal">
+          <div class="cn-head">
+            <div class="cn-title">ClarioNot’a Kaydet</div>
+            <button class="cn-x" id="cn-x" title="Kapat (Esc)">✕</button>
           </div>
 
-          <div class="body">
-            <div class="row">
-              <div class="label">Tür</div>
-              <select class="select" data-cn="type">
-                <option value="link">Link</option>
-                <option value="note">Not</option>
-              </select>
-            </div>
-
-            <div class="row">
-              <div class="label">Başlık</div>
-              <input class="input" data-cn="title" placeholder="Örn: React Hooks" />
-            </div>
-
-            <div class="row">
-              <div class="label">Açıklama / Not</div>
-              <textarea class="textarea" data-cn="note" placeholder="Kısa açıklama…"></textarea>
-            </div>
-
-            <div class="row" data-cn="urlSection">
-              <div class="label">Link (opsiyonel)</div>
-              <input class="input" data-cn="url" placeholder="https://..." />
-              <div class="hint">Not kaydediyorsan link boş kalabilir.</div>
-            </div>
-
-            <div class="grid2">
-              <div class="row">
-                <div class="label">Tags (virgülle)</div>
-                <input class="input" data-cn="tags" placeholder="örn: react, ui, hooks" />
+          <div class="cn-body">
+            <div class="cn-chiprow">
+              <div class="cn-chip">
+                Tür:
+                <span class="cn-pill" id="cn-type-pill">${
+                  inferredType === "note" ? "Not" : "Link"
+                }</span>
               </div>
-              <div class="row">
-                <div class="label">Group</div>
-                <select class="select" data-cn="group">
-                  <option value="">Inbox</option>
-                  <option value="" disabled>Yükleniyor…</option>
-                </select>
+              <div class="cn-chip" style="opacity:.75">
+                <span class="cn-pill">⌘/Ctrl + Enter = Kaydet</span>
               </div>
             </div>
 
-            <div class="error" data-cn="error"></div>
-          </div>
+            <div class="cn-grid">
+              <div>
+                <div class="cn-label">Başlık</div>
+                <input id="cn-title" class="cn-input" value="${defaultTitle}" placeholder="Örn: React Hooks" />
+              </div>
 
-          <div class="foot">
-            <button class="btn" data-cn="cancel">İptal</button>
-            <button class="btn btnPrimary" data-cn="save">Kaydet</button>
+              <div>
+                <div class="cn-label">Açıklama / Not</div>
+                <textarea id="cn-note" class="cn-textarea" placeholder="Kısa açıklama...">${defaultNote}</textarea>
+              </div>
+
+              <div id="cn-url-wrap">
+                <div class="cn-label">Link (opsiyonel)</div>
+                <input id="cn-url" class="cn-input" value="${defaultUrl}" placeholder="https://..." />
+                <div class="cn-help">Not kaydediyorsan link boş kalabilir.</div>
+              </div>
+
+              <div class="cn-row2">
+                <div>
+                  <div class="cn-label">Tags (virgülle)</div>
+                  <input id="cn-tags" class="cn-input" placeholder="örn: react, ui, hooks" />
+                </div>
+
+                <div>
+                  <div class="cn-label">Group</div>
+                  <select id="cn-group" class="cn-select">
+                    <option value="">Inbox</option>
+                    <option value="" disabled>Yükleniyor…</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="cn-error" class="cn-error"></div>
+
+              <div class="cn-foot">
+                <button id="cn-cancel" class="cn-btn">İptal</button>
+                <button id="cn-save" class="cn-btn cn-btn-primary">Kaydet</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     `;
-    shadow.appendChild(wrap);
-
-    return host;
   }
 
-  async function populateGroups(selectEl) {
+  async function populateGroups(selectEl, payloadGroups) {
+    const setFallback = (text) => {
+      selectEl.innerHTML = `<option value="">Inbox</option>`;
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = text;
+      opt.disabled = true;
+      selectEl.appendChild(opt);
+    };
+
     try {
+      // 1) If background already passed groups, use it.
+      if (Array.isArray(payloadGroups)) {
+        selectEl.innerHTML = `<option value="">Inbox</option>`;
+        for (const g of payloadGroups) {
+          const opt = document.createElement("option");
+          opt.value = String(g.id);
+          opt.textContent = g.title || "Untitled";
+          selectEl.appendChild(opt);
+        }
+        return;
+      }
+
+      // 2) Otherwise ask background.
       const resp = await chrome.runtime.sendMessage({
         type: "CLARIONOT_GET_GROUPS",
       });
-
       selectEl.innerHTML = `<option value="">Inbox</option>`;
 
       if (!resp?.ok) {
         if (resp?.code === "TOKEN_MISSING" || resp?.code === "TOKEN_INVALID") {
-          const opt = document.createElement("option");
-          opt.value = "";
-          opt.textContent = "Önce eklentiyi bağla";
-          opt.disabled = true;
-          selectEl.appendChild(opt);
+          setFallback("Önce eklentiyi bağla");
           return;
         }
-
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = "Gruplar alınamadı";
-        opt.disabled = true;
-        selectEl.appendChild(opt);
+        setFallback("Gruplar alınamadı");
         return;
       }
 
@@ -326,153 +359,203 @@
         selectEl.appendChild(opt);
       }
     } catch {
-      selectEl.innerHTML = `<option value="">Inbox</option><option disabled>Gruplar alınamadı</option>`;
+      setFallback("Gruplar alınamadı");
     }
   }
 
-  function showError(shadowRoot, text) {
-    const el = shadowRoot.querySelector('[data-cn="error"]');
+  function setError(root, text) {
+    const el = root.querySelector("#cn-error");
     if (!el) return;
     el.textContent = text;
     el.style.display = "block";
   }
 
+  function clearError(root) {
+    const el = root.querySelector("#cn-error");
+    if (!el) return;
+    el.textContent = "";
+    el.style.display = "none";
+  }
+
+  function tryPrefillTitle(inferredType, payload) {
+    const sel = String(payload?.selection || "").trim();
+    if (sel) {
+      const clean = sel.replace(/\s+/g, " ").slice(0, 80);
+      return inferredType === "note" ? clean : clean;
+    }
+    const t = String(document?.title || "").trim();
+    if (t) return t.slice(0, 120);
+    return "";
+  }
+
   function openModal(payload) {
-    // reset everything
+    ensureStyles();
     removeExisting();
 
-    const host = ensureHost();
-    const shadow = host.shadowRoot;
-    if (!shadow) return;
-
-    // lock scroll (optional but feels premium)
-    try {
-      document.documentElement.style.overflow = "hidden";
-    } catch {}
-
     const inferredType = payload?.inferredType || "link";
-    const seedUrl = (payload?.link || payload?.pageUrl || "").trim();
-    const seedNote = (payload?.selection || "").trim();
 
-    // elements
-    const backdrop = shadow.querySelector('[data-cn="backdrop"]');
-    const btnClose = shadow.querySelector('[data-cn="close"]');
-    const btnCancel = shadow.querySelector('[data-cn="cancel"]');
-    const btnSave = shadow.querySelector('[data-cn="save"]');
+    const seedUrl = String(payload?.link || payload?.pageUrl || "").trim();
+    const seedNote = String(payload?.selection || "").trim();
 
-    const typeSel = shadow.querySelector('[data-cn="type"]');
-    const titleEl = shadow.querySelector('[data-cn="title"]');
-    const noteEl = shadow.querySelector('[data-cn="note"]');
-    const urlEl = shadow.querySelector('[data-cn="url"]');
-    const tagsEl = shadow.querySelector('[data-cn="tags"]');
-    const groupSel = shadow.querySelector('[data-cn="group"]');
-    const urlSection = shadow.querySelector('[data-cn="urlSection"]');
+    const seedTitle = tryPrefillTitle(inferredType, payload);
 
-    // seed values
-    if (typeSel) typeSel.value = inferredType === "note" ? "note" : "link";
-    if (titleEl) titleEl.value = "";
-    if (noteEl) noteEl.value = seedNote || "";
-    if (urlEl) urlEl.value = inferredType === "link" ? seedUrl : "";
-    if (tagsEl) tagsEl.value = "";
+    const html = buildModalHtml({
+      inferredType,
+      title: seedTitle,
+      url: inferredType === "link" ? seedUrl : "",
+      note: seedNote,
+    });
 
-    // show/hide url section based on type
-    const syncTypeUI = () => {
-      const v = typeSel?.value || inferredType;
-      if (!urlSection) return;
-      urlSection.style.display = v === "note" ? "none" : "grid";
-    };
-    if (typeSel) typeSel.addEventListener("change", syncTypeUI);
-    syncTypeUI();
+    document.body.insertAdjacentHTML("beforeend", html);
 
-    // populate groups
-    if (groupSel) populateGroups(groupSel);
+    const root = document.getElementById(ROOT_ID);
+    if (!root) return;
 
-    const close = () => {
-      // cleanup listeners that are attached to window
-      window.removeEventListener("keydown", onKeyDown, true);
-      host.style.display = "none";
-      removeExisting();
-    };
+    const close = () => removeExisting();
 
-    // backdrop click closes only when clicking the backdrop itself
-    if (backdrop) {
-      backdrop.addEventListener("click", (e) => {
-        if (e.target === backdrop) close();
-      });
-    }
+    // overlay click
+    root.addEventListener("click", (e) => {
+      if (e.target === root) close();
+    });
 
-    if (btnClose) btnClose.addEventListener("click", close);
-    if (btnCancel) btnCancel.addEventListener("click", close);
-
-    function onKeyDown(e) {
+    // esc close + Ctrl/Cmd+Enter save
+    const onKey = (e) => {
       if (e.key === "Escape") close();
-    }
-    window.addEventListener("keydown", onKeyDown, true);
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        root.querySelector("#cn-save")?.click?.();
+      }
+    };
+    document.addEventListener("keydown", onKey, { capture: true });
 
-    if (btnSave) {
-      btnSave.addEventListener("click", async () => {
-        const type = typeSel?.value || inferredType;
+    const cleanup = () => {
+      document.removeEventListener("keydown", onKey, { capture: true });
+    };
 
-        const title = titleEl?.value || "";
-        const note = noteEl?.value || "";
-        const url = urlEl?.value || "";
-        const tagsRaw = tagsEl?.value || "";
-        const group_id = groupSel?.value || "";
+    // make sure cleanup runs
+    const origRemove = removeExisting;
+    removeExisting = () => {
+      cleanup();
+      origRemove();
+      removeExisting = origRemove;
+    };
 
-        const tags = parseTags(tagsRaw);
+    root.querySelector("#cn-x")?.addEventListener("click", close);
+    root.querySelector("#cn-cancel")?.addEventListener("click", close);
 
-        // minimal validation (optional but helps)
-        if (type === "note") {
-          if (!String(note).trim()) {
-            showError(shadow, "Not içeriği boş olamaz.");
-            return;
-          }
-        } else {
-          // allow empty title, but url should exist or fallback exists
-          const finalUrl =
-            String(url).trim() ||
-            String(payload?.link || payload?.pageUrl || "").trim();
-          if (!finalUrl) {
-            showError(shadow, "URL bulunamadı.");
-            return;
-          }
-        }
-
-        const out = {
-          inferredType: type,
-          title,
-          note,
-          tags,
-          group_id: group_id || null,
-          url,
-          selection: payload?.selection || "",
-          pageUrl: payload?.pageUrl || "",
-          link: payload?.link || "",
-          content: type === "note" ? note : url,
-        };
-
-        try {
-          await chrome.runtime.sendMessage({
-            type: "CLARIONOT_SAVE_FROM_MODAL",
-            payload: out,
-          });
-          close();
-        } catch (e) {
-          // If message fails, keep modal open and show error
-          showError(shadow, e?.message || "Kaydetme başarısız.");
-        }
-      });
+    // URL visibility for note
+    const urlWrap = root.querySelector("#cn-url-wrap");
+    if (urlWrap && inferredType === "note") {
+      urlWrap.style.display = "none";
     }
 
-    // finally show
-    host.style.display = "block";
+    // groups
+    const groupSel = root.querySelector("#cn-group");
+    if (groupSel) populateGroups(groupSel, payload?.groups);
 
-    // focus
-    if (titleEl && typeof titleEl.focus === "function") titleEl.focus();
+    const btnSave = root.querySelector("#cn-save");
+    const btnCancel = root.querySelector("#cn-cancel");
+
+    const setLoading = (on) => {
+      if (btnSave) btnSave.disabled = !!on;
+      if (btnCancel) btnCancel.disabled = !!on;
+      if (btnSave) btnSave.textContent = on ? "Kaydediliyor…" : "Kaydet";
+    };
+
+    const doSave = async () => {
+      clearError(root);
+      setLoading(true);
+
+      const title = root.querySelector("#cn-title")?.value || "";
+      const note = root.querySelector("#cn-note")?.value || "";
+      const url = root.querySelector("#cn-url")?.value || "";
+      const tagsRaw = root.querySelector("#cn-tags")?.value || "";
+      const group_id = root.querySelector("#cn-group")?.value || "";
+
+      const tags = parseTags(tagsRaw);
+
+      // Basic validation
+      if (inferredType === "note") {
+        if (!String(note).trim() && !String(title).trim()) {
+          setLoading(false);
+          setError(root, "Not için en az başlık ya da içerik gir.");
+          return;
+        }
+      } else {
+        const u = String(url).trim();
+        if (!u && !String(title).trim()) {
+          setLoading(false);
+          setError(root, "Link için en az URL ya da başlık gir.");
+          return;
+        }
+      }
+
+      const out = {
+        inferredType,
+        title,
+        note,
+        tags,
+        group_id: group_id || null,
+        url,
+        selection: payload?.selection || "",
+        pageUrl: payload?.pageUrl || "",
+        link: payload?.link || "",
+        content: inferredType === "note" ? note : url,
+      };
+
+      try {
+        const resp = await chrome.runtime.sendMessage({
+          type: "CLARIONOT_SAVE_FROM_MODAL",
+          payload: out,
+        });
+
+        if (!resp?.ok) {
+          setLoading(false);
+          setError(root, resp?.error || "Kaydedilemedi.");
+          return;
+        }
+
+        toast("Kaydedildi ✅");
+        window.setTimeout(() => close(), 450);
+      } catch (e) {
+        const emsg = e?.message || String(e);
+        setLoading(false);
+        setError(root, emsg || "Kaydedilemedi.");
+      }
+    };
+
+    btnSave?.addEventListener("click", doSave);
+
+    // Tags: Enter -> add comma
+    const tagsInput = root.querySelector("#cn-tags");
+    tagsInput?.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const v = String(tagsInput.value || "").trim();
+      if (!v) return;
+      if (!v.endsWith(",")) tagsInput.value = v + ", ";
+    });
+
+    // autofocus
+    const input = root.querySelector("#cn-title");
+    if (input && typeof input.focus === "function") input.focus();
   }
 
   chrome.runtime.onMessage.addListener((msg) => {
-    if (msg?.type !== "CLARIONOT_OPEN_MODAL") return;
-    openModal(msg.payload || {});
+    if (msg?.type === "CLARIONOT_OPEN_MODAL") {
+      openModal(msg.payload || {});
+      return;
+    }
+
+    // ✅ background -> "saved" sinyali
+    if (msg?.type === "CLARIONOT_SAVED") {
+      toast("Kaydedildi ✅");
+      try {
+        window.postMessage(
+          { type: "CLARIONOT_SAVED_UI" },
+          window.location.origin,
+        );
+      } catch {}
+      return;
+    }
   });
 })();

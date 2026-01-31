@@ -297,12 +297,12 @@ export default function DashboardPage() {
   };
   useEffect(() => {
     function onMessage(e: MessageEvent) {
-      // 🔒 Sadece aynı window’dan gelen mesajları al
       if (e.source !== window) return;
+      if (e.origin !== window.location.origin) return;
 
       const data = (e.data ?? {}) as any;
 
-      // ✅ Extension hazır mesajı
+      // ✅ extension hazır
       if (
         data.source === "clarionot-extension" &&
         data.type === "EXTENSION_READY"
@@ -310,15 +310,20 @@ export default function DashboardPage() {
         setExtConnected(true);
         setExtLiveHere(true);
         setExtChecking(false);
+        return;
+      }
+
+      // ✅ Kaydetme bildirimi (content script window.postMessage ile yollayacak)
+      if (data?.type === "CLARIONOT_SAVED_UI") {
+        showToast("ok", "✅ Eklenti ile kaydedildi");
+        if (userId) load(userId); // listeyi yenile
+        return;
       }
     }
 
     window.addEventListener("message", onMessage);
-
-    return () => {
-      window.removeEventListener("message", onMessage);
-    };
-  }, []);
+    return () => window.removeEventListener("message", onMessage);
+  }, [userId]); // load userId ile çalışıyor
 
   // auth gate
   useEffect(() => {
