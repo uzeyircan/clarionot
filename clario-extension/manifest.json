@@ -13,6 +13,10 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
+      "exclude_matches": [
+        "https://chrome.google.com/webstore/*",
+        "https://chromewebstore.google.com/*"
+      ],
       "js": ["content/modal.js"],
       "run_at": "document_idle"
     },

@@ -1,10 +1,35 @@
-const API_BASE = "https://clarionot.com"; // prod domain
+// background.js
+
 const API_PATH = "/api/clip";
 const GROUPS_PATH = "/api/groups";
 const TOKEN_KEY = "clarionot_token";
 
 function notify(title, message) {
   console.log(`[clarionot Clip] ${title}: ${message}`);
+}
+
+// ✅ Tab URL’sine göre doğru API base seç
+function resolveApiBase(tabUrl) {
+  const u = String(tabUrl || "");
+
+  // Local
+  if (
+    u.startsWith("http://localhost:3000") ||
+    u.startsWith("http://localhost")
+  ) {
+    return "http://localhost:3000";
+  }
+
+  // Prod (www dahil)
+  if (
+    u.startsWith("https://clarionot.com") ||
+    u.startsWith("https://www.clarionot.com")
+  ) {
+    return "https://clarionot.com";
+  }
+
+  // Safety default: prod
+  return "https://clarionot.com";
 }
 
 async function getToken() {
@@ -16,11 +41,11 @@ async function clearToken() {
   await chrome.storage.sync.remove([TOKEN_KEY]);
 }
 
-async function clipRequest(payload) {
+async function clipRequest(apiBase, payload) {
   const token = await getToken();
   if (!token) throw new Error("TOKEN_MISSING");
 
-  const res = await fetch(`${API_BASE}${API_PATH}`, {
+  const res = await fetch(`${apiBase}${API_PATH}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -31,7 +56,6 @@ async function clipRequest(payload) {
 
   const json = await res.json().catch(() => ({}));
 
-  // Token geçersizse temizleyip yeniden bağlatacağız
   if (res.status === 401) {
     await clearToken();
     throw new Error("TOKEN_INVALID");
@@ -41,12 +65,11 @@ async function clipRequest(payload) {
   return json;
 }
 
-// ✅ Groups çek (modal dropdown için)
-async function fetchGroups() {
+async function fetchGroups(apiBase) {
   const token = await getToken();
   if (!token) throw new Error("TOKEN_MISSING");
 
-  const res = await fetch(`${API_BASE}${GROUPS_PATH}`, {
+  const res = await fetch(`${apiBase}${GROUPS_PATH}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -62,11 +85,9 @@ async function fetchGroups() {
 
   if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
 
-  // beklenen format: { groups: [{id,title}, ...] }
   return Array.isArray(json?.groups) ? json.groups : [];
 }
 
-// Menüleri kur: hem install hem tarayıcı açılışında
 function setupMenus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
@@ -92,71 +113,69 @@ function setupMenus() {
 chrome.runtime.onInstalled.addListener(setupMenus);
 chrome.runtime.onStartup.addListener(setupMenus);
 
-/**
- * ✅ SADECE 1 tane onClicked listener:
- * - Direkt kaydetmeyi kaldırdık (modal)
- * - Sağ tık -> grupları çek -> modal aç
- *
- * Sigortalar:
- * 1) Tab URL http/https değilse çık (chrome:// vs)
- * 2) sendMessage sonrası lastError yakala → Receiving end does not exist
- */
+// ✅ helper: tab'a mesaj gönder, receiver yoksa patlama
+function sendToTab(tabId, msg) {
+  return new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, msg, (resp) => {
+      const lastErr = chrome.runtime.lastError;
+      if (lastErr) {
+        resolve({ ok: false, error: lastErr.message });
+        return;
+      }
+      resolve(resp ?? { ok: true });
+    });
+  });
+}
+
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     if (!tab?.id) return;
 
-    const tabUrl = tab.url || "";
-    if (!tabUrl.startsWith("http://") && !tabUrl.startsWith("https://")) {
-      // chrome:// pages, webstore, etc. -> content script yok
-      notify("Uyarı", "Bu sayfada çalışmaz (http/https değil).");
-      return;
-    }
+    const apiBase = resolveApiBase(tab.url);
 
-    // Token yoksa connect’e
+    // 1) Token yoksa connect’e git
     const token = await getToken();
     if (!token) {
-      chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
+      chrome.tabs.create({ url: `${apiBase}/extension/connect` });
       return;
     }
 
-    // Hangi menüden geldiğine göre type belirleyelim
+    // 2) inferredType
     let inferredType = "link";
     if (info.menuItemId === "clarionot_save_selection") inferredType = "note";
 
-    // ✅ Grupları çek (dropdown için)
+    // 3) groups (dropdown)
     let groups = [];
     try {
-      groups = await fetchGroups();
+      groups = await fetchGroups(apiBase);
     } catch {
       groups = [];
     }
 
-    const message = {
+    // 4) Modal açmayı dene
+    const resp = await sendToTab(tab.id, {
       type: "CLARIONOT_OPEN_MODAL",
       payload: {
         inferredType,
         selection: info.selectionText || "",
         link: info.linkUrl || "",
-        pageUrl: tabUrl || info.pageUrl || "",
+        pageUrl: tab.url || info.pageUrl || "",
         groups,
       },
-    };
-
-    // ✅ SIGORTA: Receiving end does not exist yakala
-    chrome.tabs.sendMessage(tab.id, message, () => {
-      const err = chrome.runtime.lastError;
-      if (err) {
-        // content script yok / o tab'de enject edilmemiş
-        notify("Uyarı", err.message || "Content script yok.");
-        // İstersen fallback: connect sayfası açtır
-        chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
-      }
     });
+
+    // ✅ Receiver yoksa connect’e gitmek YANLIŞ.
+    // Token var; sadece o sayfada content script match etmiyor olabilir.
+    if (!resp?.ok) {
+      notify("Modal açılamadı", resp?.error || "Receiving end does not exist.");
+      return;
+    }
   } catch (e) {
     const emsg = e?.message || String(e);
 
+    // burada apiBase bilmediğimiz için prod'a yönlendiriyoruz (safety)
     if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
-      chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
+      chrome.tabs.create({ url: `https://clarionot.com/extension/connect` });
       return;
     }
 
@@ -165,14 +184,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
-/**
- * ✅ Tek onMessage listener (daha sağlam)
- * - SAVE_TOKEN
- * - CLARIONOT_SAVE_FROM_MODAL
- * - CLARIONOT_GET_GROUPS
- */
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  // ✅ bridge.js -> token kaydet (GARANTİLİ response + lastError)
+  // sender’dan doğru origin/base çıkar (modal ve connect page için kritik)
+  const senderUrl = sender?.tab?.url || sender?.url || "";
+
+  const apiBase = resolveApiBase(senderUrl);
+
+  // ✅ bridge.js -> token kaydet
   if (msg?.type === "SAVE_TOKEN" && msg.token) {
     try {
       chrome.storage.sync.set({ [TOKEN_KEY]: msg.token }, () => {
@@ -183,7 +201,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ ok: true });
         }
       });
-      return true; // async response
+      return true;
     } catch (e) {
       sendResponse({ ok: false, error: e?.message || String(e) });
       return;
@@ -194,7 +212,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === "CLARIONOT_GET_GROUPS") {
     (async () => {
       try {
-        const groups = await fetchGroups();
+        const groups = await fetchGroups(apiBase);
         sendResponse({ ok: true, groups });
       } catch (e) {
         const emsg = e?.message || String(e);
@@ -207,8 +225,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: false, code: "GROUPS_FETCH_FAILED", error: emsg });
       }
     })();
-
-    return true; // async sendResponse
+    return true;
   }
 
   // ✅ modal -> kaydet
@@ -216,8 +233,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async () => {
       try {
         const p = msg.payload || {};
-
-        // Modal bazen type gönderiyor bazen inferredType
         const inferredType = p.type || p.inferredType || "link";
 
         let apiPayload = null;
@@ -251,31 +266,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           };
         }
 
-        console.log("[CLARIONOT] apiPayload", apiPayload);
-        const out = await clipRequest(apiPayload);
-        notify("Kaydedildi", `id: ${out?.id || "-"}`);
-        // ✅ Kaydedince aktif tab'a "saved" sinyali (dashboard toast için)
-        try {
-          if (sender?.tab?.id) {
-            chrome.tabs.sendMessage(
-              sender.tab.id,
-              { type: "CLARIONOT_SAVED", payload: { id: out?.id || null } },
-              () => {
-                // receiving end yoksa umursama
-                void chrome.runtime.lastError;
-              },
-            );
-          }
-        } catch {
-          // ignore
-        }
-
+        const out = await clipRequest(apiBase, apiPayload);
         sendResponse({ ok: true, id: out?.id });
       } catch (e) {
         const emsg = e?.message || String(e);
 
         if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
-          chrome.tabs.create({ url: `${API_BASE}/extension/connect` });
+          chrome.tabs.create({ url: `${apiBase}/extension/connect` });
           sendResponse({ ok: false, error: emsg });
           return;
         }
@@ -286,7 +283,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
     })();
 
-    return true; // async sendResponse
+    return true;
   }
 
   return;
