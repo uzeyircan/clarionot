@@ -1,48 +1,103 @@
 // background.js
 
+/**
+ * ✅ Amaç:
+ * - Localhost'ta test ederken API_BASE = http://localhost:3000
+ * - Prod'da kullanırken API_BASE = https://clarionot.com
+ * - Token'ı ortama göre ayır (local token prod'u bozmasın)
+ */
+
+const PROD_BASE = "https://clarionot.com";
+const LOCAL_BASE = "http://localhost:3000";
+
 const API_PATH = "/api/clip";
 const GROUPS_PATH = "/api/groups";
-const TOKEN_KEY = "clarionot_token";
+
+/**
+ * Token key artık tek değil:
+ * - localhost için: clarionot_token__local
+ * - prod için:      clarionot_token__prod
+ */
+const TOKEN_KEY_PREFIX = "clarionot_token__";
 
 function notify(title, message) {
   console.log(`[clarionot Clip] ${title}: ${message}`);
 }
 
-// ✅ Tab URL’sine göre doğru API base seç
+/**
+ * ✅ Sekmenin URL'ine göre doğru API_BASE'i seç
+ * - tabUrl localhost ise LOCAL_BASE
+ * - değilse PROD_BASE
+ */
 function resolveApiBase(tabUrl) {
-  const u = String(tabUrl || "");
+  try {
+    if (!tabUrl) return PROD_BASE;
+    const u = new URL(tabUrl);
+    const isLocal =
+      u.hostname === "localhost" ||
+      u.hostname === "127.0.0.1" ||
+      // bazıları 0.0.0.0 ile açabiliyor
+      u.hostname === "0.0.0.0";
 
-  // Local
-  if (
-    u.startsWith("http://localhost:3000") ||
-    u.startsWith("http://localhost")
-  ) {
-    return "http://localhost:3000";
+    return isLocal ? LOCAL_BASE : PROD_BASE;
+  } catch {
+    // URL parse edilemezse prod'a düş (güvenli varsayılan)
+    return PROD_BASE;
   }
+}
 
-  // Prod (www dahil)
-  if (
-    u.startsWith("https://clarionot.com") ||
-    u.startsWith("https://www.clarionot.com")
-  ) {
-    return "https://clarionot.com";
+/**
+ * ✅ Seçilen API_BASE'e göre token key üret
+ */
+function tokenKeyForBase(apiBase) {
+  return apiBase === LOCAL_BASE
+    ? `${TOKEN_KEY_PREFIX}local`
+    : `${TOKEN_KEY_PREFIX}prod`;
+}
+
+/**
+ * ✅ Eski tek key (clarionot_token) kullandıysan migrate eder.
+ * - Eskiden: clarionot_token
+ * - Şimdi:  clarionot_token__local / clarionot_token__prod
+ *
+ * Mantık:
+ * - Eğer yeni key boşsa ve eski key doluysa, eskiyi yeniye kopyala
+ * - Eskiyi silmiyoruz (risk almayalım). İstersen sonra temizleriz.
+ */
+async function migrateOldTokenIfNeeded(apiBase) {
+  const newKey = tokenKeyForBase(apiBase);
+  const oldKey = "clarionot_token";
+
+  const data = await chrome.storage.sync.get([newKey, oldKey]);
+
+  const hasNew = !!data[newKey];
+  const hasOld = !!data[oldKey];
+
+  if (!hasNew && hasOld) {
+    await chrome.storage.sync.set({ [newKey]: data[oldKey] });
+    notify("Token migrate", `${oldKey} -> ${newKey}`);
   }
-
-  // Safety default: prod
-  return "https://clarionot.com";
 }
 
-async function getToken() {
-  const data = await chrome.storage.sync.get([TOKEN_KEY]);
-  return data[TOKEN_KEY] || "";
+async function getToken(apiBase) {
+  const key = tokenKeyForBase(apiBase);
+  await migrateOldTokenIfNeeded(apiBase);
+
+  const data = await chrome.storage.sync.get([key]);
+  return data[key] || "";
 }
 
-async function clearToken() {
-  await chrome.storage.sync.remove([TOKEN_KEY]);
+async function clearToken(apiBase) {
+  const key = tokenKeyForBase(apiBase);
+  await chrome.storage.sync.remove([key]);
 }
 
+/**
+ * ✅ API istekleri artık apiBase parametresiyle çalışıyor.
+ * Böylece localde local API'ye, prod'da prod API'ye gider.
+ */
 async function clipRequest(apiBase, payload) {
-  const token = await getToken();
+  const token = await getToken(apiBase);
   if (!token) throw new Error("TOKEN_MISSING");
 
   const res = await fetch(`${apiBase}${API_PATH}`, {
@@ -56,8 +111,9 @@ async function clipRequest(apiBase, payload) {
 
   const json = await res.json().catch(() => ({}));
 
+  // Token geçersizse temizleyip yeniden bağlatacağız
   if (res.status === 401) {
-    await clearToken();
+    await clearToken(apiBase);
     throw new Error("TOKEN_INVALID");
   }
 
@@ -66,7 +122,7 @@ async function clipRequest(apiBase, payload) {
 }
 
 async function fetchGroups(apiBase) {
-  const token = await getToken();
+  const token = await getToken(apiBase);
   if (!token) throw new Error("TOKEN_MISSING");
 
   const res = await fetch(`${apiBase}${GROUPS_PATH}`, {
@@ -79,7 +135,7 @@ async function fetchGroups(apiBase) {
   const json = await res.json().catch(() => ({}));
 
   if (res.status === 401) {
-    await clearToken();
+    await clearToken(apiBase);
     throw new Error(json?.error || "TOKEN_INVALID");
   }
 
@@ -113,7 +169,9 @@ function setupMenus() {
 chrome.runtime.onInstalled.addListener(setupMenus);
 chrome.runtime.onStartup.addListener(setupMenus);
 
-// ✅ helper: tab'a mesaj gönder, receiver yoksa patlama
+/**
+ * ✅ helper: tab'a mesaj gönder, receiver yoksa patlama
+ */
 function sendToTab(tabId, msg) {
   return new Promise((resolve) => {
     chrome.tabs.sendMessage(tabId, msg, (resp) => {
@@ -127,14 +185,22 @@ function sendToTab(tabId, msg) {
   });
 }
 
+/**
+ * ✅ Sağ tık menüsü tıklanınca:
+ * 1) tabUrl'e bak -> apiBase seç
+ * 2) token var mı? yoksa doğru connect sayfasını aç
+ * 3) groups çek
+ * 4) modal açmayı dene
+ */
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     if (!tab?.id) return;
 
-    const apiBase = resolveApiBase(tab.url);
+    const tabUrl = tab.url || info.pageUrl || "";
+    const apiBase = resolveApiBase(tabUrl);
 
-    // 1) Token yoksa connect’e git
-    const token = await getToken();
+    // 1) Token yoksa doğru connect'e git
+    const token = await getToken(apiBase);
     if (!token) {
       chrome.tabs.create({ url: `${apiBase}/extension/connect` });
       return;
@@ -159,13 +225,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         inferredType,
         selection: info.selectionText || "",
         link: info.linkUrl || "",
-        pageUrl: tab.url || info.pageUrl || "",
+        pageUrl: tabUrl,
         groups,
       },
     });
 
-    // ✅ Receiver yoksa connect’e gitmek YANLIŞ.
-    // Token var; sadece o sayfada content script match etmiyor olabilir.
+    // Receiver yoksa connect'e gitmek yanlış (token var).
     if (!resp?.ok) {
       notify("Modal açılamadı", resp?.error || "Receiving end does not exist.");
       return;
@@ -173,9 +238,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   } catch (e) {
     const emsg = e?.message || String(e);
 
-    // burada apiBase bilmediğimiz için prod'a yönlendiriyoruz (safety)
+    // token yok/invalid ise connect'e yönlendir (hangi ortam? -> apiBase'i tab'dan çöz)
     if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
-      chrome.tabs.create({ url: `https://clarionot.com/extension/connect` });
+      const apiBase = resolveApiBase(tab?.url || "");
+      chrome.tabs.create({ url: `${apiBase}/extension/connect` });
       return;
     }
 
@@ -184,16 +250,22 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
+/**
+ * ✅ Background message listener:
+ * - SAVE_TOKEN  (connect sayfasından gelir)
+ * - CLARIONOT_GET_GROUPS (modal ister)
+ * - CLARIONOT_SAVE_FROM_MODAL (modal kaydet der)
+ */
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  // sender’dan doğru origin/base çıkar (modal ve connect page için kritik)
   const senderUrl = sender?.tab?.url || sender?.url || "";
-
   const apiBase = resolveApiBase(senderUrl);
 
   // ✅ bridge.js -> token kaydet
   if (msg?.type === "SAVE_TOKEN" && msg.token) {
     try {
-      chrome.storage.sync.set({ [TOKEN_KEY]: msg.token }, () => {
+      const key = tokenKeyForBase(apiBase);
+
+      chrome.storage.sync.set({ [key]: msg.token }, () => {
         const lastErr = chrome.runtime.lastError;
         if (lastErr) {
           sendResponse({ ok: false, error: lastErr.message });
@@ -201,7 +273,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ ok: true });
         }
       });
-      return true;
+
+      return true; // async response
     } catch (e) {
       sendResponse({ ok: false, error: e?.message || String(e) });
       return;
@@ -272,6 +345,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const emsg = e?.message || String(e);
 
         if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
+          await clearToken(apiBase);
           chrome.tabs.create({ url: `${apiBase}/extension/connect` });
           sendResponse({ ok: false, error: emsg });
           return;

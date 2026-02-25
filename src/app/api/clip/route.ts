@@ -5,7 +5,7 @@ import crypto from "crypto";
 export const runtime = "nodejs"; // crypto için net olsun
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error(
-    "Missing env vars: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY"
+    "Missing env vars: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY",
   );
 }
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -65,11 +65,11 @@ async function fetchTitleFromUrl(url: string) {
 
     const og =
       html.match(
-        /property=["']og:title["']\s*content=["']([^"']+)["']/i
+        /property=["']og:title["']\s*content=["']([^"']+)["']/i,
       )?.[1] ?? "";
     const tw =
       html.match(
-        /name=["']twitter:title["']\s*content=["']([^"']+)["']/i
+        /name=["']twitter:title["']\s*content=["']([^"']+)["']/i,
       )?.[1] ?? "";
     const tt = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ?? "";
 
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
     if (!rawToken) {
       return NextResponse.json(
         { error: "Missing Authorization Bearer token." },
-        { status: 401, headers: corsHeaders() }
+        { status: 401, headers: corsHeaders() },
       );
     }
 
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
     if (!tokenRow) {
       return NextResponse.json(
         { error: "Invalid or revoked token." },
-        { status: 401, headers: corsHeaders() }
+        { status: 401, headers: corsHeaders() },
       );
     }
 
@@ -138,7 +138,7 @@ export async function POST(req: Request) {
     if (!okPro) {
       return NextResponse.json(
         { error: "Pro plan required." },
-        { status: 403, headers: corsHeaders() }
+        { status: 403, headers: corsHeaders() },
       );
     }
 
@@ -147,7 +147,7 @@ export async function POST(req: Request) {
     if (!body) {
       return NextResponse.json(
         { error: "Invalid JSON body." },
-        { status: 400, headers: corsHeaders() }
+        { status: 400, headers: corsHeaders() },
       );
     }
 
@@ -213,7 +213,7 @@ export async function POST(req: Request) {
     if (!title && !content) {
       return NextResponse.json(
         { error: "title or content required." },
-        { status: 400, headers: corsHeaders() }
+        { status: 400, headers: corsHeaders() },
       );
     }
 
@@ -227,11 +227,25 @@ export async function POST(req: Request) {
         content,
         tags,
         group_id, // ✅ burası kritik
+        ai_status: "pending",
       })
       .select("id")
       .single();
 
     if (insErr) throw insErr;
+
+    // ✅ AI processing tetikle (fire-and-forget). Secret yoksa sessizce geç.
+    if (process.env.INTERNAL_AI_SECRET) {
+      const origin = process.env.APP_ORIGIN || new URL(req.url).origin;
+      void fetch(`${origin}/api/ai/process-item`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-internal-secret": process.env.INTERNAL_AI_SECRET,
+        },
+        body: JSON.stringify({ itemId: inserted.id }),
+      });
+    }
 
     // ✅ Token kullanıldı -> last_used_at güncelle
     await admin
@@ -241,12 +255,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       { ok: true, id: inserted.id },
-      { status: 200, headers: corsHeaders() }
+      { status: 200, headers: corsHeaders() },
     );
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? "Server error" },
-      { status: 500, headers: corsHeaders() }
+      { status: 500, headers: corsHeaders() },
     );
   }
 }
