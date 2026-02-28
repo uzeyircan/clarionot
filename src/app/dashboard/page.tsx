@@ -96,7 +96,17 @@ export default function DashboardPage() {
   const [activeGroupId, setActiveGroupId] = useState<
     string | "all" | "inbox" | "forgotten"
   >("all");
-
+  // ✅ AI Category filter
+  const [activeAiCategory, setActiveAiCategory] = useState<
+    | "all"
+    | "documentation"
+    | "tool"
+    | "competitor"
+    | "article"
+    | "inspiration"
+    | "pricing"
+    | "other"
+  >("all");
   // ✅ Create group modal
   const [openGroupModal, setOpenGroupModal] = useState(false);
   const [groupTitle, setGroupTitle] = useState("");
@@ -120,7 +130,9 @@ export default function DashboardPage() {
     setCollapsed((p) => ({ ...p, [key]: !p[key] }));
 
   const [forgottenSelection, setForgottenSelection] = useState<string[]>([]);
-
+  // ✅ AI Enhance selection
+  const [aiSelection, setAiSelection] = useState<string[]>([]);
+  const [aiEnhancing, setAiEnhancing] = useState(false);
   // ✅ Free: 7 gün sabit, Pro: 30/60/90 seçilebilir
   const forgottenDays = isPro === true ? proForgottenDays : 7;
   const FORGOTTEN_MS = forgottenDays * 24 * 60 * 60 * 1000;
@@ -553,7 +565,17 @@ export default function DashboardPage() {
     return counts;
   }, [items, isForgotten]);
 
-  // ✅ Search + group filter (+ forgotten)
+  const aiCategoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: 0 };
+    for (const it of items as any) {
+      const c = String(it.ai_category ?? "other").toLowerCase();
+      counts.all = (counts.all ?? 0) + 1;
+      counts[c] = (counts[c] ?? 0) + 1;
+    }
+    return counts;
+  }, [items]);
+
+  // ✅ Search + group filter (+ forgotten) + AI category filter
   const filteredItems = useMemo(() => {
     const s = q.trim().toLowerCase();
 
@@ -568,17 +590,26 @@ export default function DashboardPage() {
           return inTitle || inContent || inTags;
         });
 
-    if (activeGroupId === "all") return base;
+    // ✅ AI category filter (applies after search)
+    const afterAi =
+      activeAiCategory === "all"
+        ? base
+        : base.filter((it: any) => {
+            const c = String(it.ai_category ?? "other").toLowerCase();
+            return c === activeAiCategory;
+          });
+
+    if (activeGroupId === "all") return afterAi;
 
     if (activeGroupId === "forgotten") {
-      return base.filter((it: any) => isForgotten(it));
+      return afterAi.filter((it: any) => isForgotten(it));
     }
 
     if (activeGroupId === "inbox")
-      return base.filter((it: any) => !it.group_id);
+      return afterAi.filter((it: any) => !it.group_id);
 
-    return base.filter((it: any) => String(it.group_id) === activeGroupId);
-  }, [items, q, activeGroupId, isForgotten]);
+    return afterAi.filter((it: any) => String(it.group_id) === activeGroupId);
+  }, [items, q, activeGroupId, isForgotten, activeAiCategory]);
 
   const finalItems = useMemo(() => {
     if (activeGroupId !== "forgotten") return filteredItems;
@@ -882,7 +913,78 @@ export default function DashboardPage() {
       showToast("err", e?.message ?? "Silinemedi ❌");
     }
   };
+  const enhanceSelected = async () => {
+    if (!isPro) {
+      showToast("err", "AI Enhance sadece Pro’da ❌");
+      return;
+    }
+    if (aiSelection.length === 0) {
+      showToast("err", "En az 1 kayıt seç ❌");
+      return;
+    }
 
+    try {
+      setAiEnhancing(true);
+
+      const enhanceSelected = async () => {
+        if (!isPro) {
+          showToast("err", "AI Enhance sadece Pro’da ❌");
+          return;
+        }
+        if (aiSelection.length === 0) {
+          showToast("err", "En az 1 kayıt seç ❌");
+          return;
+        }
+
+        try {
+          setAiEnhancing(true);
+
+          // ✅ Supabase session’dan access token al
+          const { data } = await supabase.auth.getSession();
+          const token = data.session?.access_token;
+
+          if (!token) {
+            showToast("err", "Oturum bulunamadı ❌");
+            return;
+          }
+
+          const r = await fetch("/api/ai/enhance", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`, // ✅ kritik
+            },
+            body: JSON.stringify({ itemIds: aiSelection }),
+          });
+
+          const json = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+
+          const okCount = Number(json?.okCount ?? 0);
+          const failCount = Number(json?.failCount ?? 0);
+
+          showToast(
+            failCount === 0 ? "ok" : "err",
+            failCount === 0
+              ? `✅ AI Enhance tamam (${okCount})`
+              : `⚠️ AI Enhance: ${okCount} ok, ${failCount} fail`,
+          );
+
+          setAiSelection([]);
+          if (userId) await load(userId);
+        } catch (e: any) {
+          showToast("err", e?.message ?? "AI Enhance başarısız ❌");
+        } finally {
+          setAiEnhancing(false);
+        }
+      };
+
+      setAiSelection([]);
+      if (userId) await load(userId);
+    } finally {
+      setAiEnhancing(false);
+    }
+  };
   const createGroupAndAssign = async () => {
     try {
       if (!userId) {
@@ -1019,6 +1121,14 @@ export default function DashboardPage() {
   const DraggableWrap = ({ it }: { it: any }) => {
     const isForgottenMode = activeGroupId === "forgotten";
     const canBulk = isPro === true && isForgottenMode;
+    const canAiSelect = isPro === true && !isForgottenMode; // unutulanlar modunda karışmasın
+    const aiChecked = aiSelection.includes(it.id);
+
+    const toggleAi = (next: boolean) => {
+      setAiSelection((prev) =>
+        next ? [...prev, it.id] : prev.filter((x) => x !== it.id),
+      );
+    };
     const checked = forgottenSelection.includes(it.id);
 
     const toggle = (next: boolean) => {
@@ -1069,19 +1179,56 @@ export default function DashboardPage() {
             />
           </>
         ) : null}
+        {canAiSelect ? (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleAi(!aiChecked);
+              }}
+              className="absolute top-2 right-2 z-20 h-9 w-9 rounded-lg
+                       bg-neutral-950/70 border border-neutral-800
+                       hover:bg-neutral-900 flex items-center justify-center"
+              title="AI Enhance için seç"
+            >
+              <span
+                className={`h-5 w-5 rounded border flex items-center justify-center
+                          ${
+                            aiChecked
+                              ? "bg-sky-500/20 border-sky-500/50"
+                              : "border-neutral-600"
+                          }`}
+              >
+                {aiChecked ? "✓" : ""}
+              </span>
+            </button>
 
+            <input
+              type="checkbox"
+              checked={aiChecked}
+              onChange={(e) => toggleAi(e.target.checked)}
+              onClick={(e) => e.stopPropagation()}
+              className="sr-only"
+              aria-label="AI Enhance için seç"
+            />
+          </>
+        ) : null}
         <div
           draggable={!isForgottenMode}
           onDragStart={!isForgottenMode ? onDragStartItem(it.id) : undefined}
           onDragEnd={!isForgottenMode ? onDragEndItem : undefined}
           className={`cursor-grab ${
             draggingItemId === it.id ? "opacity-60 scale-[0.99]" : ""
-          } ${checked ? "ring-2 ring-emerald-500/40" : ""}`}
+          } ${checked ? "ring-2 ring-emerald-500/40" : ""} ${
+            aiChecked ? "ring-2 ring-sky-500/30" : ""
+          }`}
         >
           <ItemCard
             item={it}
             onOpen={openItem}
-            className={canBulk ? "pl-12" : ""}
+            className={`${canBulk ? "pl-12" : ""} ${canAiSelect ? "pr-12" : ""}`}
           />
         </div>
       </div>
@@ -1567,7 +1714,55 @@ export default function DashboardPage() {
                   {forgottenSort === "oldest" ? "En eski" : "En yeni"}
                 </button>
               ) : null}
-
+              {/* ✅ AI Filter (compact) */}
+              <select
+                value={activeAiCategory}
+                onChange={(e) => setActiveAiCategory(e.target.value as any)}
+                className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-200"
+                title="AI kategorisine göre filtrele"
+              >
+                <option value="all">
+                  AI: All ({aiCategoryCounts["all"] ?? 0})
+                </option>
+                <option value="documentation">
+                  📘 Docs ({aiCategoryCounts["documentation"] ?? 0})
+                </option>
+                <option value="tool">
+                  🛠 Tool ({aiCategoryCounts["tool"] ?? 0})
+                </option>
+                <option value="competitor">
+                  🥊 Competitor ({aiCategoryCounts["competitor"] ?? 0})
+                </option>
+                <option value="article">
+                  📰 Article ({aiCategoryCounts["article"] ?? 0})
+                </option>
+                <option value="inspiration">
+                  💡 Inspo ({aiCategoryCounts["inspiration"] ?? 0})
+                </option>
+                <option value="pricing">
+                  💵 Pricing ({aiCategoryCounts["pricing"] ?? 0})
+                </option>
+                <option value="other">
+                  📌 Other ({aiCategoryCounts["other"] ?? 0})
+                </option>
+              </select>
+              {isPro === true ? (
+                <button
+                  type="button"
+                  onClick={enhanceSelected}
+                  disabled={aiSelection.length === 0 || aiEnhancing}
+                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                    aiSelection.length === 0 || aiEnhancing
+                      ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
+                      : "border-sky-900/40 bg-sky-950/40 text-sky-100 hover:bg-sky-900/30"
+                  }`}
+                  title="Seçili kayıtlar için AI işlemlerini tekrar çalıştır"
+                >
+                  {aiEnhancing
+                    ? "AI Enhancing…"
+                    : `AI Enhance (${aiSelection.length})`}
+                </button>
+              ) : null}
               <Input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}

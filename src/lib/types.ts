@@ -11,4 +11,9 @@ export type Item = {
   last_viewed_at?: string | null;
   created_at: string;
   updated_at: string;
+  ai_summary?: string | null;
+  ai_tags?: string[] | null;
+  ai_category?: string | null;
+  ai_status?: "pending" | "processing" | "done" | "failed" | string;
+  ai_error?: string | null;
 };

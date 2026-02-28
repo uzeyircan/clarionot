@@ -40,6 +40,41 @@ function snoozeLeftLabel(iso?: string | null) {
   return days <= 1 ? "Snooze: 1g kaldı" : `Snooze: ${days}g kaldı`;
 }
 
+function categoryMeta(category?: string | null) {
+  const c = (category ?? "").toLowerCase();
+  switch (c) {
+    case "documentation":
+      return { label: "Docs", icon: "📘" };
+    case "inspiration":
+      return { label: "Inspo", icon: "💡" };
+    case "tool":
+      return { label: "Tool", icon: "🛠" };
+    case "pricing":
+      return { label: "Pricing", icon: "💵" };
+    case "competitor":
+      return { label: "Competitor", icon: "🥊" };
+    case "article":
+      return { label: "Article", icon: "📰" };
+    case "other":
+      return { label: "Other", icon: "📌" };
+    default:
+      return null;
+  }
+}
+
+function isDebugAiSummary(s: string) {
+  const lower = s.toLowerCase();
+
+  // burada “debug/placeholder/mock” metinlerini yakalıyoruz
+  return (
+    lower.includes("ai is disabled") ||
+    lower.includes("set ai_enabled") ||
+    lower.includes("openai_api_key") ||
+    lower.includes("generate real summary") ||
+    lower.includes("mock")
+  );
+}
+
 export default function ItemCard({
   item,
   onOpen,
@@ -60,8 +95,34 @@ export default function ItemCard({
 
   const snoozeLabel = useMemo(
     () => snoozeLeftLabel((item as any).snoozed_until),
-    [item]
+    [item],
   );
+
+  // ✅ AI fields
+  const aiStatus = (item as any).ai_status as
+    | "pending"
+    | "processing"
+    | "done"
+    | "failed"
+    | "disabled"
+    | string
+    | undefined;
+
+  const aiSummaryRaw = (item as any).ai_summary as string | null | undefined;
+  const aiCategory = (item as any).ai_category as string | null | undefined;
+
+  const cat = useMemo(() => categoryMeta(aiCategory), [aiCategory]);
+
+  // ✅ Summary filtresi: boşsa yok, debug/mock ise yok
+  const aiSummary = useMemo(() => {
+    const s = (aiSummaryRaw ?? "").trim();
+    if (!s) return null;
+    if (isDebugAiSummary(s)) return null;
+    return s;
+  }, [aiSummaryRaw]);
+
+  // ✅ summary gösterebilecek miyiz?
+  const showAiSummary = aiStatus === "done" && !!aiSummary;
 
   return (
     <button
@@ -77,6 +138,24 @@ export default function ItemCard({
           <span className="text-neutral-500">
             {baseDate.toLocaleString("tr-TR")}
           </span>
+          {/* ✅ AI STATUS */}
+          {aiStatus === "processing" ? (
+            <span className="ml-2 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-300">
+              AI…
+            </span>
+          ) : aiStatus === "done" ? (
+            <span className="ml-2 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-300">
+              AI
+            </span>
+          ) : aiStatus === "failed" ? (
+            <span className="ml-2 rounded-full border border-red-900 bg-neutral-950 px-2 py-0.5 text-[10px] text-red-300">
+              AI failed
+            </span>
+          ) : aiStatus === "disabled" ? (
+            <span className="ml-2 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-400">
+              AI off
+            </span>
+          ) : null}
         </div>
 
         {snoozeLabel ? (
@@ -86,9 +165,37 @@ export default function ItemCard({
         ) : null}
       </div>
 
-      <div className="mt-1 text-sm font-semibold min-w-0 break-words line-clamp-1">
-        {item.title || (isLink ? "Başlıksız link" : "Başlıksız not")}
+      {/* TITLE + CATEGORY */}
+      <div className="mt-1 flex items-center gap-2 min-w-0">
+        <div className="text-sm font-semibold min-w-0 break-words line-clamp-1">
+          {item.title || (isLink ? "Başlıksız link" : "Başlıksız not")}
+        </div>
+
+        {/* ✅ CATEGORY BADGE (only when AI done & category exists) */}
+        {aiStatus === "done" && cat ? (
+          <span className="shrink-0 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-300">
+            {cat.icon} {cat.label}
+          </span>
+        ) : null}
       </div>
+
+      {/* ✅ AI SUMMARY (only when done & valid) */}
+      {showAiSummary ? (
+        <div className="mt-3 relative overflow-hidden rounded-2xl border border-sky-900/30 bg-gradient-to-br from-sky-950/40 to-neutral-950 p-4">
+          {/* Glow efekti */}
+          <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
+
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 text-[11px] font-medium text-sky-300 tracking-wide">
+              ✨ Smart Insight
+            </div>
+
+            <div className="mt-2 text-sm text-neutral-100 leading-relaxed line-clamp-4">
+              {aiSummary}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* CONTENT */}
       {isLink ? (
@@ -122,14 +229,19 @@ export default function ItemCard({
       )}
 
       {/* TAGS */}
+      {/* TAGS */}
       {item.tags?.length ? (
         <div className="mt-3 flex flex-wrap gap-2 min-w-0">
           {item.tags.slice(0, 6).map((t) => (
             <span
               key={t}
-              className="max-w-full overflow-hidden text-ellipsis rounded-full border border-neutral-800 px-2 py-0.5 text-xs text-neutral-300"
+              className="max-w-full overflow-hidden text-ellipsis rounded-full
+                         border border-neutral-800 bg-neutral-950/60
+                         px-2.5 py-1 text-xs text-neutral-200
+                         shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]"
             >
-              #{t}
+              <span className="text-neutral-500">#</span>
+              <span className="ml-0.5">{t}</span>
             </span>
           ))}
         </div>
