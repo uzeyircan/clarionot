@@ -136,7 +136,12 @@ export default function DashboardPage() {
   // ✅ Free: 7 gün sabit, Pro: 30/60/90 seçilebilir
   const forgottenDays = isPro === true ? proForgottenDays : 7;
   const FORGOTTEN_MS = forgottenDays * 24 * 60 * 60 * 1000;
-
+  const [aiProgress, setAiProgress] = useState<{
+    total: number;
+    done: number;
+    okCount: number;
+    failCount: number;
+  } | null>(null);
   const isForgotten = useCallback(
     (it: any) => {
       // ✅ Snooze: süre bitmediyse unutulanlarda GÖSTERME
@@ -914,73 +919,70 @@ export default function DashboardPage() {
     }
   };
   const enhanceSelected = async () => {
-    if (!isPro) {
-      showToast("err", "AI Enhance sadece Pro’da ❌");
-      return;
-    }
-    if (aiSelection.length === 0) {
-      showToast("err", "En az 1 kayıt seç ❌");
-      return;
-    }
-
     try {
+      if (!isPro) {
+        showToast("err", "AI Enhance sadece Pro’da ❌");
+        return;
+      }
+
+      if (aiSelection.length === 0) {
+        showToast("err", "En az 1 kayıt seç ❌");
+        return;
+      }
+
       setAiEnhancing(true);
 
-      const enhanceSelected = async () => {
-        if (!isPro) {
-          showToast("err", "AI Enhance sadece Pro’da ❌");
-          return;
-        }
-        if (aiSelection.length === 0) {
-          showToast("err", "En az 1 kayıt seç ❌");
-          return;
-        }
+      // ✅ BURAYA KOYUYORUZ
+      setItems((prev: any) =>
+        prev.map((it: any) =>
+          aiSelection.includes(it.id)
+            ? { ...it, ai_status: "processing", ai_error: null }
+            : it,
+        ),
+      );
 
-        try {
-          setAiEnhancing(true);
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
 
-          // ✅ Supabase session’dan access token al
-          const { data } = await supabase.auth.getSession();
-          const token = data.session?.access_token;
+      if (!token) {
+        showToast("err", "Oturum bulunamadı ❌");
+        return;
+      }
 
-          if (!token) {
-            showToast("err", "Oturum bulunamadı ❌");
-            return;
-          }
+      const r = await fetch("/api/ai/enhance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ itemIds: aiSelection }),
+      });
 
-          const r = await fetch("/api/ai/enhance", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`, // ✅ kritik
-            },
-            body: JSON.stringify({ itemIds: aiSelection }),
-          });
+      const text = await r.text().catch(() => "");
 
-          const json = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+      let json: any = {};
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch {
+        json = {};
+      }
 
-          const okCount = Number(json?.okCount ?? 0);
-          const failCount = Number(json?.failCount ?? 0);
+      if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
 
-          showToast(
-            failCount === 0 ? "ok" : "err",
-            failCount === 0
-              ? `✅ AI Enhance tamam (${okCount})`
-              : `⚠️ AI Enhance: ${okCount} ok, ${failCount} fail`,
-          );
+      const okCount = Number(json?.okCount ?? 0);
+      const failCount = Number(json?.failCount ?? 0);
 
-          setAiSelection([]);
-          if (userId) await load(userId);
-        } catch (e: any) {
-          showToast("err", e?.message ?? "AI Enhance başarısız ❌");
-        } finally {
-          setAiEnhancing(false);
-        }
-      };
+      showToast(
+        failCount === 0 ? "ok" : "err",
+        failCount === 0
+          ? `✅ AI Enhance tamam (${okCount})`
+          : `⚠️ AI Enhance: ${okCount} ok, ${failCount} fail`,
+      );
 
       setAiSelection([]);
       if (userId) await load(userId);
+    } catch (e: any) {
+      showToast("err", e?.message ?? "AI Enhance başarısız ❌");
     } finally {
       setAiEnhancing(false);
     }
@@ -1035,7 +1037,131 @@ export default function DashboardPage() {
       setSavingGroup(false);
     }
   };
+  const enhanceCurrentGroup = async () => {
+    try {
+      if (!isPro) {
+        showToast("err", "AI Enhance sadece Pro’da ❌");
+        return;
+      }
 
+      // forgotten modunda AI seçimi karışmasın diye kapatmıştın zaten.
+      if (activeGroupId === "forgotten" || activeGroupId === "all") {
+        showToast("err", "AI Enhance için önce Inbox veya bir grup seç ❌");
+        return;
+      }
+
+      setAiEnhancing(true);
+      setAiProgress({ total: 0, done: 0, okCount: 0, failCount: 0 });
+
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+
+      if (!token) {
+        showToast("err", "Oturum bulunamadı ❌");
+        return;
+      }
+
+      // ✅ groupId: inbox => null, grup => id
+      const groupId = activeGroupId === "inbox" ? null : String(activeGroupId);
+
+      const res = await fetch("/api/ai/enhance", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({ groupId, stream: true }),
+      });
+
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        let j: any = {};
+        try {
+          j = t ? JSON.parse(t) : {};
+        } catch {}
+        throw new Error(j?.error || `HTTP ${res.status}`);
+      }
+
+      // ✅ SSE read
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("Stream desteklenmiyor");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      const onEvent = (event: string, data: any) => {
+        if (event === "start") {
+          setAiProgress({
+            total: data.total ?? 0,
+            done: 0,
+            okCount: 0,
+            failCount: 0,
+          });
+        }
+        if (event === "progress") {
+          setAiProgress({
+            total: data.total ?? 0,
+            done: data.done ?? 0,
+            okCount: data.okCount ?? 0,
+            failCount: data.failCount ?? 0,
+          });
+        }
+        if (event === "done") {
+          setAiProgress({
+            total: data.total ?? 0,
+            done: data.total ?? 0,
+            okCount: data.okCount ?? 0,
+            failCount: data.failCount ?? 0,
+          });
+
+          showToast(
+            (data.failCount ?? 0) === 0 ? "ok" : "err",
+            (data.failCount ?? 0) === 0
+              ? `✅ Grup AI Enhance tamam (${data.okCount ?? 0})`
+              : `⚠️ Grup AI Enhance: ${data.okCount ?? 0} ok, ${data.failCount ?? 0} fail`,
+          );
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE paketlerini ayır: \n\n
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const chunk of parts) {
+          const lines = chunk.split("\n").filter(Boolean);
+
+          let event = "message";
+          let dataLine = "";
+
+          for (const line of lines) {
+            if (line.startsWith("event:")) event = line.slice(6).trim();
+            if (line.startsWith("data:")) dataLine += line.slice(5).trim();
+          }
+
+          if (dataLine) {
+            let dataObj: any = {};
+            try {
+              dataObj = JSON.parse(dataLine);
+            } catch {}
+            onEvent(event, dataObj);
+          }
+        }
+      }
+
+      if (userId) await load(userId);
+    } catch (e: any) {
+      showToast("err", e?.message ?? "Grup AI Enhance başarısız ❌");
+    } finally {
+      setAiEnhancing(false);
+    }
+  };
   // ===========================
   // ✅ DRAG & DROP
   // ===========================
@@ -1763,6 +1889,27 @@ export default function DashboardPage() {
                     : `AI Enhance (${aiSelection.length})`}
                 </button>
               ) : null}
+              {isPro === true ? (
+                <button
+                  type="button"
+                  onClick={enhanceCurrentGroup}
+                  disabled={
+                    aiEnhancing ||
+                    activeGroupId === "all" ||
+                    activeGroupId === "forgotten"
+                  }
+                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                    aiEnhancing ||
+                    activeGroupId === "all" ||
+                    activeGroupId === "forgotten"
+                      ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
+                      : "border-emerald-900/40 bg-emerald-950/40 text-emerald-100 hover:bg-emerald-900/30"
+                  }`}
+                  title="Seçili grup/Inbox içindeki tüm kayıtlar için AI çalıştır"
+                >
+                  {aiEnhancing ? "Group Enhancing…" : "AI Enhance Group"}
+                </button>
+              ) : null}
               <Input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -1876,6 +2023,40 @@ export default function DashboardPage() {
                     </div>
                   );
                 })}
+                {aiProgress && aiProgress.total > 0 ? (
+                  <div className="mt-3 rounded-2xl border border-neutral-800 bg-neutral-950 p-3">
+                    <div className="flex items-center justify-between text-xs text-neutral-300">
+                      <div>
+                        AI Progress:{" "}
+                        <span className="text-neutral-100 font-semibold">
+                          {aiProgress.done}/{aiProgress.total}
+                        </span>{" "}
+                        <span className="text-neutral-500">
+                          (ok: {aiProgress.okCount}, fail:{" "}
+                          {aiProgress.failCount})
+                        </span>
+                      </div>
+                      <div className="text-neutral-500">
+                        {Math.round((aiProgress.done / aiProgress.total) * 100)}
+                        %
+                      </div>
+                    </div>
+
+                    <div className="mt-2 h-2 w-full rounded-full bg-neutral-900 overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500/50"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.round(
+                              (aiProgress.done / aiProgress.total) * 100,
+                            ),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="grid gap-3">
