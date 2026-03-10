@@ -918,6 +918,106 @@ export default function DashboardPage() {
       showToast("err", e?.message ?? "Silinemedi ❌");
     }
   };
+  const undoAi = async (itemId: string) => {
+    try {
+      if (!userId) {
+        showToast("err", "Oturum bulunamadı ❌");
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+
+      if (!token) {
+        showToast("err", "Oturum bulunamadı ❌");
+        return;
+      }
+
+      const r = await fetch("/api/ai/undo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ itemId }),
+      });
+
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+
+      showToast("ok", "AI geri alındı ✅");
+      await load(userId);
+    } catch (e: any) {
+      showToast("err", e?.message ?? "AI geri alınamadı ❌");
+    }
+  };
+  const regenerateAi = async (itemId: string) => {
+    try {
+      if (!isPro) {
+        showToast("err", "AI sadece Pro’da ❌");
+        return;
+      }
+
+      if (!userId) {
+        showToast("err", "Oturum bulunamadı ❌");
+        return;
+      }
+
+      // UI'da anında processing göster
+      setItems((prev: any) =>
+        prev.map((it: any) =>
+          it.id === itemId
+            ? { ...it, ai_status: "processing", ai_error: null }
+            : it,
+        ),
+      );
+
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+
+      if (!token) {
+        showToast("err", "Oturum bulunamadı ❌");
+        return;
+      }
+
+      const r = await fetch("/api/ai/enhance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ itemIds: [itemId] }),
+      });
+
+      const text = await r.text().catch(() => "");
+      let json: any = {};
+
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch {
+        json = {};
+      }
+
+      if (!r.ok) {
+        throw new Error(json?.error || `HTTP ${r.status}`);
+      }
+
+      const okCount = Number(json?.okCount ?? 0);
+      const failCount = Number(json?.failCount ?? 0);
+
+      showToast(
+        failCount === 0 ? "ok" : "err",
+        failCount === 0
+          ? `AI yeniden üretildi ✨ (${okCount})`
+          : `AI regenerate: ${okCount} ok, ${failCount} fail`,
+      );
+
+      await load(userId);
+    } catch (e: any) {
+      showToast("err", e?.message ?? "AI yeniden üretilemedi ❌");
+      if (userId) await load(userId);
+    }
+  };
   const enhanceSelected = async () => {
     try {
       if (!isPro) {
@@ -1354,6 +1454,16 @@ export default function DashboardPage() {
           <ItemCard
             item={it}
             onOpen={openItem}
+            onUndoAi={undoAi}
+            onRegenerateAi={regenerateAi}
+            canUndoAi={
+              !!(
+                (it as any).ai_prev_summary ||
+                ((it as any).ai_prev_tags &&
+                  (it as any).ai_prev_tags.length > 0) ||
+                (it as any).ai_prev_category
+              )
+            }
             className={`${canBulk ? "pl-12" : ""} ${canAiSelect ? "pr-12" : ""}`}
           />
         </div>

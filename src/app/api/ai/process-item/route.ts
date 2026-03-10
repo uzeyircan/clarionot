@@ -109,16 +109,28 @@ export async function POST(req: Request) {
     // Item çek
     const { data: item, error: itemErr } = await supabaseAdmin
       .from("items")
-      .select("id,user_id,type,title,content,tags,ai_status")
+      .select(
+        `
+        id,
+        user_id,
+        type,
+        title,
+        content,
+        tags,
+        ai_status,
+        ai_summary,
+        ai_tags,
+        ai_category
+      `,
+      )
       .eq("id", itemId)
       .single();
 
     if (itemErr) throw itemErr;
 
-    // ✅ Pro kontrol (ürünleştirme burada)
+    // ✅ Pro kontrol
     const pro = await isProUser(String(item.user_id));
     if (!pro) {
-      // Free ise AI alanlarına dokunma, sadece status set et
       await supabaseAdmin
         .from("items")
         .update({ ai_status: "disabled", ai_error: null })
@@ -162,14 +174,23 @@ export async function POST(req: Request) {
     const keepTitle = (item.title ?? "").trim().length > 0;
 
     const updatePayload: any = {
+      // undo için eski AI değerlerini sakla
+      ai_prev_summary: item.ai_summary ?? null,
+      ai_prev_tags: Array.isArray(item.ai_tags) ? item.ai_tags : [],
+      ai_prev_category: item.ai_category ?? null,
+
+      // yeni değerler
       ai_summary: aiSummary || null,
       ai_tags: aiTags,
       ai_category: aiCategory,
       ai_status: "done",
+      ai_error: null,
       tags: mergedTags,
     };
 
-    if (!keepTitle && aiTitle) updatePayload.title = aiTitle;
+    if (!keepTitle && aiTitle) {
+      updatePayload.title = aiTitle;
+    }
 
     const { error: upErr } = await supabaseAdmin
       .from("items")

@@ -65,7 +65,6 @@ function categoryMeta(category?: string | null) {
 function isDebugAiSummary(s: string) {
   const lower = s.toLowerCase();
 
-  // burada “debug/placeholder/mock” metinlerini yakalıyoruz
   return (
     lower.includes("ai is disabled") ||
     lower.includes("set ai_enabled") ||
@@ -78,10 +77,16 @@ function isDebugAiSummary(s: string) {
 export default function ItemCard({
   item,
   onOpen,
+  onUndoAi,
+  canUndoAi = false,
+  onRegenerateAi,
   className = "",
 }: {
   item: Item;
   onOpen: (item: Item) => void;
+  onUndoAi?: (itemId: string) => void;
+  canUndoAi?: boolean;
+  onRegenerateAi?: (itemId: string) => void;
   className?: string;
 }) {
   const isLink = item.type === "link";
@@ -98,7 +103,6 @@ export default function ItemCard({
     [item],
   );
 
-  // ✅ AI fields
   const aiStatus = (item as any).ai_status as
     | "pending"
     | "processing"
@@ -113,7 +117,6 @@ export default function ItemCard({
 
   const cat = useMemo(() => categoryMeta(aiCategory), [aiCategory]);
 
-  // ✅ Summary filtresi: boşsa yok, debug/mock ise yok
   const aiSummary = useMemo(() => {
     const s = (aiSummaryRaw ?? "").trim();
     if (!s) return null;
@@ -121,7 +124,6 @@ export default function ItemCard({
     return s;
   }, [aiSummaryRaw]);
 
-  // ✅ summary gösterebilecek miyiz?
   const showAiSummary = aiStatus === "done" && !!aiSummary;
 
   return (
@@ -138,7 +140,6 @@ export default function ItemCard({
           <span className="text-neutral-500">
             {baseDate.toLocaleString("tr-TR")}
           </span>
-          {/* ✅ AI STATUS */}
           {aiStatus === "processing" ? (
             <span className="ml-2 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-300">
               AI…
@@ -156,6 +157,32 @@ export default function ItemCard({
               AI off
             </span>
           ) : null}
+          {(aiStatus === "done" || aiStatus === "failed") && onRegenerateAi ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRegenerateAi(item.id);
+              }}
+              className="ml-2 rounded-full border border-sky-900/40 bg-sky-950/30 px-2 py-0.5 text-[10px] text-sky-200 hover:bg-sky-900/30 transition"
+              title="AI yeniden üret"
+            >
+              ↻
+            </button>
+          ) : null}
+          {canUndoAi && onUndoAi ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUndoAi(item.id);
+              }}
+              className="ml-2 rounded-full border border-amber-900/40 bg-amber-950/30 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-900/30 transition"
+              title="AI sonucunu geri al"
+            >
+              Undo
+            </button>
+          ) : null}
         </div>
 
         {snoozeLabel ? (
@@ -165,13 +192,11 @@ export default function ItemCard({
         ) : null}
       </div>
 
-      {/* TITLE + CATEGORY */}
       <div className="mt-1 flex items-center gap-2 min-w-0">
         <div className="text-sm font-semibold min-w-0 break-words line-clamp-1">
           {item.title || (isLink ? "Başlıksız link" : "Başlıksız not")}
         </div>
 
-        {/* ✅ CATEGORY BADGE (only when AI done & category exists) */}
         {aiStatus === "done" && cat ? (
           <span className="shrink-0 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-300">
             {cat.icon} {cat.label}
@@ -179,10 +204,8 @@ export default function ItemCard({
         ) : null}
       </div>
 
-      {/* ✅ AI SUMMARY (only when done & valid) */}
       {showAiSummary ? (
         <div className="mt-3 relative overflow-hidden rounded-2xl border border-sky-900/30 bg-gradient-to-br from-sky-950/40 to-neutral-950 p-4">
-          {/* Glow efekti */}
           <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
 
           <div className="relative z-10">
@@ -197,10 +220,8 @@ export default function ItemCard({
         </div>
       ) : null}
 
-      {/* CONTENT */}
       {isLink ? (
         <div className="mt-2 space-y-1 min-w-0">
-          {/* URL */}
           {url ? (
             <a
               href={url}
@@ -215,7 +236,6 @@ export default function ItemCard({
             <div className="text-sm text-neutral-400">URL yok</div>
           )}
 
-          {/* Açıklama */}
           {note ? (
             <div className="text-sm text-neutral-300 min-w-0 break-words whitespace-pre-wrap line-clamp-2">
               {note}
@@ -228,8 +248,6 @@ export default function ItemCard({
         </div>
       )}
 
-      {/* TAGS */}
-      {/* TAGS */}
       {item.tags?.length ? (
         <div className="mt-3 flex flex-wrap gap-2 min-w-0">
           {item.tags.slice(0, 6).map((t) => (
