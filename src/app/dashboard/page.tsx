@@ -1927,11 +1927,11 @@ export default function DashboardPage() {
               })}
             </div>
 
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setOpenGroupModal(true)}
-                className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-900 transition"
+                className="h-9 shrink-0 rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-xs text-neutral-300 hover:bg-neutral-900 transition"
               >
                 + Group
               </button>
@@ -1944,17 +1944,17 @@ export default function DashboardPage() {
                       p === "oldest" ? "newest" : "oldest",
                     )
                   }
-                  className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-900 transition"
+                  className="h-9 shrink-0 rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-xs text-neutral-300 hover:bg-neutral-900 transition"
                   title="Unutulanları sırala"
                 >
                   {forgottenSort === "oldest" ? "En eski" : "En yeni"}
                 </button>
               ) : null}
-              {/* ✅ AI Filter (compact) */}
+
               <select
                 value={activeAiCategory}
                 onChange={(e) => setActiveAiCategory(e.target.value as any)}
-                className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-200"
+                className="h-9 min-w-[110px] max-w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-sm text-neutral-200"
                 title="AI kategorisine göre filtrele"
               >
                 <option value="all">
@@ -1982,23 +1982,30 @@ export default function DashboardPage() {
                   📌 Other ({aiCategoryCounts["other"] ?? 0})
                 </option>
               </select>
+
               {isPro === true ? (
                 <button
                   type="button"
                   onClick={enhanceSelected}
                   disabled={aiSelection.length === 0 || aiEnhancing}
-                  className={`h-9 min-w-[92px] whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition inline-flex items-center justify-center ${
+                  className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-semibold transition whitespace-nowrap ${
                     aiSelection.length === 0 || aiEnhancing
                       ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
                       : "border-sky-900/40 bg-sky-950/40 text-sky-100 hover:bg-sky-900/30"
                   }`}
                   title="Seçili kayıtlar için AI işlemlerini tekrar çalıştır"
                 >
-                  {aiEnhancing
-                    ? "AI Enhancing…"
-                    : `AI Enhance (${aiSelection.length})`}
+                  <span className="hidden sm:inline">
+                    {aiEnhancing
+                      ? "Running..."
+                      : `AI Enhance (${aiSelection.length})`}
+                  </span>
+                  <span className="sm:hidden">
+                    {aiEnhancing ? "..." : `AI (${aiSelection.length})`}
+                  </span>
                 </button>
               ) : null}
+
               {isPro === true ? (
                 <button
                   type="button"
@@ -2008,7 +2015,7 @@ export default function DashboardPage() {
                     activeGroupId === "all" ||
                     activeGroupId === "forgotten"
                   }
-                  className={`h-9 min-w-[132px] whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition inline-flex items-center justify-center ${
+                  className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-semibold transition whitespace-nowrap ${
                     aiEnhancing ||
                     activeGroupId === "all" ||
                     activeGroupId === "forgotten"
@@ -2017,14 +2024,22 @@ export default function DashboardPage() {
                   }`}
                   title="Seçili grup/Inbox içindeki tüm kayıtlar için AI çalıştır"
                 >
-                  {aiEnhancing ? "Group Enhancing…" : "AI Enhance Group"}
+                  <span className="hidden sm:inline">
+                    {aiEnhancing ? "Running..." : "Enhance Group"}
+                  </span>
+                  <span className="sm:hidden">
+                    {aiEnhancing ? "..." : "Group AI"}
+                  </span>
                 </button>
               ) : null}
-              <Input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Ara..."
-              />
+
+              <div className="min-w-[140px] flex-1">
+                <Input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Ara..."
+                />
+              </div>
             </div>
           </div>
 
