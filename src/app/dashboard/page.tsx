@@ -1927,118 +1927,97 @@ export default function DashboardPage() {
               })}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2">
-              <button
-                type="button"
-                onClick={() => setOpenGroupModal(true)}
-                className="h-9 shrink-0 rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-xs text-neutral-300 hover:bg-neutral-900 transition"
-              >
-                + Group
-              </button>
-
-              {activeGroupId === "forgotten" ? (
+            <div className="w-full overflow-x-auto">
+              <div className="flex items-center gap-3 min-w-max">
                 <button
                   type="button"
-                  onClick={() =>
-                    setForgottenSort((p) =>
-                      p === "oldest" ? "newest" : "oldest",
-                    )
-                  }
+                  onClick={() => setOpenGroupModal(true)}
                   className="h-9 shrink-0 rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-xs text-neutral-300 hover:bg-neutral-900 transition"
-                  title="Unutulanları sırala"
                 >
-                  {forgottenSort === "oldest" ? "En eski" : "En yeni"}
+                  + Group
                 </button>
-              ) : null}
 
-              <select
-                value={activeAiCategory}
-                onChange={(e) => setActiveAiCategory(e.target.value as any)}
-                className="h-9 min-w-[110px] max-w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-sm text-neutral-200"
-                title="AI kategorisine göre filtrele"
-              >
-                <option value="all">
-                  AI: All ({aiCategoryCounts["all"] ?? 0})
-                </option>
-                <option value="documentation">
-                  📘 Docs ({aiCategoryCounts["documentation"] ?? 0})
-                </option>
-                <option value="tool">
-                  🛠 Tool ({aiCategoryCounts["tool"] ?? 0})
-                </option>
-                <option value="competitor">
-                  🥊 Competitor ({aiCategoryCounts["competitor"] ?? 0})
-                </option>
-                <option value="article">
-                  📰 Article ({aiCategoryCounts["article"] ?? 0})
-                </option>
-                <option value="inspiration">
-                  💡 Inspo ({aiCategoryCounts["inspiration"] ?? 0})
-                </option>
-                <option value="pricing">
-                  💵 Pricing ({aiCategoryCounts["pricing"] ?? 0})
-                </option>
-                <option value="other">
-                  📌 Other ({aiCategoryCounts["other"] ?? 0})
-                </option>
-              </select>
-
-              {isPro === true ? (
-                <button
-                  type="button"
-                  onClick={enhanceSelected}
-                  disabled={aiSelection.length === 0 || aiEnhancing}
-                  className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-semibold transition whitespace-nowrap ${
-                    aiSelection.length === 0 || aiEnhancing
-                      ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
-                      : "border-sky-900/40 bg-sky-950/40 text-sky-100 hover:bg-sky-900/30"
-                  }`}
-                  title="Seçili kayıtlar için AI işlemlerini tekrar çalıştır"
+                <select
+                  value={activeAiCategory}
+                  onChange={(e) => setActiveAiCategory(e.target.value as any)}
+                  className="h-9 w-[130px] shrink-0 rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-sm text-neutral-200"
+                  title="AI kategorisine göre filtrele"
                 >
-                  <span className="hidden sm:inline">
-                    {aiEnhancing
-                      ? "Running..."
-                      : `AI Enhance (${aiSelection.length})`}
-                  </span>
-                  <span className="sm:hidden">
-                    {aiEnhancing ? "..." : `AI (${aiSelection.length})`}
-                  </span>
-                </button>
-              ) : null}
+                  <option value="all">
+                    AI: All ({aiCategoryCounts["all"] ?? 0})
+                  </option>
+                  <option value="documentation">
+                    📘 Docs ({aiCategoryCounts["documentation"] ?? 0})
+                  </option>
+                  <option value="tool">
+                    🛠 Tool ({aiCategoryCounts["tool"] ?? 0})
+                  </option>
+                  <option value="competitor">
+                    🥊 Competitor ({aiCategoryCounts["competitor"] ?? 0})
+                  </option>
+                  <option value="article">
+                    📰 Article ({aiCategoryCounts["article"] ?? 0})
+                  </option>
+                  <option value="inspiration">
+                    💡 Inspo ({aiCategoryCounts["inspiration"] ?? 0})
+                  </option>
+                  <option value="pricing">
+                    💵 Pricing ({aiCategoryCounts["pricing"] ?? 0})
+                  </option>
+                  <option value="other">
+                    📌 Other ({aiCategoryCounts["other"] ?? 0})
+                  </option>
+                </select>
 
-              {isPro === true ? (
-                <button
-                  type="button"
-                  onClick={enhanceCurrentGroup}
-                  disabled={
-                    aiEnhancing ||
-                    activeGroupId === "all" ||
-                    activeGroupId === "forgotten"
-                  }
-                  className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-semibold transition whitespace-nowrap ${
-                    aiEnhancing ||
-                    activeGroupId === "all" ||
-                    activeGroupId === "forgotten"
-                      ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
-                      : "border-emerald-900/40 bg-emerald-950/40 text-emerald-100 hover:bg-emerald-900/30"
-                  }`}
-                  title="Seçili grup/Inbox içindeki tüm kayıtlar için AI çalıştır"
-                >
-                  <span className="hidden sm:inline">
-                    {aiEnhancing ? "Running..." : "Enhance Group"}
-                  </span>
-                  <span className="sm:hidden">
-                    {aiEnhancing ? "..." : "Group AI"}
-                  </span>
-                </button>
-              ) : null}
+                {isPro === true ? (
+                  <button
+                    type="button"
+                    onClick={enhanceSelected}
+                    disabled={aiSelection.length === 0 || aiEnhancing}
+                    className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-semibold transition whitespace-nowrap ${
+                      aiSelection.length === 0 || aiEnhancing
+                        ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
+                        : "border-sky-900/40 bg-sky-950/40 text-sky-100 hover:bg-sky-900/30"
+                    }`}
+                    title="Seçili kayıtlar için AI işlemlerini tekrar çalıştır"
+                  >
+                    AI Enhance ({aiSelection.length})
+                  </button>
+                ) : null}
 
-              <div className="min-w-[140px] flex-1">
-                <Input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Ara..."
-                />
+                {isPro === true ? (
+                  <button
+                    type="button"
+                    onClick={enhanceCurrentGroup}
+                    disabled={
+                      aiEnhancing ||
+                      activeGroupId === "all" ||
+                      activeGroupId === "forgotten"
+                    }
+                    className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-semibold transition whitespace-nowrap ${
+                      aiEnhancing ||
+                      activeGroupId === "all" ||
+                      activeGroupId === "forgotten"
+                        ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
+                        : "border-emerald-900/40 bg-emerald-950/40 text-emerald-100 hover:bg-emerald-900/30"
+                    }`}
+                    title="Seçili grup/Inbox içindeki tüm kayıtlar için AI çalıştır"
+                  >
+                    Enhance Group
+                  </button>
+                ) : null}
+
+                <div className="relative w-[100px] shrink-0">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
+                    🔍
+                  </span>
+                  <input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Ara..."
+                    className="h-9 w-full rounded-xl border border-neutral-800 bg-neutral-950 pl-9 pr-3 text-sm text-neutral-100 placeholder:text-neutral-500 outline-none transition focus:border-neutral-600"
+                  />
+                </div>
               </div>
             </div>
           </div>
