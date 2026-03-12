@@ -1987,7 +1987,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={enhanceSelected}
                   disabled={aiSelection.length === 0 || aiEnhancing}
-                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                  className={`h-9 min-w-[92px] whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition inline-flex items-center justify-center ${
                     aiSelection.length === 0 || aiEnhancing
                       ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
                       : "border-sky-900/40 bg-sky-950/40 text-sky-100 hover:bg-sky-900/30"
@@ -2008,7 +2008,7 @@ export default function DashboardPage() {
                     activeGroupId === "all" ||
                     activeGroupId === "forgotten"
                   }
-                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                  className={`h-9 min-w-[132px] whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition inline-flex items-center justify-center ${
                     aiEnhancing ||
                     activeGroupId === "all" ||
                     activeGroupId === "forgotten"
