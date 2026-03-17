@@ -133,6 +133,12 @@ export default function DashboardPage() {
   // ✅ AI Enhance selection
   const [aiSelection, setAiSelection] = useState<string[]>([]);
   const [aiEnhancing, setAiEnhancing] = useState(false);
+  const [groupEnhancing, setGroupEnhancing] = useState(false);
+  const [groupProgress, setGroupProgress] = useState<{
+    total: number;
+    okCount: number;
+    failCount: number;
+  } | null>(null);
   // ✅ Free: 7 gün sabit, Pro: 30/60/90 seçilebilir
   const forgottenDays = isPro === true ? proForgottenDays : 7;
   const FORGOTTEN_MS = forgottenDays * 24 * 60 * 60 * 1000;
@@ -142,6 +148,9 @@ export default function DashboardPage() {
     okCount: number;
     failCount: number;
   } | null>(null);
+  const [regeneratingItemId, setRegeneratingItemId] = useState<string | null>(
+    null,
+  );
   const isForgotten = useCallback(
     (it: any) => {
       // ✅ Snooze: süre bitmediyse unutulanlarda GÖSTERME
@@ -953,24 +962,10 @@ export default function DashboardPage() {
   };
   const regenerateAi = async (itemId: string) => {
     try {
-      if (!isPro) {
-        showToast("err", "AI sadece Pro’da ❌");
-        return;
-      }
-
       if (!userId) {
         showToast("err", "Oturum bulunamadı ❌");
         return;
       }
-
-      // UI'da anında processing göster
-      setItems((prev: any) =>
-        prev.map((it: any) =>
-          it.id === itemId
-            ? { ...it, ai_status: "processing", ai_error: null }
-            : it,
-        ),
-      );
 
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
@@ -980,42 +975,37 @@ export default function DashboardPage() {
         return;
       }
 
-      const r = await fetch("/api/ai/enhance", {
+      setRegeneratingItemId(itemId);
+
+      // anlık UI feedback
+      setItems((prev: any) =>
+        prev.map((it: any) =>
+          it.id === itemId
+            ? { ...it, ai_status: "processing", ai_error: null }
+            : it,
+        ),
+      );
+
+      const r = await fetch("/api/ai/regenerate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ itemIds: [itemId] }),
+        body: JSON.stringify({ itemId }),
       });
 
-      const text = await r.text().catch(() => "");
-      let json: any = {};
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
 
-      try {
-        json = text ? JSON.parse(text) : {};
-      } catch {
-        json = {};
-      }
-
-      if (!r.ok) {
-        throw new Error(json?.error || `HTTP ${r.status}`);
-      }
-
-      const okCount = Number(json?.okCount ?? 0);
-      const failCount = Number(json?.failCount ?? 0);
-
-      showToast(
-        failCount === 0 ? "ok" : "err",
-        failCount === 0
-          ? `AI yeniden üretildi ✨ (${okCount})`
-          : `AI regenerate: ${okCount} ok, ${failCount} fail`,
-      );
-
+      showToast("ok", "AI yeniden üretildi ✨");
       await load(userId);
     } catch (e: any) {
       showToast("err", e?.message ?? "AI yeniden üretilemedi ❌");
       if (userId) await load(userId);
+    } finally {
+      setRegeneratingItemId(null);
+      setAiProgress(null);
     }
   };
   const enhanceSelected = async () => {
@@ -1031,8 +1021,13 @@ export default function DashboardPage() {
       }
 
       setAiEnhancing(true);
+      setAiProgress({
+        total: aiSelection.length,
+        done: 0,
+        okCount: 0,
+        failCount: 0,
+      });
 
-      // ✅ BURAYA KOYUYORUZ
       setItems((prev: any) =>
         prev.map((it: any) =>
           aiSelection.includes(it.id)
@@ -1071,6 +1066,14 @@ export default function DashboardPage() {
 
       const okCount = Number(json?.okCount ?? 0);
       const failCount = Number(json?.failCount ?? 0);
+      const total = okCount + failCount;
+
+      setAiProgress({
+        total,
+        done: total,
+        okCount,
+        failCount,
+      });
 
       showToast(
         failCount === 0 ? "ok" : "err",
@@ -1085,6 +1088,7 @@ export default function DashboardPage() {
       showToast("err", e?.message ?? "AI Enhance başarısız ❌");
     } finally {
       setAiEnhancing(false);
+      window.setTimeout(() => setAiProgress(null), 1200);
     }
   };
   const createGroupAndAssign = async () => {
@@ -1144,14 +1148,29 @@ export default function DashboardPage() {
         return;
       }
 
-      // forgotten modunda AI seçimi karışmasın diye kapatmıştın zaten.
-      if (activeGroupId === "forgotten" || activeGroupId === "all") {
-        showToast("err", "AI Enhance için önce Inbox veya bir grup seç ❌");
+      if (activeGroupId === "all" || activeGroupId === "forgotten") {
+        showToast("err", "Önce Inbox veya bir grup seç ❌");
         return;
       }
 
-      setAiEnhancing(true);
-      setAiProgress({ total: 0, done: 0, okCount: 0, failCount: 0 });
+      const targetItems =
+        activeGroupId === "inbox"
+          ? items.filter((it: any) => !it.group_id)
+          : items.filter(
+              (it: any) => String(it.group_id) === String(activeGroupId),
+            );
+
+      if (targetItems.length === 0) {
+        showToast("err", "Bu alanda işlenecek kayıt yok ❌");
+        return;
+      }
+
+      setGroupEnhancing(true);
+      setGroupProgress({
+        total: targetItems.length,
+        okCount: 0,
+        failCount: 0,
+      });
 
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
@@ -1161,105 +1180,63 @@ export default function DashboardPage() {
         return;
       }
 
-      // ✅ groupId: inbox => null, grup => id
-      const groupId = activeGroupId === "inbox" ? null : String(activeGroupId);
+      const itemIds = targetItems.map((it: any) => it.id);
 
-      const res = await fetch("/api/ai/enhance", {
+      setItems((prev: any) =>
+        prev.map((it: any) =>
+          itemIds.includes(it.id)
+            ? { ...it, ai_status: "processing", ai_error: null }
+            : it,
+        ),
+      );
+
+      const r = await fetch("/api/ai/enhance-group", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
-          Accept: "text/event-stream",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ groupId, stream: true }),
+        body: JSON.stringify({ itemIds }),
       });
 
-      if (!res.ok) {
-        const t = await res.text().catch(() => "");
-        let j: any = {};
-        try {
-          j = t ? JSON.parse(t) : {};
-        } catch {}
-        throw new Error(j?.error || `HTTP ${res.status}`);
+      const text = await r.text().catch(() => "");
+
+      let json: any = {};
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch {
+        json = {};
       }
 
-      // ✅ SSE read
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("Stream desteklenmiyor");
-
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      const onEvent = (event: string, data: any) => {
-        if (event === "start") {
-          setAiProgress({
-            total: data.total ?? 0,
-            done: 0,
-            okCount: 0,
-            failCount: 0,
-          });
-        }
-        if (event === "progress") {
-          setAiProgress({
-            total: data.total ?? 0,
-            done: data.done ?? 0,
-            okCount: data.okCount ?? 0,
-            failCount: data.failCount ?? 0,
-          });
-        }
-        if (event === "done") {
-          setAiProgress({
-            total: data.total ?? 0,
-            done: data.total ?? 0,
-            okCount: data.okCount ?? 0,
-            failCount: data.failCount ?? 0,
-          });
-
-          showToast(
-            (data.failCount ?? 0) === 0 ? "ok" : "err",
-            (data.failCount ?? 0) === 0
-              ? `✅ Grup AI Enhance tamam (${data.okCount ?? 0})`
-              : `⚠️ Grup AI Enhance: ${data.okCount ?? 0} ok, ${data.failCount ?? 0} fail`,
-          );
-        }
-      };
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        // SSE paketlerini ayır: \n\n
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() ?? "";
-
-        for (const chunk of parts) {
-          const lines = chunk.split("\n").filter(Boolean);
-
-          let event = "message";
-          let dataLine = "";
-
-          for (const line of lines) {
-            if (line.startsWith("event:")) event = line.slice(6).trim();
-            if (line.startsWith("data:")) dataLine += line.slice(5).trim();
-          }
-
-          if (dataLine) {
-            let dataObj: any = {};
-            try {
-              dataObj = JSON.parse(dataLine);
-            } catch {}
-            onEvent(event, dataObj);
-          }
-        }
+      if (!r.ok) {
+        throw new Error(json?.error || `HTTP ${r.status}`);
       }
 
-      if (userId) await load(userId);
+      const total = Number(json?.total ?? itemIds.length);
+      const okCount = Number(json?.okCount ?? 0);
+      const failCount = Number(json?.failCount ?? 0);
+
+      setGroupProgress({
+        total,
+        okCount,
+        failCount,
+      });
+
+      showToast(
+        failCount === 0 ? "ok" : "err",
+        failCount === 0
+          ? `✅ Grup AI Enhance tamam (${okCount})`
+          : `⚠️ Grup AI Enhance: ${okCount} ok, ${failCount} fail`,
+      );
+
+      if (userId) {
+        await load(userId);
+      }
     } catch (e: any) {
       showToast("err", e?.message ?? "Grup AI Enhance başarısız ❌");
     } finally {
-      setAiEnhancing(false);
+      setGroupEnhancing(false);
+      window.setTimeout(() => setGroupProgress(null), 1200);
     }
   };
   // ===========================
@@ -1342,6 +1319,12 @@ export default function DashboardPage() {
     isOver
       ? "outline outline-2 outline-emerald-500/60 bg-emerald-500/10 border-emerald-500/40"
       : "";
+  const AiLoadingInline = ({ text }: { text: string }) => (
+    <div className="flex items-center gap-2 text-xs text-sky-300">
+      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-sky-400/30 border-t-sky-300" />
+      <span>{text}</span>
+    </div>
+  );
 
   // ✅ Draggable wrapper
   const DraggableWrap = ({ it }: { it: any }) => {
@@ -1927,12 +1910,12 @@ export default function DashboardPage() {
               })}
             </div>
 
-            <div className="w-full overflow-x-auto">
-              <div className="flex items-center gap-3 min-w-max">
+            <div className="w-full ">
+              <div className="flex items-center gap-3 w-full flex-wrap">
                 <button
                   type="button"
                   onClick={() => setOpenGroupModal(true)}
-                  className="h-9 shrink-0 rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-xs text-neutral-300 hover:bg-neutral-900 transition"
+                  className="h-9 rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-xs text-neutral-300 hover:bg-neutral-900 transition"
                 >
                   + Group
                 </button>
@@ -1973,15 +1956,25 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={enhanceSelected}
-                    disabled={aiSelection.length === 0 || aiEnhancing}
+                    disabled={
+                      aiSelection.length === 0 ||
+                      aiEnhancing ||
+                      groupEnhancing ||
+                      !!regeneratingItemId
+                    }
                     className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-semibold transition whitespace-nowrap ${
-                      aiSelection.length === 0 || aiEnhancing
+                      aiSelection.length === 0 ||
+                      aiEnhancing ||
+                      groupEnhancing ||
+                      !!regeneratingItemId
                         ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
                         : "border-sky-900/40 bg-sky-950/40 text-sky-100 hover:bg-sky-900/30"
                     }`}
                     title="Seçili kayıtlar için AI işlemlerini tekrar çalıştır"
                   >
-                    AI Enhance ({aiSelection.length})
+                    {aiEnhancing
+                      ? "AI çalışıyor..."
+                      : `AI Enhance (${aiSelection.length})`}{" "}
                   </button>
                 ) : null}
 
@@ -1990,12 +1983,16 @@ export default function DashboardPage() {
                     type="button"
                     onClick={enhanceCurrentGroup}
                     disabled={
+                      groupEnhancing ||
                       aiEnhancing ||
+                      !!regeneratingItemId ||
                       activeGroupId === "all" ||
                       activeGroupId === "forgotten"
                     }
                     className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-semibold transition whitespace-nowrap ${
+                      groupEnhancing ||
                       aiEnhancing ||
+                      !!regeneratingItemId ||
                       activeGroupId === "all" ||
                       activeGroupId === "forgotten"
                         ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
@@ -2003,11 +2000,11 @@ export default function DashboardPage() {
                     }`}
                     title="Seçili grup/Inbox içindeki tüm kayıtlar için AI çalıştır"
                   >
-                    Enhance Group
+                    {groupEnhancing ? "Grup işleniyor..." : "Enhance Group"}
                   </button>
                 ) : null}
 
-                <div className="relative w-[100px] shrink-0">
+                <div className="relative flex-1 min-w-[120px] max-w-[220px]">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
                     🔍
                   </span>
@@ -2021,6 +2018,37 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+          {aiEnhancing || groupEnhancing || regeneratingItemId ? (
+            <div className="mt-3 rounded-2xl border border-sky-900/30 bg-sky-950/20 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-3 w-full">
+                <AiLoadingInline
+                  text={
+                    regeneratingItemId
+                      ? "AI yeniden üretiliyor..."
+                      : groupEnhancing
+                        ? "Grup kayıtları AI ile işleniyor..."
+                        : "Seçili kayıtlar AI ile işleniyor..."
+                  }
+                />
+                {aiProgress ? (
+                  <div className="text-[11px] text-sky-200/80">
+                    {aiProgress.done}/{aiProgress.total} • ok:{" "}
+                    {aiProgress.okCount} • fail: {aiProgress.failCount}
+                  </div>
+                ) : groupProgress ? (
+                  <div className="text-[11px] text-sky-200/80">
+                    {groupProgress.okCount + groupProgress.failCount}/
+                    {groupProgress.total} • ok: {groupProgress.okCount} • fail:{" "}
+                    {groupProgress.failCount}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-900">
+                <div className="h-full w-1/3 animate-pulse rounded-full bg-sky-400/60" />
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-3 text-xs text-neutral-500">
             İpucu: Bir not/link kartını sürükleyip Inbox veya bir gruba bırak.
@@ -2127,40 +2155,6 @@ export default function DashboardPage() {
                     </div>
                   );
                 })}
-                {aiProgress && aiProgress.total > 0 ? (
-                  <div className="mt-3 rounded-2xl border border-neutral-800 bg-neutral-950 p-3">
-                    <div className="flex items-center justify-between text-xs text-neutral-300">
-                      <div>
-                        AI Progress:{" "}
-                        <span className="text-neutral-100 font-semibold">
-                          {aiProgress.done}/{aiProgress.total}
-                        </span>{" "}
-                        <span className="text-neutral-500">
-                          (ok: {aiProgress.okCount}, fail:{" "}
-                          {aiProgress.failCount})
-                        </span>
-                      </div>
-                      <div className="text-neutral-500">
-                        {Math.round((aiProgress.done / aiProgress.total) * 100)}
-                        %
-                      </div>
-                    </div>
-
-                    <div className="mt-2 h-2 w-full rounded-full bg-neutral-900 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500/50"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            Math.round(
-                              (aiProgress.done / aiProgress.total) * 100,
-                            ),
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : null}
               </div>
             ) : (
               <div className="grid gap-3">
