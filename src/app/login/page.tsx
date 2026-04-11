@@ -7,6 +7,7 @@ import Button from "@/components/Button";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { supabase as defaultSupabase } from "@/lib/supabase";
+import { getSupabaseAuthErrorMessage } from "@/lib/supabaseErrors";
 
 function createAuthClient(remember: boolean) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -59,8 +60,8 @@ export default function LoginPage() {
 
       // ✅ Not: sen dashboard’a yönlendirme yerine "/" yapmışsın, dokunmuyorum.
       router.replace("/");
-    } catch (e: any) {
-      setMsg(e?.message ?? "Bir hata oluştu.");
+    } catch (e) {
+      setMsg(getSupabaseAuthErrorMessage(e));
     } finally {
       setLoading(false);
     }

@@ -141,9 +141,12 @@ export default function Header() {
     <header className="flex items-center justify-between">
       <Link
         href="/"
-        className="text-sm font-semibold tracking-wide flex items-center gap-2"
+        className="flex items-center gap-2 text-sm font-black tracking-tight text-emerald-300 sm:text-xl"
       >
-        ClarioNot
+        <span className="grid h-8 w-8 place-items-center rounded-full border border-emerald-300/30 bg-emerald-300/10 text-sm">
+          c
+        </span>
+        <span className="hidden sm:inline">clarionot</span>
       </Link>
 
       <div className="flex items-center gap-2">
@@ -151,7 +154,7 @@ export default function Header() {
           <>
             <Link
               href="/pro"
-              className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
+              className="inline-flex items-center justify-center rounded-full border border-[#3d4a3e]/50 bg-[#201f1f] px-4 py-2 text-xs font-semibold text-[#e5e2e1] transition hover:bg-[#2a2a2a]"
             >
               Planlar
             </Link>
@@ -159,7 +162,7 @@ export default function Header() {
             <Button variant="ghost">
               <Link
                 href="/login"
-                className="text-sm text-neutral-300 hover:text-white"
+                className="text-sm text-[#bccabb] hover:text-white"
               >
                 Giriş Yap
               </Link>
@@ -170,8 +173,8 @@ export default function Header() {
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold border ${
                 plan === "pro"
-                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                  : "bg-neutral-500/15 text-neutral-400 border-neutral-500/30"
+                  ? "bg-emerald-300/10 text-emerald-300 border-emerald-300/30"
+                  : "bg-zinc-500/10 text-zinc-300 border-zinc-500/30"
               }`}
               title={checkingPlan ? "Plan kontrol ediliyor" : undefined}
             >
@@ -182,11 +185,11 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
-                className="inline-flex items-center gap-3 rounded-xl bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-neutral-100 hover:bg-neutral-900 transition"
+                className="inline-flex items-center gap-3 rounded-full border border-[#3d4a3e]/50 bg-[#131313]/70 px-3 py-2 text-sm font-semibold text-zinc-100 transition hover:bg-[#1c1b1b]"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-800 text-[13px] font-bold text-neutral-100">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2a2a2a] text-[13px] font-bold text-emerald-200">
                   {initials}
                 </span>
 
@@ -200,12 +203,12 @@ export default function Header() {
               {menuOpen ? (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-2 w-64 overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 shadow-xl"
+                  className="absolute right-0 mt-3 w-64 overflow-hidden rounded-xl border border-[#3d4a3e]/40 bg-[#0e0e0e] shadow-2xl"
                 >
                   {/* Email (disabled) */}
-                  <div className="px-3 py-2 border-b border-neutral-900">
-                    <div className="text-[11px] text-neutral-500">Hesap</div>
-                    <div className="mt-0.5 text-xs text-neutral-200 truncate">
+                  <div className="border-b border-[#3d4a3e]/25 px-4 py-3">
+                    <div className="text-[11px] text-zinc-500">Hesap</div>
+                    <div className="mt-0.5 truncate text-xs text-zinc-200">
                       {email || "—"}
                     </div>
                   </div>
@@ -215,7 +218,7 @@ export default function Header() {
                       role="menuitem"
                       href="/dashboard"
                       onClick={() => setMenuOpen(false)}
-                      className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm text-neutral-200 hover:bg-neutral-900"
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
                     >
                       Dashboard
                     </Link>
@@ -225,7 +228,7 @@ export default function Header() {
                       href="/pro"
                       onClick={() => setMenuOpen(false)}
                       className={`mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm hover:bg-neutral-900 ${
-                        hasPaymentIssue ? "text-amber-200" : "text-neutral-200"
+                        hasPaymentIssue ? "text-amber-200" : "text-zinc-200"
                       }`}
                     >
                       {hasPaymentIssue
@@ -235,7 +238,7 @@ export default function Header() {
                           : "Upgrade to Pro"}
                     </Link>
 
-                    <div className="my-2 border-t border-neutral-900" />
+                    <div className="my-2 border-t border-[#3d4a3e]/25" />
 
                     <button
                       role="menuitem"

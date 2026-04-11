@@ -11,6 +11,7 @@ import Textarea from "@/components/Textarea";
 import TagInput from "@/components/TagInput";
 import ItemCard from "@/components/ItemCard";
 import Header from "@/components/Header";
+import DnaBackdrop from "@/components/DnaBackdrop";
 
 type Draft = {
   id?: string;
@@ -32,6 +33,35 @@ const emptyDraft = (type: ItemType): Draft => ({
 });
 
 type Group = { id: string; title: string; created_at?: string };
+
+type WorkStatus = "later" | "today" | "doing" | "done";
+type WorkStatusFilter = "all" | WorkStatus;
+
+const WORK_STATUS_META: Record<
+  WorkStatus,
+  { label: string; shortLabel: string; description: string }
+> = {
+  later: {
+    label: "Sonra",
+    shortLabel: "Sonra",
+    description: "Henüz işleme alınmamış kayıtlar",
+  },
+  today: {
+    label: "Bugün bak",
+    shortLabel: "Bugün",
+    description: "Bugün dönmek istediğin kayıtlar",
+  },
+  doing: {
+    label: "İşleniyor",
+    shortLabel: "İşleniyor",
+    description: "Üzerinde çalıştığın kayıtlar",
+  },
+  done: {
+    label: "Tamamlandı",
+    shortLabel: "Bitti",
+    description: "Okunmuş veya sonuca bağlanmış kayıtlar",
+  },
+};
 
 type ToastState = {
   type: "ok" | "err";
@@ -68,7 +98,14 @@ export default function DashboardPage() {
   const [proForgottenDays, setProForgottenDays] = useState<30 | 60 | 90>(30);
 
   const [q, setQ] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeWorkStatus, setActiveWorkStatus] =
+    useState<WorkStatusFilter>("all");
+  const [itemWorkStatus, setItemWorkStatus] = useState<Record<string, WorkStatus>>(
+    {},
+  );
   const [openAdd, setOpenAdd] = useState(false);
+  const [openQuickAdd, setOpenQuickAdd] = useState(false);
   const [openDetail, setOpenDetail] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft("link"));
   const [err, setErr] = useState<string | null>(null);
@@ -84,6 +121,75 @@ export default function DashboardPage() {
     const t = window.setTimeout(() => setToast(null), 1800);
     return () => window.clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    if (!userId) {
+      setItemWorkStatus({});
+      return;
+    }
+
+    try {
+      const raw = localStorage.getItem(`clarionot:work-status:v1:${userId}`);
+      if (!raw) {
+        setItemWorkStatus({});
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as Record<string, WorkStatus>;
+      setItemWorkStatus(parsed && typeof parsed === "object" ? parsed : {});
+    } catch {
+      setItemWorkStatus({});
+    }
+  }, [userId]);
+
+  const setWorkStatusForItem = (itemId: string, status: WorkStatus) => {
+    if (!userId) return;
+
+    setItemWorkStatus((prev) => {
+      const next = { ...prev, [itemId]: status };
+      localStorage.setItem(
+        `clarionot:work-status:v1:${userId}`,
+        JSON.stringify(next),
+      );
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const isTypingTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      return (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable
+      );
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const quickSearch =
+        (event.key.toLowerCase() === "k" && (event.ctrlKey || event.metaKey)) ||
+        (event.key === "/" && !isTypingTarget(event.target));
+
+      if (quickSearch) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (
+        event.key === "Escape" &&
+        document.activeElement === searchInputRef.current
+      ) {
+        setQ("");
+        searchInputRef.current?.blur();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // ✅ Drag UI state
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
@@ -589,6 +695,23 @@ export default function DashboardPage() {
     return counts;
   }, [items]);
 
+  const workStatusCounts = useMemo(() => {
+    const counts: Record<WorkStatusFilter, number> = {
+      all: items.length,
+      later: 0,
+      today: 0,
+      doing: 0,
+      done: 0,
+    };
+
+    for (const it of items as any) {
+      const status = itemWorkStatus[it.id] ?? "later";
+      counts[status] += 1;
+    }
+
+    return counts;
+  }, [items, itemWorkStatus]);
+
   // ✅ Search + group filter (+ forgotten) + AI category filter
   const filteredItems = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -613,17 +736,34 @@ export default function DashboardPage() {
             return c === activeAiCategory;
           });
 
-    if (activeGroupId === "all") return afterAi;
+    const afterWorkStatus =
+      activeWorkStatus === "all"
+        ? afterAi
+        : afterAi.filter(
+            (it: any) => (itemWorkStatus[it.id] ?? "later") === activeWorkStatus,
+          );
+
+    if (activeGroupId === "all") return afterWorkStatus;
 
     if (activeGroupId === "forgotten") {
-      return afterAi.filter((it: any) => isForgotten(it));
+      return afterWorkStatus.filter((it: any) => isForgotten(it));
     }
 
     if (activeGroupId === "inbox")
-      return afterAi.filter((it: any) => !it.group_id);
+      return afterWorkStatus.filter((it: any) => !it.group_id);
 
-    return afterAi.filter((it: any) => String(it.group_id) === activeGroupId);
-  }, [items, q, activeGroupId, isForgotten, activeAiCategory]);
+    return afterWorkStatus.filter(
+      (it: any) => String(it.group_id) === activeGroupId,
+    );
+  }, [
+    items,
+    q,
+    activeGroupId,
+    isForgotten,
+    activeAiCategory,
+    activeWorkStatus,
+    itemWorkStatus,
+  ]);
 
   const finalItems = useMemo(() => {
     if (activeGroupId !== "forgotten") return filteredItems;
@@ -670,6 +810,7 @@ export default function DashboardPage() {
   const openNew = (type: ItemType) => {
     setDraft(emptyDraft(type));
     setOpenAdd(true);
+    setOpenQuickAdd(false);
   };
 
   // ✅ Group silme
@@ -1339,6 +1480,7 @@ export default function DashboardPage() {
       );
     };
     const checked = forgottenSelection.includes(it.id);
+    const workStatus = itemWorkStatus[it.id] ?? "later";
 
     const toggle = (next: boolean) => {
       setForgottenSelection((prev) =>
@@ -1449,18 +1591,104 @@ export default function DashboardPage() {
             }
             className={`${canBulk ? "pl-12" : ""} ${canAiSelect ? "pr-12" : ""}`}
           />
+          <div className="mt-2 flex flex-col gap-2 rounded-xl border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-[#bccabb]/50">
+                İşleme durumu
+              </div>
+              <div className="mt-0.5 text-xs text-[#bccabb]">
+                {WORK_STATUS_META[workStatus].description}
+              </div>
+            </div>
+
+            <select
+              value={workStatus}
+              onChange={(e) =>
+                setWorkStatusForItem(it.id, e.target.value as WorkStatus)
+              }
+              onClick={(e) => e.stopPropagation()}
+              className="h-9 rounded-full border border-[#3d4a3e]/40 bg-[#201f1f] px-3 text-xs font-semibold text-[#e5e2e1] outline-none focus:border-teal-300/60"
+              title="Bu kaydın işleme durumunu seç"
+            >
+              {Object.entries(WORK_STATUS_META).map(([key, meta]) => (
+                <option key={key} value={key}>
+                  {meta.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto max-w-5xl px-6 py-10">
-        <Header />
+    <main className="relative min-h-screen overflow-hidden bg-[#131313] pb-28 text-[#e5e2e1]">
+      <DnaBackdrop className="fixed opacity-35" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(107,251,154,0.08),transparent_42%),linear-gradient(to_bottom,transparent,#131313_82%)]" />
+      <div className="fixed inset-x-0 top-0 z-50 border-b border-[#3d4a3e]/20 bg-[#131313]/70 px-6 py-4 shadow-[0_20px_40px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+        <div className="mx-auto max-w-6xl">
+          <Header />
+        </div>
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-10 pt-24 sm:px-6">
+        <section className="mt-2 overflow-hidden rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/70 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-300">
+                Pulse Dashboard
+              </div>
+              <h1 className="mt-3 text-3xl font-black tracking-tight text-[#e5e2e1] sm:text-4xl">
+                Kayıtlarını düzenle, geri getir, kullan.
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#bccabb]">
+                Linkler ve notlar akışta kalır; arama, gruplar, unutulanlar ve
+                AI işlemleri ayrı katmanlarda çalışır.
+              </p>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => openNew("note")}
+                  className="inline-flex items-center justify-center rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-5 py-3 text-sm font-semibold text-[#e5e2e1] transition hover:bg-[#2a2a2a]"
+                >
+                  + Yeni not
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openNew("link")}
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-5 py-3 text-sm font-semibold text-emerald-950 transition hover:scale-[1.02]"
+                >
+                  + Yeni link
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[520px]">
+              {[
+                ["Toplam", items.length],
+                ["Not", notes.length],
+                ["Link", links.length],
+                ["Unutulan", groupCounts["forgotten"] ?? 0],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-xl border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 p-4"
+                >
+                  <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#bccabb]/60">
+                    {label}
+                  </div>
+                  <div className="mt-2 text-2xl font-black text-emerald-300">
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
         {isPro === true && paymentIssue ? (
-          <div className="mt-4 rounded-2xl border border-amber-900/40 bg-amber-950/30 p-4 text-sm text-amber-200">
+          <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-950/30 p-4 text-sm text-amber-200 backdrop-blur-xl">
             <div className="font-semibold text-amber-100">
               Ödeme sorunu tespit edildi
             </div>
@@ -1471,7 +1699,7 @@ export default function DashboardPage() {
             <button
               onClick={openBillingPortal}
               disabled={portalLoading}
-              className="mt-3 rounded-xl bg-amber-200 px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
+              className="mt-3 rounded-full bg-amber-200 px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
             >
               {portalLoading ? "Opening…" : "Kartı Güncelle"}
             </button>
@@ -1479,9 +1707,9 @@ export default function DashboardPage() {
         ) : null}
 
         {isPro === false ? (
-          <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-300">
+          <div className="mt-4 rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-4 text-sm text-[#bccabb] backdrop-blur-xl">
             Pro ile tarayıcı eklentisini kullanıp sağ tıkla kaydedebilirsin.{" "}
-            <a className="underline text-neutral-100" href="/pro">
+            <a className="font-semibold text-emerald-300 underline" href="/pro">
               Pro planı gör
             </a>
           </div>
@@ -1489,13 +1717,13 @@ export default function DashboardPage() {
 
         {/* ✅ Forgotten Upsell (Free users) */}
         {isPro === false && activeGroupId === "forgotten" ? (
-          <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+          <div className="mt-4 rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-4 backdrop-blur-xl">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-sm font-semibold text-neutral-200">
+                <div className="text-sm font-semibold text-[#e5e2e1]">
                   Unutulanlar: Free vs Pro
                 </div>
-                <div className="mt-1 text-xs text-neutral-400">
+                <div className="mt-1 text-xs text-[#bccabb]">
                   Free planda{" "}
                   <span className="text-neutral-200 font-semibold">7+</span>{" "}
                   gündür bakmadıkların burada görünür. Pro’da{" "}
@@ -1508,7 +1736,7 @@ export default function DashboardPage() {
 
               <a
                 href="/pro"
-                className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-3 py-2 text-xs font-semibold text-neutral-900 hover:bg-neutral-100 transition"
+                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-4 py-2 text-xs font-semibold text-emerald-950 transition hover:scale-[1.02]"
               >
                 Pro’ya geç
               </a>
@@ -1518,15 +1746,15 @@ export default function DashboardPage() {
 
         {/* ✅ Extension card only Pro */}
         {isPro === true ? (
-          <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+          <div className="mt-4 rounded-xl border border-emerald-300/20 bg-[#1c1b1b]/70 p-4 backdrop-blur-xl">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-sm font-semibold text-neutral-200">
+                <div className="text-sm font-semibold text-[#e5e2e1]">
                   Tarayıcı Eklentisi (PRO)
                 </div>
 
                 {extChecking ? (
-                  <div className="text-xs text-neutral-400">
+                  <div className="text-xs text-[#bccabb]">
                     Kontrol ediliyor…
                   </div>
                 ) : extLiveHere ? (
@@ -1547,21 +1775,21 @@ export default function DashboardPage() {
               {extChecking ? (
                 <button
                   disabled
-                  className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs font-semibold text-neutral-500 cursor-not-allowed"
+                  className="inline-flex cursor-not-allowed items-center justify-center rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-3 py-2 text-xs font-semibold text-[#bccabb]/50"
                 >
                   Kontrol ediliyor…
                 </button>
               ) : extLiveHere ? (
                 <button
                   onClick={() => router.push("/extension/connect")}
-                  className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 hover:bg-neutral-800 transition"
+                  className="inline-flex items-center justify-center rounded-full border border-[#3d4a3e]/50 bg-[#201f1f] px-3 py-2 text-xs font-semibold text-[#e5e2e1] transition hover:bg-[#2a2a2a]"
                 >
                   Yeniden bağla
                 </button>
               ) : (
                 <a
                   href="/extension/connect"
-                  className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-white px-3 py-2 text-xs font-semibold text-neutral-900 hover:bg-neutral-100 transition"
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-4 py-2 text-xs font-semibold text-emerald-950 transition hover:scale-[1.02]"
                 >
                   Bağla
                 </a>
@@ -1569,7 +1797,7 @@ export default function DashboardPage() {
             </div>
 
             {!extChecking && !extLiveHere ? (
-              <div className="mt-2 text-xs text-neutral-500">
+              <div className="mt-2 text-xs text-[#bccabb]/70">
                 Pro kullanıcılar sağ tık → “clarionot’ya Kaydet” ile tek tık
                 kaydeder.
               </div>
@@ -1578,27 +1806,42 @@ export default function DashboardPage() {
         ) : null}
 
         {/* ✅ Groups bar + Drop zones */}
-        <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap gap-2">
+        <div className="mt-6 rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/70 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)] backdrop-blur-2xl">
+          <div className="space-y-5">
+            <div>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-emerald-300">
+                    Görünüm
+                  </div>
+                  <div className="mt-1 text-xs text-[#bccabb]/70">
+                    Kayıtları kapsam, inbox, unutulanlar veya grup bazında süz.
+                  </div>
+                </div>
+                <div className="hidden text-xs text-[#bccabb]/60 sm:block">
+                  {finalItems.length} kayıt gösteriliyor
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setActiveGroupId("all")}
-                className={`rounded-xl border px-3 py-1 text-xs ${
+                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
                   activeGroupId === "all"
-                    ? "border-neutral-600 bg-neutral-900 text-neutral-100"
-                    : "border-neutral-800 bg-neutral-950 text-neutral-300"
+                    ? "bg-emerald-300 text-emerald-950"
+                    : "bg-[#2a2a2a] text-[#e5e2e1]/70 hover:bg-[#353534]"
                 }`}
               >
-                All
+                Tümü
               </button>
 
               {/* ✅ Forgotten PILL */}
               <button
                 onClick={() => setActiveGroupId("forgotten")}
-                className={`rounded-xl border px-3 py-1 text-xs ${
+                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
                   activeGroupId === "forgotten"
-                    ? "border-neutral-600 bg-neutral-900 text-neutral-100"
-                    : "border-neutral-800 bg-neutral-950 text-neutral-300"
+                    ? "bg-emerald-300 text-emerald-950"
+                    : "bg-[#2a2a2a] text-[#e5e2e1]/70 hover:bg-[#353534]"
                 }`}
                 title={
                   isPro === true
@@ -1607,7 +1850,13 @@ export default function DashboardPage() {
                 }
               >
                 Unutulanlar{" "}
-                <span className="text-neutral-500">
+                <span
+                  className={
+                    activeGroupId === "forgotten"
+                      ? "text-emerald-950/70"
+                      : "text-emerald-300"
+                  }
+                >
                   ({groupCounts["forgotten"] ?? 0})
                 </span>
               </button>
@@ -1637,7 +1886,7 @@ export default function DashboardPage() {
                           showToast("ok", "Ayar kaydedildi ✅");
                         }
                       }}
-                      className="rounded-xl border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs text-neutral-200"
+                      className="rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-3 py-2 text-xs text-[#e5e2e1] outline-none focus:border-emerald-300/60"
                     >
                       <option value={30}>30+</option>
                       <option value={60}>60+</option>
@@ -1647,7 +1896,7 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => (window.location.href = "/pro")}
-                      className="rounded-xl border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-900"
+                      className="rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-3 py-2 text-xs text-[#bccabb] hover:bg-[#2a2a2a]"
                       title="30 / 60 / 90 gün seçmek Pro’da"
                     >
                       7+ gün <span className="ml-1">🔒</span>
@@ -1659,11 +1908,11 @@ export default function DashboardPage() {
               {/* ✅ Forgotten aksiyonları */}
               {/* ✅ Forgotten aksiyonları (Action Bar) */}
               {activeGroupId === "forgotten" && isPro === true ? (
-                <div className="mt-3 rounded-2xl border border-neutral-800 bg-neutral-950 p-3">
+                <div className="mt-3 rounded-xl border border-[#3d4a3e]/30 bg-[#0e0e0e]/80 p-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     {/* Sol: seçili info */}
-                    <div className="flex items-center gap-2 text-xs text-neutral-300">
-                      <span className="rounded-full border border-neutral-800 bg-neutral-900 px-2 py-1">
+                    <div className="flex items-center gap-2 text-xs text-[#bccabb]">
+                      <span className="rounded-full border border-[#3d4a3e]/40 bg-[#1c1b1b] px-3 py-1">
                         Seçili:{" "}
                         <span className="text-neutral-100 font-semibold">
                           {forgottenSelection.length}
@@ -1829,10 +2078,10 @@ export default function DashboardPage() {
                 type="button"
                 onClick={() => setActiveGroupId("inbox")}
                 {...inboxDrop}
-                className={`rounded-xl border px-3 py-1 text-xs ${
+                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
                   activeGroupId === "inbox"
-                    ? "border-neutral-600 bg-neutral-900 text-neutral-100"
-                    : "border-neutral-800 bg-neutral-950 text-neutral-300"
+                    ? "bg-emerald-300 text-emerald-950"
+                    : "bg-[#2a2a2a] text-[#e5e2e1]/70 hover:bg-[#353534]"
                 } ${
                   dragOverTarget === "inbox"
                     ? "outline outline-2 outline-emerald-500/60 bg-emerald-500/10 border-emerald-500/40"
@@ -1841,7 +2090,13 @@ export default function DashboardPage() {
                 title="Item’ları buraya sürükleyip Inbox’a alabilirsin"
               >
                 Inbox{" "}
-                <span className="text-neutral-500">
+                <span
+                  className={
+                    activeGroupId === "inbox"
+                      ? "text-emerald-950/70"
+                      : "text-emerald-300"
+                  }
+                >
                   ({groupCounts["inbox"] ?? 0})
                 </span>
               </button>
@@ -1860,10 +2115,10 @@ export default function DashboardPage() {
                   <div
                     key={g.id}
                     {...drop}
-                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1 text-xs ${
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition ${
                       isActive
-                        ? "border-neutral-600 bg-neutral-900 text-neutral-100"
-                        : "border-neutral-800 bg-neutral-950 text-neutral-300"
+                        ? "bg-emerald-300 text-emerald-950"
+                        : "bg-[#2a2a2a] text-[#e5e2e1]/70 hover:bg-[#353534]"
                     } ${
                       isOver
                         ? "outline outline-2 outline-emerald-500/60 bg-emerald-500/10 border-emerald-500/40"
@@ -1877,7 +2132,13 @@ export default function DashboardPage() {
                       className="flex items-center gap-2"
                     >
                       <span className="max-w-[140px] truncate">{g.title}</span>
-                      <span className="rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-400">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] ${
+                          isActive
+                            ? "bg-emerald-950/10 text-emerald-950/70"
+                            : "bg-[#0e0e0e] text-emerald-300"
+                        }`}
+                      >
                         {count}
                       </span>
                     </button>
@@ -1908,26 +2169,92 @@ export default function DashboardPage() {
                   </div>
                 );
               })}
+              </div>
             </div>
 
-            <div className="w-full ">
-              <div className="flex items-center gap-3 w-full flex-wrap">
+            <div className="border-t border-[#3d4a3e]/25 pt-4">
+              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-emerald-300">
+                    İşleme kuyruğu
+                  </div>
+                  <div className="mt-1 text-xs text-[#bccabb]/70">
+                    Kaydettiklerini pasif arşiv yerine küçük bir çalışma akışına al.
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ["all", "Hepsi", "Tüm durumlar"],
+                  ...(
+                    Object.entries(WORK_STATUS_META) as Array<
+                      [WorkStatus, (typeof WORK_STATUS_META)[WorkStatus]]
+                    >
+                  ).map(([key, meta]) => [key, meta.label, meta.description]),
+                ].map(([key, label, description]) => {
+                  const statusKey = key as WorkStatusFilter;
+                  const active = activeWorkStatus === statusKey;
+
+                  return (
+                    <button
+                      key={statusKey}
+                      type="button"
+                      onClick={() => setActiveWorkStatus(statusKey)}
+                      className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                        active
+                          ? "bg-teal-300 text-teal-950"
+                          : "bg-[#2a2a2a] text-[#e5e2e1]/70 hover:bg-[#353534]"
+                      }`}
+                      title={String(description)}
+                    >
+                      {label}{" "}
+                      <span
+                        className={
+                          active ? "text-teal-950/70" : "text-teal-300"
+                        }
+                      >
+                        ({workStatusCounts[statusKey] ?? 0})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="border-t border-[#3d4a3e]/25 pt-4">
+              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-teal-300">
+                    Araçlar
+                  </div>
+                  <div className="mt-1 text-xs text-[#bccabb]/70">
+                    Grup oluştur, AI kategorisi seç, toplu AI işlemlerini başlat.
+                  </div>
+                </div>
+                <div className="text-xs text-[#bccabb]/60">
+                  Arama tüm başlık, içerik ve etiketlerde çalışır. Kısayol:
+                  Ctrl/⌘ + K veya /
+                </div>
+              </div>
+
+              <div className="flex w-full flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setOpenGroupModal(true)}
-                  className="h-9 rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-xs text-neutral-300 hover:bg-neutral-900 transition"
+                  className="h-9 rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-4 text-xs font-semibold text-emerald-300 transition hover:bg-[#2a2a2a]"
                 >
-                  + Group
+                  + Grup
                 </button>
 
                 <select
                   value={activeAiCategory}
                   onChange={(e) => setActiveAiCategory(e.target.value as any)}
-                  className="h-9 w-[130px] shrink-0 rounded-xl border border-neutral-800 bg-neutral-950 px-3 text-sm text-neutral-200"
+                  className="h-9 w-[150px] shrink-0 rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-3 text-sm text-[#e5e2e1] outline-none focus:border-emerald-300/60"
                   title="AI kategorisine göre filtrele"
                 >
                   <option value="all">
-                    AI: All ({aiCategoryCounts["all"] ?? 0})
+                    AI: Tümü ({aiCategoryCounts["all"] ?? 0})
                   </option>
                   <option value="documentation">
                     📘 Docs ({aiCategoryCounts["documentation"] ?? 0})
@@ -1968,7 +2295,7 @@ export default function DashboardPage() {
                       groupEnhancing ||
                       !!regeneratingItemId
                         ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
-                        : "border-sky-900/40 bg-sky-950/40 text-sky-100 hover:bg-sky-900/30"
+                        : "border-teal-300/30 bg-teal-300/10 text-teal-100 hover:bg-teal-300/15"
                     }`}
                     title="Seçili kayıtlar için AI işlemlerini tekrar çalıştır"
                   >
@@ -1996,7 +2323,7 @@ export default function DashboardPage() {
                       activeGroupId === "all" ||
                       activeGroupId === "forgotten"
                         ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
-                        : "border-emerald-900/40 bg-emerald-950/40 text-emerald-100 hover:bg-emerald-900/30"
+                        : "border-emerald-300/30 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/15"
                     }`}
                     title="Seçili grup/Inbox içindeki tüm kayıtlar için AI çalıştır"
                   >
@@ -2009,17 +2336,18 @@ export default function DashboardPage() {
                     🔍
                   </span>
                   <input
+                    ref={searchInputRef}
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     placeholder="Ara..."
-                    className="h-9 w-full rounded-xl border border-neutral-800 bg-neutral-950 pl-9 pr-3 text-sm text-neutral-100 placeholder:text-neutral-500 outline-none transition focus:border-neutral-600"
+                    className="h-10 w-full rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] pl-9 pr-3 text-sm text-[#e5e2e1] placeholder:text-[#bccabb]/50 outline-none transition focus:border-emerald-300/60"
                   />
                 </div>
               </div>
             </div>
           </div>
           {aiEnhancing || groupEnhancing || regeneratingItemId ? (
-            <div className="mt-3 rounded-2xl border border-sky-900/30 bg-sky-950/20 px-3 py-2">
+            <div className="mt-3 rounded-xl border border-teal-300/25 bg-teal-300/10 px-3 py-2">
               <div className="flex flex-wrap items-center gap-3 w-full">
                 <AiLoadingInline
                   text={
@@ -2050,16 +2378,16 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
-          <div className="mt-3 text-xs text-neutral-500">
+          <div className="mt-3 text-xs text-[#bccabb]/70">
             İpucu: Bir not/link kartını sürükleyip Inbox veya bir gruba bırak.
           </div>
         </div>
 
-        <section className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* SOL: NOTLAR */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-200">
+              <h2 className="text-lg font-bold tracking-tight text-[#e5e2e1]">
                 📝 Notlar
               </h2>
               <Button variant="ghost" onClick={() => openNew("note")}>
@@ -2070,7 +2398,7 @@ export default function DashboardPage() {
             {loading ? (
               <div className="text-sm text-neutral-400">Yükleniyor…</div>
             ) : notes.length === 0 ? (
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 text-sm text-neutral-400">
+              <div className="rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 p-6 text-sm text-[#bccabb]">
                 Henüz not yok.
               </div>
             ) : activeGroupId === "all" ? (
@@ -2078,7 +2406,7 @@ export default function DashboardPage() {
                 {/* Inbox notes section */}
                 <div
                   {...inboxDrop}
-                  className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
+                  className={`rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 backdrop-blur-xl ${dropZoneClass(
                     dragOverTarget === "inbox",
                   )}`}
                 >
@@ -2086,13 +2414,13 @@ export default function DashboardPage() {
                     onClick={() => toggleCollapsed("inbox_notes")}
                     className="w-full flex items-center justify-between px-4 py-3 text-left"
                   >
-                    <div className="text-xs font-semibold text-neutral-200">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-[#e5e2e1]">
                       Inbox{" "}
                       <span className="text-neutral-500">
                         ({(notesByGroup["inbox"] ?? []).length})
                       </span>
                     </div>
-                    <div className="text-xs text-neutral-400">
+                    <div className="text-xs text-[#bccabb]">
                       {collapsed["inbox_notes"] ? "▸" : "▾"}
                     </div>
                   </button>
@@ -2126,7 +2454,7 @@ export default function DashboardPage() {
                     <div
                       key={g.id}
                       {...drop}
-                      className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
+                      className={`rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 backdrop-blur-xl ${dropZoneClass(
                         isOver,
                       )}`}
                     >
@@ -2134,13 +2462,13 @@ export default function DashboardPage() {
                         onClick={() => toggleCollapsed(`notes_${g.id}`)}
                         className="w-full flex items-center justify-between px-4 py-3 text-left"
                       >
-                        <div className="text-xs font-semibold text-neutral-200">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-[#e5e2e1]">
                           {g.title}{" "}
                           <span className="text-neutral-500">
                             ({list.length})
                           </span>
                         </div>
-                        <div className="text-xs text-neutral-400">
+                        <div className="text-xs text-[#bccabb]">
                           {collapsed[`notes_${g.id}`] ? "▸" : "▾"}
                         </div>
                       </button>
@@ -2168,7 +2496,7 @@ export default function DashboardPage() {
           {/* SAĞ: LİNKLER */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-200">
+              <h2 className="text-lg font-bold tracking-tight text-[#e5e2e1]">
                 🔗 Linkler
               </h2>
               <Button variant="ghost" onClick={() => openNew("link")}>
@@ -2179,7 +2507,7 @@ export default function DashboardPage() {
             {loading ? (
               <div className="text-sm text-neutral-400">Yükleniyor…</div>
             ) : links.length === 0 ? (
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 text-sm text-neutral-400">
+              <div className="rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 p-6 text-sm text-[#bccabb]">
                 Henüz link yok.
               </div>
             ) : activeGroupId === "all" ? (
@@ -2187,7 +2515,7 @@ export default function DashboardPage() {
                 {/* Inbox links section */}
                 <div
                   {...inboxDrop}
-                  className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
+                  className={`rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 backdrop-blur-xl ${dropZoneClass(
                     dragOverTarget === "inbox",
                   )}`}
                 >
@@ -2195,13 +2523,13 @@ export default function DashboardPage() {
                     onClick={() => toggleCollapsed("inbox_links")}
                     className="w-full flex items-center justify-between px-4 py-3 text-left"
                   >
-                    <div className="text-xs font-semibold text-neutral-200">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-[#e5e2e1]">
                       Inbox{" "}
                       <span className="text-neutral-500">
                         ({(linksByGroup["inbox"] ?? []).length})
                       </span>
                     </div>
-                    <div className="text-xs text-neutral-400">
+                    <div className="text-xs text-[#bccabb]">
                       {collapsed["inbox_links"] ? "▸" : "▾"}
                     </div>
                   </button>
@@ -2235,7 +2563,7 @@ export default function DashboardPage() {
                     <div
                       key={g.id}
                       {...drop}
-                      className={`rounded-2xl border border-neutral-800 bg-neutral-950 ${dropZoneClass(
+                      className={`rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 backdrop-blur-xl ${dropZoneClass(
                         isOver,
                       )}`}
                     >
@@ -2243,13 +2571,13 @@ export default function DashboardPage() {
                         onClick={() => toggleCollapsed(`links_${g.id}`)}
                         className="w-full flex items-center justify-between px-4 py-3 text-left"
                       >
-                        <div className="text-xs font-semibold text-neutral-200">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-[#e5e2e1]">
                           {g.title}{" "}
                           <span className="text-neutral-500">
                             ({list.length})
                           </span>
                         </div>
-                        <div className="text-xs text-neutral-400">
+                        <div className="text-xs text-[#bccabb]">
                           {collapsed[`links_${g.id}`] ? "▸" : "▾"}
                         </div>
                       </button>
@@ -2277,24 +2605,101 @@ export default function DashboardPage() {
       </div>
 
       {/* ✅ CREATE GROUP MODAL */}
+      <button
+        type="button"
+        onClick={() => setOpenQuickAdd((value) => !value)}
+        className="fixed bottom-24 right-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-emerald-300 to-teal-300 text-3xl font-light text-emerald-950 shadow-[0_10px_30px_rgba(107,251,154,0.3)] transition active:scale-90"
+        aria-label="Yeni kayıt ekle"
+      >
+        {openQuickAdd ? "×" : "+"}
+      </button>
+
+      {openQuickAdd ? (
+        <div className="fixed bottom-40 right-6 z-40 w-48 overflow-hidden rounded-xl border border-[#3d4a3e]/35 bg-[#0e0e0e]/95 p-2 shadow-2xl backdrop-blur-2xl">
+          <button
+            type="button"
+            onClick={() => openNew("note")}
+            className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-sm font-semibold text-[#e5e2e1] transition hover:bg-white/5"
+          >
+            <span>Yeni not</span>
+            <span className="text-emerald-300">+</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openNew("link")}
+            className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-3 text-sm font-semibold text-[#e5e2e1] transition hover:bg-white/5"
+          >
+            <span>Yeni link</span>
+            <span className="text-emerald-300">+</span>
+          </button>
+        </div>
+      ) : null}
+
+      <nav className="fixed bottom-0 left-0 z-40 flex h-20 w-full items-center justify-around border-t border-[#3d4a3e]/20 bg-[#1c1b1b]/85 px-4 shadow-2xl backdrop-blur-2xl md:hidden">
+        <button
+          type="button"
+          onClick={() => setActiveGroupId("inbox")}
+          className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest transition ${
+            activeGroupId === "inbox"
+              ? "scale-110 bg-emerald-300/10 text-emerald-300"
+              : "text-[#e5e2e1]/50 hover:bg-[#2a2a2a]"
+          }`}
+        >
+          <span className="text-lg">□</span>
+          Inbox
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveGroupId("forgotten")}
+          className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest transition ${
+            activeGroupId === "forgotten"
+              ? "scale-110 bg-emerald-300/10 text-emerald-300"
+              : "text-[#e5e2e1]/50 hover:bg-[#2a2a2a]"
+          }`}
+        >
+          <span className="text-lg">↺</span>
+          Unutulan
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveGroupId("all")}
+          className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest transition ${
+            activeGroupId === "all"
+              ? "scale-110 bg-emerald-300/10 text-emerald-300"
+              : "text-[#e5e2e1]/50 hover:bg-[#2a2a2a]"
+          }`}
+        >
+          <span className="text-lg">▣</span>
+          Tümü
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpenGroupModal(true)}
+          className="flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest text-[#e5e2e1]/50 transition hover:bg-[#2a2a2a]"
+        >
+          <span className="text-lg">+</span>
+          Grup
+        </button>
+      </nav>
+
       <Modal
         open={openGroupModal}
-        title="Create group"
+        title="Grup oluştur"
         onClose={() => setOpenGroupModal(false)}
       >
         <div className="space-y-3">
           <div>
-            <div className="mb-1 text-xs text-neutral-400">Title</div>
+            <div className="mb-1 text-xs text-neutral-400">Başlık</div>
             <Input
               value={groupTitle}
               onChange={(e) => setGroupTitle(e.target.value)}
-              placeholder="e.g. Work, Learn, Ideas..."
+              placeholder="Örn. İş, Öğrenme, Fikirler..."
             />
           </div>
 
           <div>
             <div className="mb-2 text-xs text-neutral-400">
-              Add items (optional) — only Inbox items selectable
+              Öğeleri ekle (opsiyonel) — sadece Inbox öğeleri seçilebilir
             </div>
 
             <div className="max-h-64 overflow-auto rounded-xl border border-neutral-800">
