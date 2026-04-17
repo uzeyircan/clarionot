@@ -377,6 +377,15 @@ export default function HomePage() {
                               : "Pro’ya yükselt"}
                         </Link>
 
+                        <Link
+                          role="menuitem"
+                          href="/settings"
+                          onClick={() => setMenuOpen(false)}
+                          className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
+                        >
+                          Ayarlar ve export
+                        </Link>
+
                         <div className="my-2 border-t border-[#3d4a3e]/25" />
 
                         <button

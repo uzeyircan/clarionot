@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import type { Item, ItemType } from "@/lib/types";
+import type { Item, ItemType, WorkStatus } from "@/lib/types";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
 import Modal from "@/components/Modal";
@@ -34,7 +34,6 @@ const emptyDraft = (type: ItemType): Draft => ({
 
 type Group = { id: string; title: string; created_at?: string };
 
-type WorkStatus = "later" | "today" | "doing" | "done";
 type WorkStatusFilter = "all" | WorkStatus;
 
 const WORK_STATUS_META: Record<
@@ -101,9 +100,6 @@ export default function DashboardPage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [activeWorkStatus, setActiveWorkStatus] =
     useState<WorkStatusFilter>("all");
-  const [itemWorkStatus, setItemWorkStatus] = useState<Record<string, WorkStatus>>(
-    {},
-  );
   const [openAdd, setOpenAdd] = useState(false);
   const [openQuickAdd, setOpenQuickAdd] = useState(false);
   const [openDetail, setOpenDetail] = useState(false);
@@ -122,37 +118,33 @@ export default function DashboardPage() {
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  useEffect(() => {
-    if (!userId) {
-      setItemWorkStatus({});
+  const setWorkStatusForItem = async (itemId: string, status: WorkStatus) => {
+    if (!userId) return;
+
+    const previous = items;
+    const nowIso = new Date().toISOString();
+
+    setItems((prev: any) =>
+      prev.map((it: any) =>
+        it.id === itemId
+          ? { ...it, work_status: status, updated_at: nowIso }
+          : it,
+      ),
+    );
+
+    const { error } = await supabase
+      .from("items")
+      .update({ work_status: status, updated_at: nowIso })
+      .eq("id", itemId)
+      .eq("user_id", userId);
+
+    if (error) {
+      setItems(previous);
+      showToast("err", error.message ?? "Durum kaydedilemedi");
       return;
     }
 
-    try {
-      const raw = localStorage.getItem(`clarionot:work-status:v1:${userId}`);
-      if (!raw) {
-        setItemWorkStatus({});
-        return;
-      }
-
-      const parsed = JSON.parse(raw) as Record<string, WorkStatus>;
-      setItemWorkStatus(parsed && typeof parsed === "object" ? parsed : {});
-    } catch {
-      setItemWorkStatus({});
-    }
-  }, [userId]);
-
-  const setWorkStatusForItem = (itemId: string, status: WorkStatus) => {
-    if (!userId) return;
-
-    setItemWorkStatus((prev) => {
-      const next = { ...prev, [itemId]: status };
-      localStorage.setItem(
-        `clarionot:work-status:v1:${userId}`,
-        JSON.stringify(next),
-      );
-      return next;
-    });
+    showToast("ok", `Durum: ${WORK_STATUS_META[status].label}`);
   };
 
   useEffect(() => {
@@ -275,6 +267,21 @@ export default function DashboardPage() {
   );
 
   const baseDateOf = (it: any) => new Date(it.last_viewed_at ?? it.created_at);
+
+  const daysSinceBase = (it: any) => {
+    const time = baseDateOf(it).getTime();
+    if (!Number.isFinite(time)) return 0;
+    return Math.max(0, Math.floor((Date.now() - time) / (24 * 60 * 60 * 1000)));
+  };
+
+  const startOfWeek = () => {
+    const now = new Date();
+    const day = now.getDay() || 7;
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(now.getDate() - day + 1);
+    return start;
+  };
 
   const skipOnboarding = () => {
     if (userId) {
@@ -705,12 +712,51 @@ export default function DashboardPage() {
     };
 
     for (const it of items as any) {
-      const status = itemWorkStatus[it.id] ?? "later";
+      const status = (it.work_status ?? "later") as WorkStatus;
       counts[status] += 1;
     }
 
     return counts;
-  }, [items, itemWorkStatus]);
+  }, [items]);
+
+  const weeklyPulse = useMemo(() => {
+    const weekStart = startOfWeek().getTime();
+    const savedThisWeek = items.filter((it: any) => {
+      const created = new Date(it.created_at).getTime();
+      return Number.isFinite(created) && created >= weekStart;
+    }).length;
+
+    const doneThisWeek = items.filter((it: any) => {
+      const updated = new Date(it.updated_at).getTime();
+      return (
+        (it.work_status ?? "later") === "done" &&
+        Number.isFinite(updated) &&
+        updated >= weekStart
+      );
+    }).length;
+
+    const forgottenItems = (items as any[])
+      .filter((it) => isForgotten(it) && (it.work_status ?? "later") !== "done")
+      .sort((a, b) => daysSinceBase(b) - daysSinceBase(a));
+
+    const activeItems = (items as any[])
+      .filter((it) => {
+        const status = it.work_status ?? "later";
+        return status === "today" || status === "doing";
+      })
+      .sort((a, b) => daysSinceBase(b) - daysSinceBase(a));
+
+    const suggestions = [...activeItems, ...forgottenItems].filter(
+      (item, index, list) => list.findIndex((it) => it.id === item.id) === index,
+    );
+
+    return {
+      savedThisWeek,
+      doneThisWeek,
+      forgottenCount: forgottenItems.length,
+      focusItems: suggestions.slice(0, 3),
+    };
+  }, [items, isForgotten]);
 
   // ✅ Search + group filter (+ forgotten) + AI category filter
   const filteredItems = useMemo(() => {
@@ -740,7 +786,7 @@ export default function DashboardPage() {
       activeWorkStatus === "all"
         ? afterAi
         : afterAi.filter(
-            (it: any) => (itemWorkStatus[it.id] ?? "later") === activeWorkStatus,
+            (it: any) => (it.work_status ?? "later") === activeWorkStatus,
           );
 
     if (activeGroupId === "all") return afterWorkStatus;
@@ -762,7 +808,6 @@ export default function DashboardPage() {
     isForgotten,
     activeAiCategory,
     activeWorkStatus,
-    itemWorkStatus,
   ]);
 
   const finalItems = useMemo(() => {
@@ -962,6 +1007,7 @@ export default function DashboardPage() {
         title,
         content,
         tags: draft.tags,
+        work_status: "later",
         group_id: draft.group_id ?? null,
       };
 
@@ -1480,7 +1526,7 @@ export default function DashboardPage() {
       );
     };
     const checked = forgottenSelection.includes(it.id);
-    const workStatus = itemWorkStatus[it.id] ?? "later";
+    const workStatus = ((it as any).work_status ?? "later") as WorkStatus;
 
     const toggle = (next: boolean) => {
       setForgottenSelection((prev) =>
@@ -1603,9 +1649,9 @@ export default function DashboardPage() {
 
             <select
               value={workStatus}
-              onChange={(e) =>
-                setWorkStatusForItem(it.id, e.target.value as WorkStatus)
-              }
+              onChange={(e) => {
+                void setWorkStatusForItem(it.id, e.target.value as WorkStatus);
+              }}
               onClick={(e) => e.stopPropagation()}
               className="h-9 rounded-full border border-[#3d4a3e]/40 bg-[#201f1f] px-3 text-xs font-semibold text-[#e5e2e1] outline-none focus:border-teal-300/60"
               title="Bu kaydın işleme durumunu seç"
@@ -1806,6 +1852,138 @@ export default function DashboardPage() {
         ) : null}
 
         {/* ✅ Groups bar + Drop zones */}
+        <section className="mt-6 overflow-hidden rounded-xl border border-emerald-300/20 bg-[#201f1f]/75 shadow-[0_18px_60px_rgba(0,0,0,0.25)] backdrop-blur-2xl">
+          <div className="grid gap-0 lg:grid-cols-[1.05fr_1.35fr]">
+            <div className="border-b border-[#3d4a3e]/25 p-5 sm:p-6 lg:border-b-0 lg:border-r">
+              <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-emerald-300">
+                Haftalık özet
+              </div>
+              <h2 className="mt-3 text-2xl font-black tracking-tight text-[#e5e2e1]">
+                Bu hafta neye dönmeli?
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[#bccabb]">
+                Clarionot, kaydettiklerini pasif arşivden çıkarıp bu haftanın
+                küçük çalışma listesine taşır.
+              </p>
+
+              <div className="mt-5 grid grid-cols-3 gap-2">
+                {[
+                  ["Yeni", weeklyPulse.savedThisWeek],
+                  ["Biten", weeklyPulse.doneThisWeek],
+                  ["Bekleyen", weeklyPulse.forgottenCount],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 p-3"
+                  >
+                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#bccabb]/55">
+                      {label}
+                    </div>
+                    <div className="mt-1 text-xl font-black text-teal-300">
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveGroupId("forgotten");
+                    setActiveWorkStatus("all");
+                  }}
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-4 py-2 text-xs font-semibold text-emerald-950 transition hover:scale-[1.02]"
+                >
+                  Unutulanları aç
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveWorkStatus("today");
+                    setActiveGroupId("all");
+                  }}
+                  className="inline-flex items-center justify-center rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-4 py-2 text-xs font-semibold text-[#e5e2e1] transition hover:bg-[#2a2a2a]"
+                >
+                  Bugünün kuyruğu
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 sm:p-6">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-teal-300">
+                  Gündeme alınacaklar
+                </div>
+                <div className="mt-1 text-xs text-[#bccabb]/70">
+                  En uzun süredir bekleyen veya zaten işleme alınmış kayıtlar.
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                {weeklyPulse.focusItems.length === 0 ? (
+                  <div className="rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 p-4 text-sm text-[#bccabb]">
+                    Bu hafta gündeme alınacak eski kayıt yok. Yeni not veya link
+                    kaydettiğinde burada öneriler oluşur.
+                  </div>
+                ) : (
+                  weeklyPulse.focusItems.map((item: any) => {
+                    const status = (item.work_status ?? "later") as WorkStatus;
+                    const age = daysSinceBase(item);
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex flex-col gap-3 rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => openItem(item)}
+                          className="min-w-0 text-left"
+                        >
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#bccabb]/55">
+                            <span>{item.type === "link" ? "Link" : "Not"}</span>
+                            <span>·</span>
+                            <span>{age === 0 ? "Bugün" : `${age} gün`}</span>
+                            <span>·</span>
+                            <span className="text-teal-300">
+                              {WORK_STATUS_META[status].shortLabel}
+                            </span>
+                          </div>
+                          <div className="mt-1 line-clamp-2 text-sm font-semibold text-[#e5e2e1]">
+                            {item.title || "Başlıksız kayıt"}
+                          </div>
+                        </button>
+
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void setWorkStatusForItem(item.id, "today")
+                            }
+                            className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-300/15"
+                          >
+                            Bugün
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void setWorkStatusForItem(item.id, "done")
+                            }
+                            className="rounded-full border border-[#3d4a3e]/40 bg-[#201f1f] px-3 py-2 text-xs font-semibold text-[#bccabb] transition hover:bg-[#2a2a2a]"
+                          >
+                            Bitti
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div className="mt-6 rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/70 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)] backdrop-blur-2xl">
           <div className="space-y-5">
             <div>

@@ -4,6 +4,10 @@
 
 :root {
   color-scheme: dark;
+  --clarionot-accent: #6bfb9a;
+  --clarionot-accent-2: #44e2cd;
+  --clarionot-accent-contrast: #052e16;
+  --clarionot-accent-soft: rgba(107, 251, 154, 0.12);
 }
 html,
 body {
@@ -16,4 +20,97 @@ body {
 }
 a {
   @apply text-neutral-100;
+}
+
+.accent-text {
+  color: var(--clarionot-accent);
+}
+
+.accent-text-2 {
+  color: var(--clarionot-accent-2);
+}
+
+.accent-bg {
+  background-color: var(--clarionot-accent);
+  color: var(--clarionot-accent-contrast);
+}
+
+.accent-soft {
+  background-color: var(--clarionot-accent-soft);
+}
+
+.accent-border {
+  border-color: color-mix(in srgb, var(--clarionot-accent) 42%, transparent);
+}
+
+.accent-gradient {
+  background-image: linear-gradient(
+    to right,
+    var(--clarionot-accent),
+    var(--clarionot-accent-2)
+  );
+  color: var(--clarionot-accent-contrast);
+}
+
+.accent-gradient-text {
+  background-image: linear-gradient(
+    to right,
+    var(--clarionot-accent),
+    var(--clarionot-accent-2)
+  );
+  background-clip: text;
+  color: transparent;
+}
+
+[class~="text-emerald-300"],
+[class~="text-emerald-200"],
+[class~="text-emerald-100"] {
+  color: var(--clarionot-accent) !important;
+}
+
+[class~="text-teal-300"],
+[class~="text-teal-200"],
+[class~="text-teal-100"] {
+  color: var(--clarionot-accent-2) !important;
+}
+
+[class~="text-emerald-950"],
+[class~="text-teal-950"],
+[class*="text-emerald-950/"],
+[class*="text-teal-950/"] {
+  color: var(--clarionot-accent-contrast) !important;
+}
+
+[class~="bg-emerald-300"],
+[class~="bg-teal-300"] {
+  background-color: var(--clarionot-accent) !important;
+  color: var(--clarionot-accent-contrast) !important;
+}
+
+[class~="from-emerald-300"] {
+  --tw-gradient-from: var(--clarionot-accent) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: color-mix(
+      in srgb,
+      var(--clarionot-accent) 0%,
+      transparent
+    )
+    var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+[class~="to-teal-300"] {
+  --tw-gradient-to: var(--clarionot-accent-2) var(--tw-gradient-to-position) !important;
+}
+
+[class*="border-emerald-300"] {
+  border-color: color-mix(
+    in srgb,
+    var(--clarionot-accent) 42%,
+    transparent
+  ) !important;
+}
+
+[class*="bg-emerald-300/10"],
+[class*="bg-teal-300/10"] {
+  background-color: var(--clarionot-accent-soft) !important;
 }

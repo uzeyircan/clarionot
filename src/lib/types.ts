@@ -1,4 +1,5 @@
 export type ItemType = "link" | "note";
+export type WorkStatus = "later" | "today" | "doing" | "done";
 
 export type Item = {
   id: string;
@@ -7,6 +8,7 @@ export type Item = {
   title: string;
   content: string;
   tags: string[];
+  work_status?: WorkStatus | null;
   group_id?: string | null;
   last_viewed_at?: string | null;
   created_at: string;

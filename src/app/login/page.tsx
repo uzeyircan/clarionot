@@ -28,7 +28,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(true); // ✅ varsayılan: açık kalsın
+  const [remember, setRemember] = useState(true); 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
