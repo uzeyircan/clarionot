@@ -62,6 +62,36 @@ a {
   color: transparent;
 }
 
+.theme-page-glow {
+  background:
+    radial-gradient(
+      circle at 18% 0%,
+      color-mix(in srgb, var(--clarionot-accent) 18%, transparent),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 86% 10%,
+      color-mix(in srgb, var(--clarionot-accent-2) 14%, transparent),
+      transparent 30%
+    ),
+    linear-gradient(180deg, #030406 0%, #071014 44%, #030406 100%);
+}
+
+.theme-hero-glow {
+  background:
+    radial-gradient(
+      circle at 18% 8%,
+      color-mix(in srgb, var(--clarionot-accent) 17%, transparent),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 84% 18%,
+      color-mix(in srgb, var(--clarionot-accent-2) 12%, transparent),
+      transparent 30%
+    ),
+    linear-gradient(180deg, #030406 0%, #071014 46%, #030406 100%);
+}
+
 [class~="text-emerald-300"],
 [class~="text-emerald-200"],
 [class~="text-emerald-100"] {
@@ -72,6 +102,22 @@ a {
 [class~="text-teal-200"],
 [class~="text-teal-100"] {
   color: var(--clarionot-accent-2) !important;
+}
+
+[class~="text-cyan-300"],
+[class~="text-cyan-200"],
+[class~="text-cyan-100"],
+[class~="text-cyan-50"],
+[class~="text-violet-300"],
+[class~="text-violet-200"],
+[class~="text-violet-100"],
+[class*="text-cyan-100/"],
+[class*="text-cyan-200/"],
+[class*="text-cyan-300/"],
+[class*="text-violet-100/"],
+[class*="text-violet-200/"],
+[class*="text-violet-300/"] {
+  color: var(--clarionot-accent) !important;
 }
 
 [class~="text-emerald-950"],
@@ -87,7 +133,26 @@ a {
   color: var(--clarionot-accent-contrast) !important;
 }
 
+[class~="bg-cyan-100"],
+[class~="bg-cyan-200"],
+[class~="bg-cyan-300"] {
+  background-color: var(--clarionot-accent) !important;
+  color: var(--clarionot-accent-contrast) !important;
+}
+
 [class~="from-emerald-300"] {
+  --tw-gradient-from: var(--clarionot-accent) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: color-mix(
+      in srgb,
+      var(--clarionot-accent) 0%,
+      transparent
+    )
+    var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+[class~="from-cyan-200"],
+[class~="from-cyan-300"] {
   --tw-gradient-from: var(--clarionot-accent) var(--tw-gradient-from-position) !important;
   --tw-gradient-to: color-mix(
       in srgb,
@@ -102,6 +167,13 @@ a {
   --tw-gradient-to: var(--clarionot-accent-2) var(--tw-gradient-to-position) !important;
 }
 
+[class~="to-cyan-100"],
+[class~="to-cyan-200"],
+[class~="to-cyan-300"],
+[class~="to-violet-300"] {
+  --tw-gradient-to: var(--clarionot-accent-2) var(--tw-gradient-to-position) !important;
+}
+
 [class*="border-emerald-300"] {
   border-color: color-mix(
     in srgb,
@@ -110,7 +182,24 @@ a {
   ) !important;
 }
 
+[class*="border-cyan-"],
+[class*="border-sky-"],
+[class*="border-violet-"] {
+  border-color: color-mix(
+    in srgb,
+    var(--clarionot-accent) 35%,
+    transparent
+  ) !important;
+}
+
 [class*="bg-emerald-300/10"],
 [class*="bg-teal-300/10"] {
+  background-color: var(--clarionot-accent-soft) !important;
+}
+
+[class*="bg-cyan-200/"],
+[class*="bg-cyan-300/"],
+[class*="bg-sky-"],
+[class*="bg-violet-300/"] {
   background-color: var(--clarionot-accent-soft) !important;
 }

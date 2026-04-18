@@ -318,7 +318,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             {THEME_PRESETS.map((preset) => {
               const active = themeAccent === preset.id;
 

@@ -1,10 +1,25 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import DnaBackdrop from "@/components/DnaBackdrop";
+import {
+  motion,
+  useMotionTemplate,
+  useScroll,
+  useTransform,
+  type MotionValue,
+} from "framer-motion";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import { supabase } from "@/lib/supabase";
 import { useProPrice } from "@/lib/useProPrice";
 
@@ -26,6 +41,70 @@ type PlanRow = {
   grace_until: string | null;
 };
 
+type ShotKey = "webstore" | "procard" | "rightclick" | "modal";
+
+type Shot = {
+  key: ShotKey;
+  kpi: string;
+  title: string;
+  desc: string;
+  badge: string;
+  src: string;
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 28, filter: "blur(10px)" },
+  show: { opacity: 1, y: 0, filter: "blur(0px)" },
+};
+
+const features = [
+  {
+    title: "Her Şeyi Kaydet",
+    copy: "Notlar, linkler, seçili metinler ve yarım kalmış fikirler tek sakin çalışma alanında birikir.",
+    eyebrow: "Yakalama",
+  },
+  {
+    title: "Akıllı Hatırlatma",
+    copy: "Unuttuğun kayıtlar, tekrar işe yarayabilecekleri anda görünür hale gelir.",
+    eyebrow: "Geri Getirme",
+  },
+  {
+    title: "Gruplarla Düzenle",
+    copy: "Benzer fikirleri yaşayan gruplarda topla; ikinci beynin klasör yüküne dönüşmesin.",
+    eyebrow: "Düzen",
+  },
+  {
+    title: "Pro Hafıza Katmanı",
+    copy: "Eklentiyle hızlı yakalama, sınırsız kayıt ve daha güçlü bir üretkenlik akışı.",
+    eyebrow: "Pro",
+  },
+];
+
+const storyCards = [
+  {
+    title: "Geçen haftadan kalan okuma",
+    meta: "Okuma listesi",
+    body: "Ürün yönünü değiştirirken ekiplerin bağlamı nasıl koruduğuna dair not.",
+  },
+  {
+    title: "Fiyatlandırma fikri",
+    meta: "Ürün",
+    body: "Çok kaydedip az geri dönen kullanıcılar için hatırlatma ve grupları birlikte anlat.",
+  },
+  {
+    title: "Kullanıcı cümlesi",
+    meta: "Araştırma",
+    body: "Her şeyi kaydediyorum, sonra kaydettiğim yerin içinde tekrar kaybediyorum.",
+  },
+];
+
+const dashboardItems = [
+  "Geri döndü: roadmap notu",
+  "Grup: Lansman yazıları",
+  "Link: retention analizi",
+  "Fikir: sakin hatırlatmalar",
+];
+
 export default function HomePage() {
   const router = useRouter();
   const [isProUser, setIsProUser] = useState(false);
@@ -38,15 +117,12 @@ export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const { price: proPrice, loading: proPriceLoading } = useProPrice();
+  const [activeShot, setActiveShot] = useState<ShotKey>("webstore");
 
-  const [activeShot, setActiveShot] = useState<
-    "webstore" | "procard" | "rightclick" | "modal"
-  >("webstore");
-
-  const shots = useMemo(
+  const shots = useMemo<Shot[]>(
     () => [
       {
-        key: "webstore" as const,
+        key: "webstore",
         kpi: "1/4",
         title: "Chrome Web Store",
         desc: "Eklentiyi tek tıkla kur.",
@@ -54,7 +130,7 @@ export default function HomePage() {
         src: "/landing/ss-1-webstore.png",
       },
       {
-        key: "procard" as const,
+        key: "procard",
         kpi: "2/4",
         title: "Pro’dan bağlan",
         desc: "Tarayıcı eklentisini hesabınla eşleştir.",
@@ -62,7 +138,7 @@ export default function HomePage() {
         src: "/landing/ss-2-pro-card.png",
       },
       {
-        key: "rightclick" as const,
+        key: "rightclick",
         kpi: "3/4",
         title: "Sağ tıkla kaydet",
         desc: "Sekme değiştirmeden sayfa, link veya seçili metin kaydet.",
@@ -70,7 +146,7 @@ export default function HomePage() {
         src: "/landing/ss-3-rightclick.png",
       },
       {
-        key: "modal" as const,
+        key: "modal",
         kpi: "4/4",
         title: "Bağlam ekle",
         desc: "Kaydetmeden önce başlık, açıklama, etiket ve grup ekle.",
@@ -81,7 +157,7 @@ export default function HomePage() {
     [],
   );
 
-  const active = shots.find((s) => s.key === activeShot) ?? shots[0];
+  const active = shots.find((shot) => shot.key === activeShot) ?? shots[0];
 
   const initials = useMemo(() => {
     const normalizedEmail = email.trim();
@@ -242,536 +318,964 @@ export default function HomePage() {
   const primaryCTA = isAuthed ? (
     <button
       onClick={goDashboard}
-      className="rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-8 py-3 text-sm font-semibold text-emerald-950 shadow-[0_0_30px_rgba(107,251,154,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_0_34px_rgba(107,251,154,0.32)]"
+      className="accent-gradient inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold shadow-2xl shadow-cyan-500/10 transition hover:opacity-90"
     >
       Dashboard’a git
     </button>
   ) : (
     <button
       onClick={goLogin}
-      className="rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-8 py-3 text-sm font-semibold text-emerald-950 shadow-[0_0_30px_rgba(107,251,154,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_0_34px_rgba(107,251,154,0.32)]"
+      className="accent-gradient inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold shadow-2xl shadow-cyan-500/10 transition hover:opacity-90"
     >
       Ücretsiz başla
     </button>
   );
 
   return (
-    <main className="min-h-screen bg-[#131313] text-[#e5e2e1] selection:bg-emerald-300/30">
-      <nav className="fixed top-0 z-50 w-full bg-zinc-950/40 shadow-[0_20px_40px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
-        <div className="mx-auto flex h-20 max-w-screen-2xl items-center justify-between px-6 md:px-8">
-          <Link href="/" className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-full border border-emerald-300/30 bg-emerald-300/10 text-lg text-emerald-300">
-              c
-            </span>
-            <span className="text-2xl font-black tracking-tight text-zinc-100">
-              clarionot
-            </span>
-          </Link>
+    <main className="min-h-screen overflow-hidden bg-[#030406] text-white selection:bg-cyan-300/25">
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="theme-hero-glow absolute inset-0" />
+        <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:72px_72px]" />
+      </div>
 
-          <div className="hidden items-center gap-10 md:flex">
-            <a
-              href="#vision"
-              className="border-b border-emerald-300/50 text-sm font-medium tracking-tight text-emerald-300 transition hover:text-emerald-200"
-            >
-              Vizyon
-            </a>
-            <a
-              href="#solutions"
-              className="rounded px-2 py-1 text-sm font-medium tracking-tight text-zinc-400 transition hover:bg-white/5 hover:text-emerald-200"
-            >
-              Çözümler
-            </a>
-            <a
-              href="#pricing"
-              className="rounded px-2 py-1 text-sm font-medium tracking-tight text-zinc-400 transition hover:bg-white/5 hover:text-emerald-200"
-            >
-              Fiyatlandırma
-            </a>
-          </div>
+      <SiteNav
+        isAuthed={isAuthed}
+        plan={plan}
+        checkingPlan={checkingPlan}
+        hasPaymentIssue={hasPaymentIssue}
+        email={email}
+        initials={initials}
+        menuOpen={menuOpen}
+        menuRef={menuRef}
+        setMenuOpen={setMenuOpen}
+        goLogin={goLogin}
+        logout={logout}
+      />
+      <HeroSection primaryCTA={primaryCTA} />
+      <StorySection />
+      <FeaturesSection />
+      <DashboardShowcase />
+      <ExtensionFlow
+        active={active}
+        activeShot={activeShot}
+        setActiveShot={setActiveShot}
+        shots={shots}
+      />
+      <PricingSection
+        checkedPlan={checkedPlan}
+        goDashboard={goDashboard}
+        goLogin={goLogin}
+        isAuthed={isAuthed}
+        isProUser={isProUser}
+        proPriceFormatted={proPrice?.formatted}
+        proPriceLoading={proPriceLoading}
+        startProCheckout={startProCheckout}
+      />
+      <FinalCta primaryCTA={primaryCTA} />
+      <SiteFooter />
+    </main>
+  );
+}
 
-          <div className="flex items-center gap-2">
-            {!isAuthed ? (
-              <>
-                <a
-                  href="#pricing"
-                  className="hidden rounded-full border border-[#3d4a3e]/70 px-4 py-2 text-xs font-semibold text-[#e5e2e1] transition hover:bg-white/5 sm:inline-flex"
-                >
-                  Planlar
-                </a>
+function SiteNav({
+  isAuthed,
+  plan,
+  checkingPlan,
+  hasPaymentIssue,
+  email,
+  initials,
+  menuOpen,
+  menuRef,
+  setMenuOpen,
+  goLogin,
+  logout,
+}: {
+  isAuthed: boolean;
+  plan: "free" | "pro";
+  checkingPlan: boolean;
+  hasPaymentIssue: boolean;
+  email: string;
+  initials: string;
+  menuOpen: boolean;
+  menuRef: RefObject<HTMLDivElement>;
+  setMenuOpen: Dispatch<SetStateAction<boolean>>;
+  goLogin: () => void;
+  logout: () => void;
+}) {
+  return (
+    <motion.header
+      initial={{ opacity: 0, y: -16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+      className="fixed left-0 right-0 top-0 z-50 border-b border-white/[0.06] bg-[#030406]/58 backdrop-blur-2xl"
+    >
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
+        <Link href="/" className="group flex items-center gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-sm font-black shadow-2xl shadow-cyan-500/10 backdrop-blur-xl">
+            c
+          </span>
+          <span className="text-sm font-semibold tracking-[0.22em] text-white/85 sm:text-base">
+            clarionot
+          </span>
+        </Link>
+
+        <nav className="hidden items-center gap-8 text-sm text-white/58 md:flex">
+          <a href="#story" className="transition hover:text-white">
+            Hatırlatma
+          </a>
+          <a href="#features" className="transition hover:text-white">
+            Özellikler
+          </a>
+          <a href="#dashboard" className="transition hover:text-white">
+            Dashboard
+          </a>
+          <a href="#pricing" className="transition hover:text-white">
+            Fiyatlandırma
+          </a>
+        </nav>
+
+        <div className="flex items-center gap-3">
+          {!isAuthed ? (
+            <>
+              <a
+                href="#pricing"
+                className="hidden rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2 text-sm font-medium text-white/70 transition hover:bg-white/[0.07] hover:text-white sm:inline-flex"
+              >
+                Planlar
+              </a>
+              <button
+                onClick={goLogin}
+                className="accent-gradient rounded-lg px-4 py-2 text-sm font-semibold transition hover:opacity-90"
+              >
+                Giriş
+              </button>
+            </>
+          ) : (
+            <>
+              <span
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                  plan === "pro"
+                    ? "border-cyan-200/20 bg-cyan-200/10 text-cyan-50"
+                    : "border-white/10 bg-white/[0.045] text-white/62"
+                }`}
+                title={checkingPlan ? "Plan kontrol ediliyor" : undefined}
+              >
+                {checkingPlan ? "..." : plan === "pro" ? "PRO" : "FREE"}
+              </span>
+
+              <div className="relative" ref={menuRef}>
                 <button
-                  onClick={goLogin}
-                  className="rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-6 py-2 text-sm font-medium text-emerald-950 transition hover:scale-105 active:scale-95"
+                  type="button"
+                  onClick={() => setMenuOpen((value) => !value)}
+                  className="inline-flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.045] px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
                 >
-                  Giriş
-                </button>
-              </>
-            ) : (
-              <>
-                <span
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                    plan === "pro"
-                      ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-300"
-                      : "border-zinc-600/40 bg-zinc-500/10 text-zinc-300"
-                  }`}
-                  title={checkingPlan ? "Plan is being checked" : undefined}
-                >
-                  {checkingPlan ? "..." : plan === "pro" ? "PRO" : "FREE"}
-                </span>
-
-                <div className="relative" ref={menuRef}>
-                  <button
-                    type="button"
-                    onClick={() => setMenuOpen((value) => !value)}
-                    className="inline-flex items-center gap-3 rounded-full border border-[#3d4a3e]/50 bg-[#131313]/70 px-3 py-2 text-sm font-semibold text-zinc-100 transition hover:bg-[#1c1b1b]"
-                    aria-haspopup="menu"
-                    aria-expanded={menuOpen}
-                  >
-                    <span className="grid h-8 w-8 place-items-center rounded-full bg-[#2a2a2a] text-[13px] font-bold text-emerald-200">
-                      {initials}
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-[13px] font-bold text-[#030406]">
+                    {initials}
+                  </span>
+                  {hasPaymentIssue ? (
+                    <span className="rounded-md border border-red-400/25 bg-red-500/15 px-2 py-1 text-[11px] font-semibold text-red-200">
+                      !
                     </span>
-                    {hasPaymentIssue ? (
-                      <span className="rounded-full border border-red-400/25 bg-red-500/15 px-2 py-1 text-[11px] font-semibold text-red-200">
-                        !
-                      </span>
-                    ) : null}
-                  </button>
+                  ) : null}
+                </button>
 
-                  {menuOpen ? (
-                    <div
-                      role="menu"
-                      className="absolute right-0 mt-3 w-64 overflow-hidden rounded-xl border border-[#3d4a3e]/40 bg-[#0e0e0e] text-left shadow-2xl"
-                    >
-                      <div className="border-b border-[#3d4a3e]/25 px-4 py-3">
-                        <div className="text-[11px] text-zinc-500">
-                          Hesap
-                        </div>
-                        <div className="mt-0.5 truncate text-xs text-zinc-200">
-                          {email || "-"}
-                        </div>
-                      </div>
-
-                      <div className="p-2">
-                        <Link
-                          role="menuitem"
-                          href="/dashboard"
-                          onClick={() => setMenuOpen(false)}
-                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
-                        >
-                          Dashboard
-                        </Link>
-
-                        <Link
-                          role="menuitem"
-                          href="/pro"
-                          onClick={() => setMenuOpen(false)}
-                          className={`mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-white/5 ${
-                            hasPaymentIssue
-                              ? "text-amber-200"
-                              : "text-zinc-200"
-                          }`}
-                        >
-                          {hasPaymentIssue
-                            ? "Ödeme sorunu"
-                            : plan === "pro"
-                              ? "Faturalandırma"
-                              : "Pro’ya yükselt"}
-                        </Link>
-
-                        <Link
-                          role="menuitem"
-                          href="/settings"
-                          onClick={() => setMenuOpen(false)}
-                          className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
-                        >
-                          Ayarlar ve export
-                        </Link>
-
-                        <div className="my-2 border-t border-[#3d4a3e]/25" />
-
-                        <button
-                          role="menuitem"
-                          onClick={logout}
-                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-red-950/30"
-                        >
-                          Çıkış yap
-                        </button>
+                {menuOpen ? (
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-3 w-64 overflow-hidden rounded-xl border border-white/10 bg-[#07090d] text-left shadow-2xl shadow-black/50"
+                  >
+                    <div className="border-b border-white/10 px-4 py-3">
+                      <div className="text-[11px] text-white/38">Hesap</div>
+                      <div className="mt-0.5 truncate text-xs text-white/78">
+                        {email || "-"}
                       </div>
                     </div>
-                  ) : null}
+
+                    <div className="p-2">
+                      <Link
+                        role="menuitem"
+                        href="/dashboard"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
+                      >
+                        Dashboard
+                      </Link>
+
+                      <Link
+                        role="menuitem"
+                        href="/pro"
+                        onClick={() => setMenuOpen(false)}
+                        className={`mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-white/[0.06] ${
+                          hasPaymentIssue ? "text-amber-200" : "text-white/78"
+                        }`}
+                      >
+                        {hasPaymentIssue
+                          ? "Ödeme sorunu"
+                          : plan === "pro"
+                            ? "Faturalandırma"
+                            : "Pro’ya yükselt"}
+                      </Link>
+
+                      <Link
+                        role="menuitem"
+                        href="/settings"
+                        onClick={() => setMenuOpen(false)}
+                        className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
+                      >
+                        Ayarlar ve export
+                      </Link>
+
+                      <div className="my-2 border-t border-white/10" />
+
+                      <button
+                        role="menuitem"
+                        onClick={logout}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-red-950/30"
+                      >
+                        Çıkış yap
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </motion.header>
+  );
+}
+
+function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
+  const ref = useRef<HTMLElement | null>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end start"],
+  });
+
+  const yOne = useTransform(scrollYProgress, [0, 1], [0, -90]);
+  const yTwo = useTransform(scrollYProgress, [0, 1], [0, 84]);
+  const yThree = useTransform(scrollYProgress, [0, 1], [0, -46]);
+  const scale = useTransform(scrollYProgress, [0, 1], [1, 0.94]);
+  const opacity = useTransform(scrollYProgress, [0, 0.82], [1, 0]);
+
+  return (
+    <section
+      ref={ref}
+      className="relative flex min-h-screen items-center px-5 pb-24 pt-32 sm:px-8 lg:pt-40"
+    >
+      <div className="mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[1.02fr_0.98fr]">
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.12 } },
+          }}
+          className="relative z-10 max-w-4xl"
+        >
+          <motion.div
+            variants={fadeUp}
+            className="mb-6 inline-flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.055] px-3 py-2 text-sm text-white/68 backdrop-blur-xl"
+          >
+            <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_24px_rgba(103,232,249,0.85)]" />
+            Fikirlerin bir daha kaybolmasın
+          </motion.div>
+
+          <motion.h1
+            variants={fadeUp}
+            className="max-w-5xl text-balance text-5xl font-semibold leading-[0.94] tracking-[-0.04em] text-white sm:text-7xl lg:text-8xl"
+          >
+            Sonra bakarım dediğin fikirler kaybolmasın.
+          </motion.h1>
+
+          <motion.p
+            variants={fadeUp}
+            className="mt-8 max-w-2xl text-pretty text-lg leading-8 text-white/62 sm:text-xl"
+          >
+            ClarioNot notları, linkleri ve yarım kalmış fikirleri kaydeder;
+            unutulanları zamanı geldiğinde tekrar önüne getirir.
+          </motion.p>
+
+          <motion.div variants={fadeUp} className="mt-10 flex flex-col gap-3 sm:flex-row">
+            {primaryCTA}
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-6 py-3 text-sm font-semibold text-white/82 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
+            >
+              Dashboard’u gör
+            </Link>
+          </motion.div>
+        </motion.div>
+
+        <motion.div
+          style={{ opacity, scale }}
+          className="relative mx-auto h-[520px] w-full max-w-[560px] lg:h-[650px]"
+        >
+          <motion.div style={{ y: yOne }} className="absolute left-1 top-16 sm:left-4">
+            <FloatingCard
+              label="Note"
+              title="Lansman cümlesi"
+              body="Fikirler kaybolmaz. Doğru anı bekler."
+              accent="cyan"
+            />
+          </motion.div>
+          <motion.div style={{ y: yTwo }} className="absolute right-0 top-44 z-10">
+            <FloatingCard
+              label="Link"
+              title="Hafıza tasarımı"
+              body="Sakin bir hatırlatma sistemi, kalabalık bir arşivden daha değerlidir."
+              accent="violet"
+            />
+          </motion.div>
+          <motion.div style={{ y: yThree }} className="absolute bottom-14 left-10 sm:left-20">
+            <FloatingCard
+              label="Geri döndü"
+              title="Unutuldu ama işe yarıyor"
+              body="19 gün önce kaydedildi. Bugünkü planlama için ilgili."
+              accent="mint"
+            />
+          </motion.div>
+          <motion.div
+            animate={{ rotate: [0, 3, 0], y: [0, -10, 0] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-[32px] border border-white/10 bg-white/[0.045] shadow-[0_40px_160px_rgba(80,190,255,0.18)] backdrop-blur-2xl"
+          >
+            <div className="absolute inset-6 rounded-2xl border border-white/8 bg-[#07090d]/70 p-5">
+              <div className="mb-5 flex items-center justify-between">
+                <span className="text-xs font-medium text-white/42">Bugün</span>
+                <span className="rounded-lg bg-cyan-300/12 px-2 py-1 text-xs text-cyan-100">
+                  3 geri dönüş
+                </span>
+              </div>
+              <div className="space-y-3">
+                {["Fiyat notu", "Araştırma linki", "Toplantı fikri"].map((item, index) => (
+                  <div
+                    key={item}
+                    className="rounded-lg border border-white/8 bg-white/[0.045] p-3"
+                  >
+                    <div className="h-2 w-20 rounded-full bg-white/20" />
+                    <div
+                      className="mt-3 h-2 rounded-full bg-white/10"
+                      style={{ width: `${72 - index * 10}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function FloatingCard({
+  label,
+  title,
+  body,
+  accent,
+}: {
+  label: string;
+  title: string;
+  body: string;
+  accent: "cyan" | "violet" | "mint";
+}) {
+  const accentClass =
+    accent === "cyan"
+      ? "from-cyan-300/22"
+      : accent === "violet"
+        ? "from-violet-300/18"
+        : "from-emerald-300/18";
+
+  return (
+    <motion.article
+      whileHover={{ y: -6, scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 180, damping: 18 }}
+      className={`w-64 rounded-xl border border-white/10 bg-gradient-to-br ${accentClass} to-white/[0.035] p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl sm:w-72`}
+    >
+      <div className="mb-5 flex items-center justify-between">
+        <span className="rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-xs text-white/58">
+          {label}
+        </span>
+        <span className="h-2 w-2 rounded-full bg-white/55" />
+      </div>
+      <h3 className="text-lg font-semibold tracking-[-0.02em] text-white">{title}</h3>
+      <p className="mt-3 text-sm leading-6 text-white/58">{body}</p>
+    </motion.article>
+  );
+}
+
+function StorySection() {
+  const ref = useRef<HTMLElement | null>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "end start"],
+  });
+
+  const blur = useTransform(scrollYProgress, [0.15, 0.45, 0.72], [0, 14, 0]);
+  const y = useTransform(scrollYProgress, [0.12, 0.48, 0.78], [80, -120, 0]);
+  const scale = useTransform(scrollYProgress, [0.15, 0.48, 0.78], [1, 0.86, 1]);
+  const opacity = useTransform(scrollYProgress, [0.1, 0.42, 0.72], [1, 0.24, 1]);
+  const filter = useMotionTemplate`blur(${blur}px)`;
+
+  return (
+    <section id="story" ref={ref} className="relative px-5 py-28 sm:px-8 lg:py-40">
+      <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-20%" }}
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.1 } } }}
+        >
+          <motion.p variants={fadeUp} className="text-sm font-medium text-cyan-200/80">
+            Kaybolma ve geri dönüş
+          </motion.p>
+          <motion.h2
+            variants={fadeUp}
+            className="mt-4 text-balance text-4xl font-semibold tracking-[-0.04em] text-white sm:text-6xl"
+          >
+            Arşiv bulanıklaşır. Doğru fikir geri gelir.
+          </motion.h2>
+          <motion.p variants={fadeUp} className="mt-6 max-w-xl text-lg leading-8 text-white/58">
+            Kaydetmek işin sadece yarısı. ClarioNot, unutulmuş bir kaydın
+            yeniden işe yaradığı ikinci an için tasarlandı.
+          </motion.p>
+        </motion.div>
+
+        <div className="relative min-h-[560px]">
+          <div className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-cyan-200/30 to-transparent" />
+          {storyCards.map((card, index) => (
+            <motion.article
+              key={card.title}
+              className="absolute left-1/2 w-[min(92vw,520px)] -translate-x-1/2 rounded-xl border border-white/10 bg-[#070a0e]/82 p-5 shadow-2xl shadow-black/50 backdrop-blur-xl"
+              transition={{ delay: index * 0.08 }}
+              initial={{ rotate: index === 0 ? -4 : index === 1 ? 3 : -1 }}
+              animate={{ rotate: index === 0 ? -2 : index === 1 ? 2 : 1 }}
+              viewport={{ once: false }}
+              style={{
+                y,
+                scale,
+                opacity,
+                filter,
+                top: `${index * 112 + 80}px`,
+              }}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <span className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/48">
+                  {card.meta}
+                </span>
+                <span className="text-xs text-cyan-100/70">sonra döner</span>
+              </div>
+              <h3 className="mt-5 text-xl font-semibold tracking-[-0.02em] text-white">
+                {card.title}
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-white/56">{card.body}</p>
+            </motion.article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FeaturesSection() {
+  return (
+    <section id="features" className="px-5 py-28 sm:px-8 lg:py-36">
+      <div className="mx-auto max-w-7xl">
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-15%" }}
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.1 } } }}
+          className="max-w-3xl"
+        >
+          <motion.p variants={fadeUp} className="text-sm font-medium text-violet-100/78">
+            Biriken fikirler için
+          </motion.p>
+          <motion.h2
+            variants={fadeUp}
+            className="mt-4 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-6xl"
+          >
+            Gün boyu fikir toplayanlar için daha sakin bir sistem.
+          </motion.h2>
+        </motion.div>
+
+        <div className="mt-14 grid gap-4 md:grid-cols-2">
+          {features.map((feature, index) => (
+            <motion.article
+              key={feature.title}
+              initial={{ opacity: 0, y: 30, scale: 0.98, filter: "blur(10px)" }}
+              whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+              viewport={{ once: true, margin: "-12%" }}
+              transition={{ duration: 0.7, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
+              className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-300/[0.08] via-transparent to-violet-300/[0.08] opacity-0 transition duration-500 group-hover:opacity-100" />
+              <div className="relative">
+                <div className="mb-10 flex items-center justify-between">
+                  <span className="rounded-md border border-white/10 bg-white/[0.055] px-2 py-1 text-xs text-white/54">
+                    {feature.eyebrow}
+                  </span>
+                  <span className="grid h-9 w-9 place-items-center rounded-lg bg-white/[0.06] text-sm text-white/52">
+                    0{index + 1}
+                  </span>
                 </div>
-              </>
+                <h3 className="text-2xl font-semibold tracking-[-0.03em] text-white">
+                  {feature.title}
+                </h3>
+                <p className="mt-4 max-w-xl text-base leading-7 text-white/56">{feature.copy}</p>
+              </div>
+            </motion.article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DashboardShowcase() {
+  const ref = useRef<HTMLElement | null>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "end end"],
+  });
+
+  return (
+    <section id="dashboard" ref={ref} className="relative px-5 py-28 sm:px-8 lg:py-40">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+          <div className="lg:sticky lg:top-32">
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-sm font-medium text-cyan-100/78"
+            >
+              Canlı çalışma alanı
+            </motion.p>
+            <motion.h2
+              initial={{ opacity: 0, y: 22, filter: "blur(8px)" }}
+              whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7 }}
+              className="mt-4 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-6xl"
+            >
+              Hafızayı görünür yapan dashboard.
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 22 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1, duration: 0.7 }}
+              className="mt-6 max-w-lg text-lg leading-8 text-white/58"
+            >
+              Gruplar, etiketler, kayıtlı linkler ve unutulan rozetleri
+              kaydırdıkça adım adım ortaya çıkar.
+            </motion.p>
+          </div>
+
+          <div className="min-h-[1200px] lg:min-h-[1450px]">
+            <div className="sticky top-28">
+              <DashboardPreview progress={scrollYProgress} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DashboardPreview({ progress }: { progress: MotionValue<number> }) {
+  const sidebarX = useTransform(progress, [0.08, 0.22], [-34, 0]);
+  const sidebarOpacity = useTransform(progress, [0.08, 0.22], [0, 1]);
+  const notesY = useTransform(progress, [0.18, 0.38], [54, 0]);
+  const notesOpacity = useTransform(progress, [0.18, 0.38], [0, 1]);
+  const recallScale = useTransform(progress, [0.38, 0.58], [0.86, 1]);
+  const recallOpacity = useTransform(progress, [0.38, 0.58], [0, 1]);
+  const groupsY = useTransform(progress, [0.52, 0.76], [64, 0]);
+  const groupsOpacity = useTransform(progress, [0.52, 0.76], [0, 1]);
+
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#06080c]/95 shadow-[0_60px_180px_rgba(0,0,0,0.62)]">
+      <div className="flex items-center justify-between border-b border-white/8 bg-white/[0.035] px-4 py-3">
+        <div className="flex gap-2">
+          <span className="h-3 w-3 rounded-full bg-red-300/70" />
+          <span className="h-3 w-3 rounded-full bg-yellow-200/70" />
+          <span className="h-3 w-3 rounded-full bg-emerald-300/70" />
+        </div>
+        <span className="text-xs text-white/38">clarionot.app/dashboard</span>
+      </div>
+
+      <div className="grid min-h-[640px] grid-cols-1 md:grid-cols-[220px_1fr]">
+        <motion.aside
+          style={{ x: sidebarX, opacity: sidebarOpacity }}
+          className="border-b border-white/8 bg-white/[0.025] p-5 md:border-b-0 md:border-r"
+        >
+          <div className="mb-8 flex items-center gap-3">
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-sm font-black text-[#030406]">
+              c
+            </span>
+            <div>
+              <p className="text-sm font-semibold">ClarioNot</p>
+              <p className="text-xs text-white/38">Hafıza katmanı</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {["Gelenler", "Geri Dönenler", "Gruplar", "Etiketler"].map((item, index) => (
+              <div
+                key={item}
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  index === 1
+                    ? "bg-cyan-300/12 text-cyan-50"
+                    : "text-white/50"
+                }`}
+              >
+                {item}
+              </div>
+            ))}
+          </div>
+        </motion.aside>
+
+        <div className="p-5 sm:p-7">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-white/42">Bugün</p>
+              <h3 className="mt-1 text-2xl font-semibold tracking-[-0.03em]">
+                Yeniden bakmaya değer unutulmuş kayıtlar
+              </h3>
+            </div>
+            <motion.div
+              style={{ opacity: recallOpacity, scale: recallScale }}
+              className="w-fit rounded-lg border border-cyan-200/18 bg-cyan-200/10 px-3 py-2 text-sm text-cyan-50"
+            >
+              7 kayıt döndü
+            </motion.div>
+          </div>
+
+          <motion.div
+            style={{ y: notesY, opacity: notesOpacity }}
+            className="grid gap-3 lg:grid-cols-2"
+          >
+            {dashboardItems.map((item, index) => (
+              <div
+                key={item}
+                className="rounded-xl border border-white/9 bg-white/[0.04] p-4"
+              >
+                <div className="mb-7 flex items-center justify-between">
+                  <span className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/44">
+                    {index % 2 === 0 ? "not" : "link"}
+                  </span>
+                  <span className="text-xs text-white/34">{index + 2} hf önce</span>
+                </div>
+                <h4 className="font-medium tracking-[-0.02em] text-white">{item}</h4>
+                <div className="mt-4 h-2 w-4/5 rounded-full bg-white/10" />
+                <div className="mt-2 h-2 w-3/5 rounded-full bg-white/7" />
+              </div>
+            ))}
+          </motion.div>
+
+          <motion.div
+            style={{ y: groupsY, opacity: groupsOpacity }}
+            className="mt-5 grid gap-3 sm:grid-cols-3"
+          >
+            {["Lansman", "Araştırma", "Kişisel OS"].map((group) => (
+              <div
+                key={group}
+                className="rounded-xl border border-white/9 bg-gradient-to-br from-white/[0.065] to-white/[0.025] p-4"
+              >
+                <p className="text-sm font-medium">{group}</p>
+                <p className="mt-2 text-xs leading-5 text-white/42">12 kayıt gruplandı</p>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExtensionFlow({
+  active,
+  activeShot,
+  setActiveShot,
+  shots,
+}: {
+  active: Shot;
+  activeShot: ShotKey;
+  setActiveShot: (shot: ShotKey) => void;
+  shots: Shot[];
+}) {
+  return (
+    <section id="extension" className="px-5 py-24 sm:px-8 lg:py-32">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-12 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="max-w-2xl"
+          >
+            <p className="text-sm font-medium text-cyan-100/76">Eklenti akışı</p>
+            <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">
+              Sağ tıkla. Kaydet. Devam et.
+            </h2>
+            <p className="mt-5 max-w-xl text-lg leading-8 text-white/56">
+              ClarioNot çalışma şeklini bölmeden yakalar: web sayfası, seçili
+              metin, link ve bağlam tek akışta dashboard’a düşer.
+            </p>
+          </motion.div>
+          <a
+            href={CHROME_STORE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex w-fit items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/82 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
+          >
+            Eklentiyi kur
+          </a>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[0.45fr_0.55fr]">
+          <div className="grid gap-3">
+            {shots.map((shot, index) => {
+              const isActive = shot.key === activeShot;
+              return (
+                <motion.button
+                  key={shot.key}
+                  initial={{ opacity: 0, x: -18 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.06, duration: 0.55 }}
+                  onClick={() => setActiveShot(shot.key)}
+                  className={`rounded-xl border p-5 text-left transition ${
+                    isActive
+                      ? "border-cyan-200/24 bg-cyan-200/10 shadow-2xl shadow-cyan-500/10"
+                      : "border-white/10 bg-white/[0.035] hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/42">{shot.kpi}</span>
+                    <span className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/58">
+                      {shot.badge}
+                    </span>
+                  </div>
+                  <div className="mt-4 text-lg font-semibold tracking-[-0.02em]">
+                    {shot.title}
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-white/52">
+                    {shot.desc}
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 28, filter: "blur(10px)" }}
+            whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] p-2 shadow-2xl shadow-black/40"
+          >
+            <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 text-sm text-white/42">
+              <span>{active.kpi}</span>
+              <span className="font-medium text-white/80">{active.title}</span>
+              <span>{active.badge}</span>
+            </div>
+            <div className="group relative aspect-[16/9] w-full overflow-hidden rounded-lg">
+              <Image
+                key={active.src}
+                src={active.src}
+                alt={active.title}
+                fill
+                className="object-cover object-top transition duration-700 group-hover:scale-[1.03]"
+                sizes="(max-width: 1024px) 100vw, 760px"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/10" />
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PricingSection({
+  checkedPlan,
+  goDashboard,
+  goLogin,
+  isAuthed,
+  isProUser,
+  proPriceFormatted,
+  proPriceLoading,
+  startProCheckout,
+}: {
+  checkedPlan: boolean;
+  goDashboard: () => void;
+  goLogin: () => void;
+  isAuthed: boolean;
+  isProUser: boolean;
+  proPriceFormatted?: string;
+  proPriceLoading: boolean;
+  startProCheckout: () => void;
+}) {
+  return (
+    <section id="pricing" className="px-5 py-24 sm:px-8 lg:py-32">
+      <div className="mx-auto max-w-7xl">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-12 max-w-3xl"
+        >
+          <p className="text-sm font-medium text-cyan-100/76">Planlar</p>
+          <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">
+            Basit başla. Eklentiyle hızlan.
+          </h2>
+        </motion.div>
+
+        <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/[0.035]">
+          <table className="w-full border-collapse text-left text-sm">
+            <thead className="bg-white/[0.04] text-white">
+              <tr>
+                <th className="px-5 py-5 font-semibold">Avantajlar</th>
+                <th className="px-5 py-5 font-semibold">Free</th>
+                <th className="px-5 py-5 font-semibold">Pro</th>
+              </tr>
+            </thead>
+            <tbody>
+              {benefitRows.map(([label, free, pro]) => (
+                <tr key={label} className="border-t border-white/8">
+                  <td className="px-5 py-4 text-white/78">{label}</td>
+                  <td className="px-5 py-4 text-white/48">{free}</td>
+                  <td className="px-5 py-4 text-cyan-100">{pro}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
+          <button
+            onClick={() => (isAuthed ? goDashboard() : goLogin())}
+            className="rounded-xl border border-white/10 bg-white/[0.035] p-7 text-left transition hover:bg-white/[0.06]"
+          >
+            <div className="text-sm font-semibold text-white/64">Free</div>
+            <div className="mt-3 text-4xl font-semibold tracking-[-0.04em]">₺0</div>
+            <p className="mt-4 text-sm leading-6 text-white/54">
+              Notları ve linkleri dashboard’dan manuel kaydet.
+            </p>
+            <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.045] px-5 py-3 text-center text-sm font-semibold">
+              Dashboard’a git
+            </div>
+          </button>
+
+          <div className="rounded-xl border border-cyan-200/18 bg-cyan-200/[0.055] p-7">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-white/70">Pro</div>
+              <span className="rounded-md bg-cyan-200/10 px-2 py-1 text-xs text-cyan-50">
+                Önerilen
+              </span>
+            </div>
+            <div className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-cyan-50">
+              {proPriceLoading
+                ? "Yükleniyor..."
+                : proPriceFormatted
+                  ? proPriceFormatted
+                  : "Fiyat alınamadı"}
+            </div>
+            <p className="mt-4 text-sm leading-6 text-white/58">
+              Seçimleri ve linkleri sağ tıkla kaydet. Otomatik başlık,
+              sınırsız kayıt ve öncelikli geliştirmeler.
+            </p>
+
+            {isProUser ? (
+              <button
+                onClick={goDashboard}
+                className="mt-8 w-full rounded-lg border border-white/10 bg-white/[0.045] px-5 py-3 text-center text-sm font-semibold transition hover:bg-white/[0.07]"
+              >
+                Pro hesabındasın ✓
+              </button>
+            ) : (
+              <button
+                onClick={startProCheckout}
+                disabled={!checkedPlan}
+                className="accent-gradient mt-8 w-full rounded-lg px-5 py-3 text-center text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Pro’ya yükselt
+              </button>
             )}
           </div>
         </div>
-      </nav>
+      </div>
+    </section>
+  );
+}
 
-      <header className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 text-center">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-[#101111]" />
-          <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(107,251,154,0.32)_1px,transparent_1px),linear-gradient(90deg,rgba(68,226,205,0.24)_1px,transparent_1px)] [background-size:72px_72px]" />
-          <DnaBackdrop className="opacity-70" />
-          <div className="absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-black/60 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#131313] to-transparent" />
-          <div className="absolute left-1/2 top-1/2 h-[720px] w-[920px] -translate-x-1/2 -translate-y-1/2 rounded-[8px] border border-[#3d4a3e]/20 bg-[#1c1b1b]/35 shadow-[0_40px_120px_rgba(0,0,0,0.45)] backdrop-blur-sm" />
-          <div className="absolute left-[8%] top-[22%] hidden w-72 rounded-[8px] border border-[#3d4a3e]/30 bg-[#201f1f]/70 p-4 text-left shadow-2xl backdrop-blur-xl md:block">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-[0.35em] text-emerald-300">
-                Notlar
-              </span>
-              <span className="h-2 w-2 rounded-full bg-emerald-300" />
-            </div>
-            <div className="h-3 w-44 rounded bg-[#e5e2e1]/70" />
-            <div className="mt-3 h-2 w-full rounded bg-[#bccabb]/30" />
-            <div className="mt-2 h-2 w-4/5 rounded bg-[#bccabb]/20" />
-            <div className="mt-5 flex gap-2">
-              <span className="rounded bg-[#353534] px-2 py-1 text-[10px] text-emerald-200">
-                #fikir
-              </span>
-              <span className="rounded bg-[#353534] px-2 py-1 text-[10px] text-teal-200">
-                #ürün
-              </span>
-            </div>
-          </div>
-          <div className="absolute right-[8%] top-[30%] hidden w-80 rounded-[8px] border border-[#3d4a3e]/30 bg-[#201f1f]/70 p-4 text-left shadow-2xl backdrop-blur-xl lg:block">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-[0.35em] text-teal-300">
-                Linkler
-              </span>
-              <span className="text-[10px] text-[#bccabb]/60">AI</span>
-            </div>
-            <div className="h-3 w-56 rounded bg-[#e5e2e1]/70" />
-            <div className="mt-3 h-2 w-full rounded bg-[#bccabb]/25" />
-            <div className="mt-2 h-2 w-3/5 rounded bg-[#bccabb]/20" />
-            <div className="mt-5 h-9 rounded-[8px] border border-teal-300/20 bg-teal-300/10" />
-          </div>
-          <div className="absolute bottom-[18%] left-1/2 hidden w-[520px] -translate-x-1/2 grid-cols-3 gap-3 opacity-70 md:grid">
-            {["Kaydet", "Etiketle", "Bul"].map((label) => (
-              <div
-                key={label}
-                className="rounded-[8px] border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.28em] text-[#bccabb] backdrop-blur-xl"
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-          <div className="absolute inset-0 bg-[#131313]/45" />
+function FinalCta({ primaryCTA }: { primaryCTA: ReactNode }) {
+  return (
+    <section className="px-5 py-28 sm:px-8 lg:py-36">
+      <motion.div
+        initial={{ opacity: 0, y: 28, scale: 0.98 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
+        viewport={{ once: true, margin: "-15%" }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        className="mx-auto max-w-5xl rounded-xl border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.025))] px-6 py-16 text-center shadow-[0_70px_180px_rgba(0,0,0,0.58)] backdrop-blur-2xl sm:px-12"
+      >
+        <p className="text-sm font-medium text-cyan-100/76">Akışı koru</p>
+        <h2 className="mx-auto mt-5 max-w-3xl text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">
+          Kaydettiğin her fikre geri dönmenin yolunu ver.
+        </h2>
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-white/58">
+          Bir notla, bir linkle ya da kaybolmasını istemediğin tek cümleyle
+          başla. ClarioNot onu tekrar işe yarayacak kadar yakında tutar.
+        </p>
+        <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
+          {primaryCTA}
+          <Link
+            href="/pro"
+            className="inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-6 py-3 text-sm font-semibold text-white/78 transition hover:bg-white/[0.08] hover:text-white"
+          >
+            Pro’yu incele
+          </Link>
         </div>
+      </motion.div>
+    </section>
+  );
+}
 
-        <div className="relative z-10 max-w-5xl pt-20">
-          <h1 className="text-5xl font-black tracking-tight text-[#e5e2e1] drop-shadow-[0_0_20px_rgba(107,251,154,0.22)] md:text-8xl">
-            Kaydettiğin şeyler{" "}
-            <span className="bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">
-              unutulmasın.
-            </span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-xl font-light tracking-tight text-[#bccabb] md:text-2xl">
-            Okunacak linkleri, fikirleri ve notları işleme kuyruğuna al.
-            Sonra, Bugün, İşleniyor ve Tamamlandı akışıyla pasif arşivi temizle.
-          </p>
-
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            {primaryCTA}
-            <a
-              href="#solutions"
-              className="rounded-full border border-[#3d4a3e]/70 px-8 py-3 text-sm font-medium text-[#e5e2e1] transition hover:bg-white/5"
-            >
-              Vizyon
-            </a>
-          </div>
+function SiteFooter() {
+  return (
+    <footer className="border-t border-white/[0.06] bg-black/30 px-5 py-12 sm:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 md:flex-row">
+        <div className="flex items-center gap-3">
+          <span className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-sm font-black">
+            c
+          </span>
+          <span className="text-sm font-semibold tracking-[0.22em] text-white/78">
+            clarionot
+          </span>
         </div>
-
-        <a
-          href="#vision"
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 text-4xl text-white/30 transition hover:text-emerald-300"
-          aria-label="Scroll to vision"
-        >
-          ↓
-        </a>
-      </header>
-
-      <section id="vision" className="bg-[#131313] px-6 py-20">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-12 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-2xl">
-              <div className="text-sm font-bold uppercase tracking-[0.35em] text-emerald-300">
-                Çalışma Akışı
-              </div>
-              <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
-                Kaydet. Kuyruğa al. Bitir.
-              </h2>
-            </div>
-            <p className="max-w-xl text-sm leading-6 text-[#bccabb]">
-              clarionot sadece saklama alanı değil. Kaydettiğin her şey için
-              küçük bir sonraki adım belirleyebileceğin kişisel işleme kuyruğu.
-            </p>
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-3">
-            {[
-              {
-                step: "01",
-                title: "Kaydet",
-                body: "Link, not, seçili metin veya fikir. Bağlamı kaçırmadan yakala.",
-              },
-              {
-                step: "02",
-                title: "Kuyruğa al",
-                body: "Sonra, Bugün, İşleniyor veya Tamamlandı durumuyla niyetini netleştir.",
-              },
-              {
-                step: "03",
-                title: "Bitir",
-                body: "Aç, oku, karar ver. Gerekirse arşivle, gruba taşı veya sil.",
-              },
-            ].map((item) => (
-              <div
-                key={item.step}
-                className="rounded-xl border border-[#3d4a3e]/25 bg-[#201f1f]/70 p-8 shadow-[0_18px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl"
-              >
-                <div className="text-sm font-black text-emerald-300">
-                  {item.step}
-                </div>
-                <h3 className="mt-6 text-2xl font-black">{item.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-[#bccabb]">
-                  {item.body}
-                </p>
-              </div>
-            ))}
-          </div>
+        <div className="flex flex-wrap justify-center gap-6 text-xs uppercase tracking-[0.22em] text-white/38">
+          <a href="#story" className="transition hover:text-white/72">
+            Hatırlatma
+          </a>
+          <a href="#extension" className="transition hover:text-white/72">
+            Eklenti
+          </a>
+          <Link href="/privacy" className="transition hover:text-white/72">
+            Gizlilik
+          </Link>
+          <a href="#pricing" className="transition hover:text-white/72">
+            Fiyatlandırma
+          </a>
         </div>
-      </section>
-
-      <section id="solutions" className="bg-[#131313] px-6 py-24 md:py-32">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <div className="text-sm font-bold uppercase tracking-[0.35em] text-emerald-300">
-                Eklenti Akışı
-              </div>
-              <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
-                Sağ tıkla. Kaydet. Devam et.
-              </h2>
-            </div>
-            <a
-              href={CHROME_STORE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="w-fit rounded-full border border-[#3d4a3e]/70 px-6 py-3 text-sm font-semibold transition hover:bg-white/5"
-            >
-              Eklentiyi kur
-            </a>
-          </div>
-
-          <div className="grid gap-8 lg:grid-cols-12">
-            <div className="grid gap-3 lg:col-span-4">
-              {shots.map((shot) => {
-                const isActive = shot.key === activeShot;
-                return (
-                  <button
-                    key={shot.key}
-                    onClick={() => setActiveShot(shot.key)}
-                    className={`rounded-xl border p-5 text-left transition ${
-                      isActive
-                        ? "border-emerald-300/50 bg-emerald-300/10"
-                        : "border-[#3d4a3e]/30 bg-[#1c1b1b] hover:bg-[#201f1f]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-[#bccabb]">
-                        {shot.kpi}
-                      </span>
-                      <span className="rounded-full bg-black/20 px-3 py-1 text-xs text-emerald-200">
-                        {shot.badge}
-                      </span>
-                    </div>
-                    <div className="mt-3 text-lg font-bold">{shot.title}</div>
-                    <div className="mt-2 text-sm text-[#bccabb]">
-                      {shot.desc}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="lg:col-span-8">
-              <div className="overflow-hidden rounded-xl border border-[#3d4a3e]/30 bg-[#0e0e0e]">
-                <div className="flex items-center justify-between border-b border-[#3d4a3e]/20 px-5 py-4 text-sm text-[#bccabb]">
-                  <span>{active.kpi}</span>
-                  <span className="font-semibold text-[#e5e2e1]">
-                    {active.title}
-                  </span>
-                  <span>{active.badge}</span>
-                </div>
-                <div className="group relative aspect-[16/9] w-full">
-                  <Image
-                    src={active.src}
-                    alt={active.title}
-                    fill
-                    className="object-cover transition duration-500 group-hover:scale-[1.04]"
-                    sizes="(max-width: 1024px) 100vw, 820px"
-                  />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="pricing" className="bg-[#0e0e0e] px-6 py-24 md:py-32">
-        <div className="mx-auto max-w-7xl">
-          <div className="overflow-x-auto rounded-xl border border-[#3d4a3e]/30">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="bg-black/20 text-[#e5e2e1]">
-                <tr>
-                  <th className="px-5 py-5 font-bold">Avantajlar</th>
-                  <th className="px-5 py-5 font-bold">Free</th>
-                  <th className="px-5 py-5 font-bold">Pro</th>
-                </tr>
-              </thead>
-              <tbody>
-                {benefitRows.map(([label, free, pro]) => (
-                  <tr key={label} className="border-t border-[#3d4a3e]/20">
-                    <td className="px-5 py-4">{label}</td>
-                    <td className="px-5 py-4 text-[#bccabb]">{free}</td>
-                    <td className="px-5 py-4 text-emerald-300">{pro}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
-            <button
-              onClick={() => (isAuthed ? goDashboard() : goLogin())}
-              className="rounded-xl border border-[#3d4a3e]/30 bg-[#131313] p-8 text-left transition hover:bg-[#1c1b1b]"
-            >
-              <div className="text-sm font-bold">Free</div>
-              <div className="mt-3 text-4xl font-black">₺0</div>
-              <p className="mt-3 text-sm text-[#bccabb]">
-                Notları ve linkleri dashboard’dan manuel kaydet.
-              </p>
-              <ul className="mt-5 space-y-2 text-sm">
-                <li>• Notlar ve linkler</li>
-                <li>• Etiketler ve arama</li>
-                <li>• Temel limitler</li>
-              </ul>
-              <div className="mt-8 rounded-lg border border-[#3d4a3e]/40 bg-[#1c1b1b] px-5 py-3 text-center text-sm font-bold">
-                Dashboard’a git
-              </div>
-            </button>
-
-            <div className="rounded-xl border border-emerald-300/30 bg-[#131313] p-8">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-bold">Pro</div>
-                <span className="rounded-full bg-emerald-300/10 px-3 py-1 text-xs text-emerald-300">
-                  Önerilen
-                </span>
-              </div>
-
-              <div className="mt-3 text-4xl font-black text-emerald-100">
-                {proPriceLoading
-                  ? "Yükleniyor..."
-                  : proPrice?.formatted
-                    ? `${proPrice.formatted}`
-                    : "Fiyat alınamadı"}
-              </div>
-              <p className="mt-3 text-sm text-[#bccabb]">
-                Seçimleri ve linkleri sağ tıkla kaydet. Otomatik başlık.
-                Sınırsız kayıt.
-              </p>
-              <ul className="mt-5 space-y-2 text-sm">
-                <li>• Tarayıcı eklentisiyle sağ tık kaydetme</li>
-                <li>• Sınırsız kayıt</li>
-                <li>• Öncelikli geliştirmeler</li>
-              </ul>
-
-              {isProUser ? (
-                <button
-                  onClick={goDashboard}
-                  className="mt-8 w-full rounded-lg border border-[#3d4a3e]/40 bg-[#1c1b1b] px-5 py-3 text-center text-sm font-bold transition hover:bg-[#201f1f]"
-                >
-                  Pro hesabındasın ✓
-                </button>
-              ) : (
-                <button
-                  onClick={startProCheckout}
-                  disabled={!checkedPlan}
-                  className="mt-8 w-full rounded-lg bg-gradient-to-r from-emerald-300 to-teal-300 px-5 py-3 text-center text-sm font-bold text-emerald-950 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Pro’ya yükselt
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="relative overflow-hidden bg-[#131313] px-6 py-32 md:py-48">
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(68,226,205,0.08)_0%,transparent_52%)]" />
-        <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <h2 className="mb-8 text-4xl font-black tracking-tight md:text-6xl">
-            Sonra bakarım dediklerini temizle.
-          </h2>
-          <p className="mx-auto mb-12 max-w-xl text-lg text-[#bccabb]">
-            Dashboard’u aç, Chrome’dan yakala ve her linki kendi bağlamıyla
-            birlikte tut.
-          </p>
-          <div className="flex flex-col justify-center gap-4 sm:flex-row">
-            {primaryCTA}
-            <a
-              href={CHROME_STORE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full border border-[#3d4a3e]/70 px-8 py-3 text-sm font-semibold transition hover:bg-white/5"
-            >
-              Eklentiyi kur
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <footer className="w-full border-t border-zinc-800/20 bg-zinc-950 py-16">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 px-10 md:flex-row">
-          <div className="flex flex-col items-center gap-4 md:items-start">
-            <div className="flex items-center gap-2 text-xl font-bold text-zinc-100">
-              <span className="grid h-7 w-7 place-items-center rounded-full border border-emerald-300/30 text-sm text-emerald-300">
-                c
-              </span>
-              clarionot
-            </div>
-            <p className="text-sm uppercase tracking-widest text-zinc-500">
-              © {new Date().getFullYear()} CLARIONOT. ALL RIGHTS RESERVED.
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-8">
-            <a
-              className="text-sm uppercase tracking-widest text-zinc-500 opacity-80 transition hover:text-emerald-300 hover:opacity-100"
-              href="#vision"
-            >
-              Vizyon
-            </a>
-            <a
-              className="text-sm uppercase tracking-widest text-zinc-500 opacity-80 transition hover:text-emerald-300 hover:opacity-100"
-              href="#solutions"
-            >
-              Çözümler
-            </a>
-            <Link
-              className="text-sm uppercase tracking-widest text-zinc-500 opacity-80 transition hover:text-emerald-300 hover:opacity-100"
-              href="/privacy"
-            >
-              Gizlilik
-            </Link>
-            <a
-              className="text-sm uppercase tracking-widest text-zinc-500 opacity-80 transition hover:text-emerald-300 hover:opacity-100"
-              href="#pricing"
-            >
-              Fiyatlandırma
-            </a>
-          </div>
-        </div>
-      </footer>
-    </main>
+        <p className="text-xs text-white/32">
+          © {new Date().getFullYear()} ClarioNot
+        </p>
+      </div>
+    </footer>
   );
 }

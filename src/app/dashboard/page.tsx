@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import type { Item, ItemType, WorkStatus } from "@/lib/types";
 import Button from "@/components/Button";
@@ -1504,7 +1505,7 @@ export default function DashboardPage() {
   const inboxDrop = makeDropHandlers("inbox");
   const dropZoneClass = (isOver: boolean) =>
     isOver
-      ? "outline outline-2 outline-emerald-500/60 bg-emerald-500/10 border-emerald-500/40"
+      ? "outline outline-2 outline-cyan-300/50 bg-cyan-300/10 border-cyan-300/30"
       : "";
   const AiLoadingInline = ({ text }: { text: string }) => (
     <div className="flex items-center gap-2 text-xs text-sky-300">
@@ -1555,7 +1556,7 @@ export default function DashboardPage() {
                 className={`h-5 w-5 rounded border flex items-center justify-center
                           ${
                             checked
-                              ? "bg-emerald-500/20 border-emerald-500/50"
+                              ? "bg-cyan-300/20 border-cyan-300/50"
                               : "border-neutral-600"
                           }`}
               >
@@ -1618,7 +1619,7 @@ export default function DashboardPage() {
           onDragEnd={!isForgottenMode ? onDragEndItem : undefined}
           className={`cursor-grab ${
             draggingItemId === it.id ? "opacity-60 scale-[0.99]" : ""
-          } ${checked ? "ring-2 ring-emerald-500/40" : ""} ${
+          } ${checked ? "ring-2 ring-cyan-300/35" : ""} ${
             aiChecked ? "ring-2 ring-sky-500/30" : ""
           }`}
         >
@@ -1637,12 +1638,12 @@ export default function DashboardPage() {
             }
             className={`${canBulk ? "pl-12" : ""} ${canAiSelect ? "pr-12" : ""}`}
           />
-          <div className="mt-2 flex flex-col gap-2 rounded-xl border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-2 flex flex-col gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-[#bccabb]/50">
+              <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-white/38">
                 İşleme durumu
               </div>
-              <div className="mt-0.5 text-xs text-[#bccabb]">
+              <div className="mt-0.5 text-xs text-white/52">
                 {WORK_STATUS_META[workStatus].description}
               </div>
             </div>
@@ -1653,7 +1654,7 @@ export default function DashboardPage() {
                 void setWorkStatusForItem(it.id, e.target.value as WorkStatus);
               }}
               onClick={(e) => e.stopPropagation()}
-              className="h-9 rounded-full border border-[#3d4a3e]/40 bg-[#201f1f] px-3 text-xs font-semibold text-[#e5e2e1] outline-none focus:border-teal-300/60"
+              className="h-9 rounded-lg border border-white/10 bg-[#07090d] px-3 text-xs font-semibold text-white/82 outline-none focus:border-cyan-200/50"
               title="Bu kaydın işleme durumunu seç"
             >
               {Object.entries(WORK_STATUS_META).map(([key, meta]) => (
@@ -1669,26 +1670,32 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#131313] pb-28 text-[#e5e2e1]">
-      <DnaBackdrop className="fixed opacity-35" />
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(107,251,154,0.08),transparent_42%),linear-gradient(to_bottom,transparent,#131313_82%)]" />
-      <div className="fixed inset-x-0 top-0 z-50 border-b border-[#3d4a3e]/20 bg-[#131313]/70 px-6 py-4 shadow-[0_20px_40px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
-        <div className="mx-auto max-w-6xl">
+    <main className="relative min-h-screen overflow-hidden bg-[#030406] pb-28 text-white selection:bg-cyan-300/25">
+      <DnaBackdrop className="fixed opacity-20" />
+      <div className="theme-page-glow pointer-events-none fixed inset-0" />
+      <div className="pointer-events-none fixed inset-0 opacity-[0.075] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:72px_72px]" />
+      <div className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-[#030406]/62 px-6 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
+        <div className="mx-auto max-w-7xl">
           <Header />
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-10 pt-24 sm:px-6">
-        <section className="mt-2 overflow-hidden rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/70 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-6">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-10 pt-24 sm:px-6">
+        <motion.section
+          initial={{ opacity: 0, y: 24, filter: "blur(10px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-white/[0.045] p-5 shadow-[0_40px_120px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:p-6"
+        >
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-300">
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-100">
                 Pulse Dashboard
               </div>
-              <h1 className="mt-3 text-3xl font-black tracking-tight text-[#e5e2e1] sm:text-4xl">
+              <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">
                 Kayıtlarını düzenle, geri getir, kullan.
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#bccabb]">
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-white/58">
                 Linkler ve notlar akışta kalır; arama, gruplar, unutulanlar ve
                 AI işlemleri ayrı katmanlarda çalışır.
               </p>
@@ -1696,14 +1703,14 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => openNew("note")}
-                  className="inline-flex items-center justify-center rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-5 py-3 text-sm font-semibold text-[#e5e2e1] transition hover:bg-[#2a2a2a]"
+                  className="inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/82 transition hover:bg-white/[0.08] hover:text-white"
                 >
                   + Yeni not
                 </button>
                 <button
                   type="button"
                   onClick={() => openNew("link")}
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-5 py-3 text-sm font-semibold text-emerald-950 transition hover:scale-[1.02]"
+                  className="accent-gradient inline-flex items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold transition hover:opacity-90"
                 >
                   + Yeni link
                 </button>
@@ -1719,22 +1726,22 @@ export default function DashboardPage() {
               ].map(([label, value]) => (
                 <div
                   key={label}
-                  className="rounded-xl border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 p-4"
+                  className="rounded-xl border border-white/10 bg-black/20 p-4"
                 >
-                  <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#bccabb]/60">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/40">
                     {label}
                   </div>
-                  <div className="mt-2 text-2xl font-black text-emerald-300">
+                  <div className="mt-2 text-2xl font-semibold text-cyan-100">
                     {value}
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </section>
+        </motion.section>
 
         {isPro === true && paymentIssue ? (
-          <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-950/30 p-4 text-sm text-amber-200 backdrop-blur-xl">
+          <div className="mt-4 rounded-xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100 backdrop-blur-xl">
             <div className="font-semibold text-amber-100">
               Ödeme sorunu tespit edildi
             </div>
@@ -1753,9 +1760,9 @@ export default function DashboardPage() {
         ) : null}
 
         {isPro === false ? (
-          <div className="mt-4 rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-4 text-sm text-[#bccabb] backdrop-blur-xl">
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/58 backdrop-blur-xl">
             Pro ile tarayıcı eklentisini kullanıp sağ tıkla kaydedebilirsin.{" "}
-            <a className="font-semibold text-emerald-300 underline" href="/pro">
+            <a className="font-semibold text-cyan-100 underline decoration-cyan-200/30" href="/pro">
               Pro planı gör
             </a>
           </div>
@@ -1763,13 +1770,13 @@ export default function DashboardPage() {
 
         {/* ✅ Forgotten Upsell (Free users) */}
         {isPro === false && activeGroupId === "forgotten" ? (
-          <div className="mt-4 rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-4 backdrop-blur-xl">
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-xl">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-sm font-semibold text-[#e5e2e1]">
+                <div className="text-sm font-semibold text-white">
                   Unutulanlar: Free vs Pro
                 </div>
-                <div className="mt-1 text-xs text-[#bccabb]">
+                <div className="mt-1 text-xs text-white/56">
                   Free planda{" "}
                   <span className="text-neutral-200 font-semibold">7+</span>{" "}
                   gündür bakmadıkların burada görünür. Pro’da{" "}
@@ -1782,7 +1789,7 @@ export default function DashboardPage() {
 
               <a
                 href="/pro"
-                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-4 py-2 text-xs font-semibold text-emerald-950 transition hover:scale-[1.02]"
+                className="accent-gradient inline-flex items-center justify-center rounded-lg px-4 py-2 text-xs font-semibold transition hover:opacity-90"
               >
                 Pro’ya geç
               </a>
@@ -1792,19 +1799,19 @@ export default function DashboardPage() {
 
         {/* ✅ Extension card only Pro */}
         {isPro === true ? (
-          <div className="mt-4 rounded-xl border border-emerald-300/20 bg-[#1c1b1b]/70 p-4 backdrop-blur-xl">
+          <div className="mt-4 rounded-xl border border-cyan-200/18 bg-cyan-200/[0.055] p-4 backdrop-blur-xl">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-sm font-semibold text-[#e5e2e1]">
+                <div className="text-sm font-semibold text-white">
                   Tarayıcı Eklentisi (PRO)
                 </div>
 
                 {extChecking ? (
-                  <div className="text-xs text-[#bccabb]">
+                  <div className="text-xs text-white/56">
                     Kontrol ediliyor…
                   </div>
                 ) : extLiveHere ? (
-                  <div className="text-xs text-emerald-300">
+                  <div className="text-xs text-cyan-100">
                     ✅ Bu tarayıcıda aktif
                   </div>
                 ) : extConnected ? (
@@ -1821,21 +1828,21 @@ export default function DashboardPage() {
               {extChecking ? (
                 <button
                   disabled
-                  className="inline-flex cursor-not-allowed items-center justify-center rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-3 py-2 text-xs font-semibold text-[#bccabb]/50"
+                  className="inline-flex cursor-not-allowed items-center justify-center rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs font-semibold text-white/40"
                 >
                   Kontrol ediliyor…
                 </button>
               ) : extLiveHere ? (
                 <button
                   onClick={() => router.push("/extension/connect")}
-                  className="inline-flex items-center justify-center rounded-full border border-[#3d4a3e]/50 bg-[#201f1f] px-3 py-2 text-xs font-semibold text-[#e5e2e1] transition hover:bg-[#2a2a2a]"
+                  className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/82 transition hover:bg-white/[0.08]"
                 >
                   Yeniden bağla
                 </button>
               ) : (
                 <a
                   href="/extension/connect"
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-4 py-2 text-xs font-semibold text-emerald-950 transition hover:scale-[1.02]"
+                  className="accent-gradient inline-flex items-center justify-center rounded-lg px-4 py-2 text-xs font-semibold transition hover:opacity-90"
                 >
                   Bağla
                 </a>
@@ -1843,7 +1850,7 @@ export default function DashboardPage() {
             </div>
 
             {!extChecking && !extLiveHere ? (
-              <div className="mt-2 text-xs text-[#bccabb]/70">
+              <div className="mt-2 text-xs text-white/46">
                 Pro kullanıcılar sağ tık → “clarionot’ya Kaydet” ile tek tık
                 kaydeder.
               </div>
@@ -1852,16 +1859,21 @@ export default function DashboardPage() {
         ) : null}
 
         {/* ✅ Groups bar + Drop zones */}
-        <section className="mt-6 overflow-hidden rounded-xl border border-emerald-300/20 bg-[#201f1f]/75 shadow-[0_18px_60px_rgba(0,0,0,0.25)] backdrop-blur-2xl">
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+          className="mt-6 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] shadow-[0_28px_90px_rgba(0,0,0,0.28)] backdrop-blur-2xl"
+        >
           <div className="grid gap-0 lg:grid-cols-[1.05fr_1.35fr]">
-            <div className="border-b border-[#3d4a3e]/25 p-5 sm:p-6 lg:border-b-0 lg:border-r">
-              <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-emerald-300">
+            <div className="border-b border-white/10 p-5 sm:p-6 lg:border-b-0 lg:border-r lg:border-white/10">
+              <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
                 Haftalık özet
               </div>
-              <h2 className="mt-3 text-2xl font-black tracking-tight text-[#e5e2e1]">
+              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-white">
                 Bu hafta neye dönmeli?
               </h2>
-              <p className="mt-2 text-sm leading-6 text-[#bccabb]">
+              <p className="mt-2 text-sm leading-6 text-white/56">
                 Clarionot, kaydettiklerini pasif arşivden çıkarıp bu haftanın
                 küçük çalışma listesine taşır.
               </p>
@@ -1874,12 +1886,12 @@ export default function DashboardPage() {
                 ].map(([label, value]) => (
                   <div
                     key={label}
-                    className="rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 p-3"
+                    className="rounded-lg border border-white/10 bg-black/20 p-3"
                   >
-                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#bccabb]/55">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/38">
                       {label}
                     </div>
-                    <div className="mt-1 text-xl font-black text-teal-300">
+                    <div className="mt-1 text-xl font-semibold text-cyan-100">
                       {value}
                     </div>
                   </div>
@@ -1893,7 +1905,7 @@ export default function DashboardPage() {
                     setActiveGroupId("forgotten");
                     setActiveWorkStatus("all");
                   }}
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-4 py-2 text-xs font-semibold text-emerald-950 transition hover:scale-[1.02]"
+                  className="accent-gradient inline-flex items-center justify-center rounded-lg px-4 py-2 text-xs font-semibold transition hover:opacity-90"
                 >
                   Unutulanları aç
                 </button>
@@ -1903,7 +1915,7 @@ export default function DashboardPage() {
                     setActiveWorkStatus("today");
                     setActiveGroupId("all");
                   }}
-                  className="inline-flex items-center justify-center rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-4 py-2 text-xs font-semibold text-[#e5e2e1] transition hover:bg-[#2a2a2a]"
+                  className="inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/82 transition hover:bg-white/[0.08] hover:text-white"
                 >
                   Bugünün kuyruğu
                 </button>
@@ -1912,17 +1924,17 @@ export default function DashboardPage() {
 
             <div className="p-5 sm:p-6">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-teal-300">
+                <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
                   Gündeme alınacaklar
                 </div>
-                <div className="mt-1 text-xs text-[#bccabb]/70">
+                <div className="mt-1 text-xs text-white/46">
                   En uzun süredir bekleyen veya zaten işleme alınmış kayıtlar.
                 </div>
               </div>
 
               <div className="mt-4 grid gap-3">
                 {weeklyPulse.focusItems.length === 0 ? (
-                  <div className="rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 p-4 text-sm text-[#bccabb]">
+                  <div className="rounded-lg border border-white/10 bg-black/20 p-4 text-sm text-white/56">
                     Bu hafta gündeme alınacak eski kayıt yok. Yeni not veya link
                     kaydettiğinde burada öneriler oluşur.
                   </div>
@@ -1934,23 +1946,23 @@ export default function DashboardPage() {
                     return (
                       <div
                         key={item.id}
-                        className="flex flex-col gap-3 rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 p-4 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-3 rounded-lg border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <button
                           type="button"
                           onClick={() => openItem(item)}
                           className="min-w-0 text-left"
                         >
-                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#bccabb]/55">
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/38">
                             <span>{item.type === "link" ? "Link" : "Not"}</span>
                             <span>·</span>
                             <span>{age === 0 ? "Bugün" : `${age} gün`}</span>
                             <span>·</span>
-                            <span className="text-teal-300">
+                            <span className="text-cyan-100">
                               {WORK_STATUS_META[status].shortLabel}
                             </span>
                           </div>
-                          <div className="mt-1 line-clamp-2 text-sm font-semibold text-[#e5e2e1]">
+                          <div className="mt-1 line-clamp-2 text-sm font-semibold text-white">
                             {item.title || "Başlıksız kayıt"}
                           </div>
                         </button>
@@ -1961,7 +1973,7 @@ export default function DashboardPage() {
                             onClick={() =>
                               void setWorkStatusForItem(item.id, "today")
                             }
-                            className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-300/15"
+                            className="rounded-lg border border-cyan-200/18 bg-cyan-200/10 px-3 py-2 text-xs font-semibold text-cyan-50 transition hover:bg-cyan-200/15"
                           >
                             Bugün
                           </button>
@@ -1970,7 +1982,7 @@ export default function DashboardPage() {
                             onClick={() =>
                               void setWorkStatusForItem(item.id, "done")
                             }
-                            className="rounded-full border border-[#3d4a3e]/40 bg-[#201f1f] px-3 py-2 text-xs font-semibold text-[#bccabb] transition hover:bg-[#2a2a2a]"
+                            className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/[0.08]"
                           >
                             Bitti
                           </button>
@@ -1982,21 +1994,21 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <div className="mt-6 rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/70 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)] backdrop-blur-2xl">
+        <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
           <div className="space-y-5">
             <div>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-emerald-300">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
                     Görünüm
                   </div>
-                  <div className="mt-1 text-xs text-[#bccabb]/70">
+                  <div className="mt-1 text-xs text-white/46">
                     Kayıtları kapsam, inbox, unutulanlar veya grup bazında süz.
                   </div>
                 </div>
-                <div className="hidden text-xs text-[#bccabb]/60 sm:block">
+                <div className="hidden text-xs text-white/42 sm:block">
                   {finalItems.length} kayıt gösteriliyor
                 </div>
               </div>
@@ -2006,8 +2018,8 @@ export default function DashboardPage() {
                 onClick={() => setActiveGroupId("all")}
                 className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
                   activeGroupId === "all"
-                    ? "bg-emerald-300 text-emerald-950"
-                    : "bg-[#2a2a2a] text-[#e5e2e1]/70 hover:bg-[#353534]"
+                    ? "bg-white text-[#030406]"
+                    : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
                 }`}
               >
                 Tümü
@@ -2018,8 +2030,8 @@ export default function DashboardPage() {
                 onClick={() => setActiveGroupId("forgotten")}
                 className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
                   activeGroupId === "forgotten"
-                    ? "bg-emerald-300 text-emerald-950"
-                    : "bg-[#2a2a2a] text-[#e5e2e1]/70 hover:bg-[#353534]"
+                    ? "bg-white text-[#030406]"
+                    : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
                 }`}
                 title={
                   isPro === true
@@ -2031,8 +2043,8 @@ export default function DashboardPage() {
                 <span
                   className={
                     activeGroupId === "forgotten"
-                      ? "text-emerald-950/70"
-                      : "text-emerald-300"
+                      ? "text-[#030406]/70"
+                      : "text-cyan-100"
                   }
                 >
                   ({groupCounts["forgotten"] ?? 0})
@@ -2064,7 +2076,7 @@ export default function DashboardPage() {
                           showToast("ok", "Ayar kaydedildi ✅");
                         }
                       }}
-                      className="rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-3 py-2 text-xs text-[#e5e2e1] outline-none focus:border-emerald-300/60"
+                      className="rounded-lg border border-white/10 bg-[#07090d] px-3 py-2 text-xs text-white/82 outline-none focus:border-cyan-200/50"
                     >
                       <option value={30}>30+</option>
                       <option value={60}>60+</option>
@@ -2074,7 +2086,7 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => (window.location.href = "/pro")}
-                      className="rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-3 py-2 text-xs text-[#bccabb] hover:bg-[#2a2a2a]"
+                      className="rounded-lg border border-white/10 bg-[#07090d] px-3 py-2 text-xs text-white/58 hover:bg-white/[0.06]"
                       title="30 / 60 / 90 gün seçmek Pro’da"
                     >
                       7+ gün <span className="ml-1">🔒</span>
@@ -2086,11 +2098,11 @@ export default function DashboardPage() {
               {/* ✅ Forgotten aksiyonları */}
               {/* ✅ Forgotten aksiyonları (Action Bar) */}
               {activeGroupId === "forgotten" && isPro === true ? (
-                <div className="mt-3 rounded-xl border border-[#3d4a3e]/30 bg-[#0e0e0e]/80 p-3">
+                <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     {/* Sol: seçili info */}
-                    <div className="flex items-center gap-2 text-xs text-[#bccabb]">
-                      <span className="rounded-full border border-[#3d4a3e]/40 bg-[#1c1b1b] px-3 py-1">
+                    <div className="flex items-center gap-2 text-xs text-white/58">
+                      <span className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-1">
                         Seçili:{" "}
                         <span className="text-neutral-100 font-semibold">
                           {forgottenSelection.length}
@@ -2258,11 +2270,11 @@ export default function DashboardPage() {
                 {...inboxDrop}
                 className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
                   activeGroupId === "inbox"
-                    ? "bg-emerald-300 text-emerald-950"
-                    : "bg-[#2a2a2a] text-[#e5e2e1]/70 hover:bg-[#353534]"
+                    ? "bg-white text-[#030406]"
+                    : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
                 } ${
                   dragOverTarget === "inbox"
-                    ? "outline outline-2 outline-emerald-500/60 bg-emerald-500/10 border-emerald-500/40"
+                    ? "outline outline-2 outline-cyan-300/50 bg-cyan-300/10 border-cyan-300/30"
                     : ""
                 }`}
                 title="Item’ları buraya sürükleyip Inbox’a alabilirsin"
@@ -2271,8 +2283,8 @@ export default function DashboardPage() {
                 <span
                   className={
                     activeGroupId === "inbox"
-                      ? "text-emerald-950/70"
-                      : "text-emerald-300"
+                      ? "text-[#030406]/70"
+                      : "text-cyan-100"
                   }
                 >
                   ({groupCounts["inbox"] ?? 0})
@@ -2295,11 +2307,11 @@ export default function DashboardPage() {
                     {...drop}
                     className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition ${
                       isActive
-                        ? "bg-emerald-300 text-emerald-950"
-                        : "bg-[#2a2a2a] text-[#e5e2e1]/70 hover:bg-[#353534]"
+                        ? "bg-white text-[#030406]"
+                        : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
                     } ${
                       isOver
-                        ? "outline outline-2 outline-emerald-500/60 bg-emerald-500/10 border-emerald-500/40"
+                        ? "outline outline-2 outline-cyan-300/50 bg-cyan-300/10 border-cyan-300/30"
                         : ""
                     }`}
                     title="Item’ları buraya sürükleyip gruba taşı"
@@ -2313,8 +2325,8 @@ export default function DashboardPage() {
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] ${
                           isActive
-                            ? "bg-emerald-950/10 text-emerald-950/70"
-                            : "bg-[#0e0e0e] text-emerald-300"
+                            ? "bg-black/10 text-[#030406]/70"
+                            : "bg-black/20 text-cyan-100"
                         }`}
                       >
                         {count}
@@ -2350,13 +2362,13 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="border-t border-[#3d4a3e]/25 pt-4">
+            <div className="border-t border-white/10 pt-4">
               <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-emerald-300">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
                     İşleme kuyruğu
                   </div>
-                  <div className="mt-1 text-xs text-[#bccabb]/70">
+                  <div className="mt-1 text-xs text-white/46">
                     Kaydettiklerini pasif arşiv yerine küçük bir çalışma akışına al.
                   </div>
                 </div>
@@ -2382,7 +2394,7 @@ export default function DashboardPage() {
                       className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                         active
                           ? "bg-teal-300 text-teal-950"
-                          : "bg-[#2a2a2a] text-[#e5e2e1]/70 hover:bg-[#353534]"
+                          : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
                       }`}
                       title={String(description)}
                     >
@@ -2400,17 +2412,17 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="border-t border-[#3d4a3e]/25 pt-4">
+            <div className="border-t border-white/10 pt-4">
               <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-teal-300">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
                     Araçlar
                   </div>
-                  <div className="mt-1 text-xs text-[#bccabb]/70">
+                  <div className="mt-1 text-xs text-white/46">
                     Grup oluştur, AI kategorisi seç, toplu AI işlemlerini başlat.
                   </div>
                 </div>
-                <div className="text-xs text-[#bccabb]/60">
+                <div className="text-xs text-white/42">
                   Arama tüm başlık, içerik ve etiketlerde çalışır. Kısayol:
                   Ctrl/⌘ + K veya /
                 </div>
@@ -2420,7 +2432,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setOpenGroupModal(true)}
-                  className="h-9 rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-4 text-xs font-semibold text-emerald-300 transition hover:bg-[#2a2a2a]"
+                  className="h-9 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-xs font-semibold text-cyan-100 transition hover:bg-white/[0.08]"
                 >
                   + Grup
                 </button>
@@ -2428,7 +2440,7 @@ export default function DashboardPage() {
                 <select
                   value={activeAiCategory}
                   onChange={(e) => setActiveAiCategory(e.target.value as any)}
-                  className="h-9 w-[150px] shrink-0 rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-3 text-sm text-[#e5e2e1] outline-none focus:border-emerald-300/60"
+                  className="h-9 w-[150px] shrink-0 rounded-lg border border-white/10 bg-[#07090d] px-3 text-sm text-white/82 outline-none focus:border-cyan-200/50"
                   title="AI kategorisine göre filtrele"
                 >
                   <option value="all">
@@ -2501,7 +2513,7 @@ export default function DashboardPage() {
                       activeGroupId === "all" ||
                       activeGroupId === "forgotten"
                         ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
-                        : "border-emerald-300/30 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/15"
+                        : "border-cyan-200/18 bg-cyan-200/10 text-cyan-50 hover:bg-cyan-200/15"
                     }`}
                     title="Seçili grup/Inbox içindeki tüm kayıtlar için AI çalıştır"
                   >
@@ -2518,7 +2530,7 @@ export default function DashboardPage() {
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     placeholder="Ara..."
-                    className="h-10 w-full rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] pl-9 pr-3 text-sm text-[#e5e2e1] placeholder:text-[#bccabb]/50 outline-none transition focus:border-emerald-300/60"
+                    className="h-10 w-full rounded-lg border border-white/10 bg-[#07090d] pl-9 pr-3 text-sm text-white/82 placeholder:text-white/34 outline-none transition focus:border-cyan-200/50"
                   />
                 </div>
               </div>
@@ -2556,7 +2568,7 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
-          <div className="mt-3 text-xs text-[#bccabb]/70">
+          <div className="mt-3 text-xs text-white/46">
             İpucu: Bir not/link kartını sürükleyip Inbox veya bir gruba bırak.
           </div>
         </div>
@@ -2565,7 +2577,7 @@ export default function DashboardPage() {
           {/* SOL: NOTLAR */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold tracking-tight text-[#e5e2e1]">
+              <h2 className="text-lg font-semibold tracking-[-0.02em] text-white">
                 📝 Notlar
               </h2>
               <Button variant="ghost" onClick={() => openNew("note")}>
@@ -2576,7 +2588,7 @@ export default function DashboardPage() {
             {loading ? (
               <div className="text-sm text-neutral-400">Yükleniyor…</div>
             ) : notes.length === 0 ? (
-              <div className="rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 p-6 text-sm text-[#bccabb]">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6 text-sm text-white/56">
                 Henüz not yok.
               </div>
             ) : activeGroupId === "all" ? (
@@ -2584,7 +2596,7 @@ export default function DashboardPage() {
                 {/* Inbox notes section */}
                 <div
                   {...inboxDrop}
-                  className={`rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 backdrop-blur-xl ${dropZoneClass(
+                  className={`rounded-xl border border-white/10 bg-white/[0.035] backdrop-blur-xl ${dropZoneClass(
                     dragOverTarget === "inbox",
                   )}`}
                 >
@@ -2592,13 +2604,13 @@ export default function DashboardPage() {
                     onClick={() => toggleCollapsed("inbox_notes")}
                     className="w-full flex items-center justify-between px-4 py-3 text-left"
                   >
-                    <div className="text-xs font-semibold uppercase tracking-wider text-[#e5e2e1]">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-white/78">
                       Inbox{" "}
                       <span className="text-neutral-500">
                         ({(notesByGroup["inbox"] ?? []).length})
                       </span>
                     </div>
-                    <div className="text-xs text-[#bccabb]">
+                    <div className="text-xs text-white/48">
                       {collapsed["inbox_notes"] ? "▸" : "▾"}
                     </div>
                   </button>
@@ -2632,7 +2644,7 @@ export default function DashboardPage() {
                     <div
                       key={g.id}
                       {...drop}
-                      className={`rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 backdrop-blur-xl ${dropZoneClass(
+                      className={`rounded-xl border border-white/10 bg-white/[0.035] backdrop-blur-xl ${dropZoneClass(
                         isOver,
                       )}`}
                     >
@@ -2640,13 +2652,13 @@ export default function DashboardPage() {
                         onClick={() => toggleCollapsed(`notes_${g.id}`)}
                         className="w-full flex items-center justify-between px-4 py-3 text-left"
                       >
-                        <div className="text-xs font-semibold uppercase tracking-wider text-[#e5e2e1]">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-white/78">
                           {g.title}{" "}
                           <span className="text-neutral-500">
                             ({list.length})
                           </span>
                         </div>
-                        <div className="text-xs text-[#bccabb]">
+                        <div className="text-xs text-white/48">
                           {collapsed[`notes_${g.id}`] ? "▸" : "▾"}
                         </div>
                       </button>
@@ -2674,7 +2686,7 @@ export default function DashboardPage() {
           {/* SAĞ: LİNKLER */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold tracking-tight text-[#e5e2e1]">
+              <h2 className="text-lg font-semibold tracking-[-0.02em] text-white">
                 🔗 Linkler
               </h2>
               <Button variant="ghost" onClick={() => openNew("link")}>
@@ -2685,7 +2697,7 @@ export default function DashboardPage() {
             {loading ? (
               <div className="text-sm text-neutral-400">Yükleniyor…</div>
             ) : links.length === 0 ? (
-              <div className="rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 p-6 text-sm text-[#bccabb]">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6 text-sm text-white/56">
                 Henüz link yok.
               </div>
             ) : activeGroupId === "all" ? (
@@ -2693,7 +2705,7 @@ export default function DashboardPage() {
                 {/* Inbox links section */}
                 <div
                   {...inboxDrop}
-                  className={`rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 backdrop-blur-xl ${dropZoneClass(
+                  className={`rounded-xl border border-white/10 bg-white/[0.035] backdrop-blur-xl ${dropZoneClass(
                     dragOverTarget === "inbox",
                   )}`}
                 >
@@ -2701,13 +2713,13 @@ export default function DashboardPage() {
                     onClick={() => toggleCollapsed("inbox_links")}
                     className="w-full flex items-center justify-between px-4 py-3 text-left"
                   >
-                    <div className="text-xs font-semibold uppercase tracking-wider text-[#e5e2e1]">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-white/78">
                       Inbox{" "}
                       <span className="text-neutral-500">
                         ({(linksByGroup["inbox"] ?? []).length})
                       </span>
                     </div>
-                    <div className="text-xs text-[#bccabb]">
+                    <div className="text-xs text-white/48">
                       {collapsed["inbox_links"] ? "▸" : "▾"}
                     </div>
                   </button>
@@ -2741,7 +2753,7 @@ export default function DashboardPage() {
                     <div
                       key={g.id}
                       {...drop}
-                      className={`rounded-xl border border-[#3d4a3e]/25 bg-[#1c1b1b]/70 backdrop-blur-xl ${dropZoneClass(
+                      className={`rounded-xl border border-white/10 bg-white/[0.035] backdrop-blur-xl ${dropZoneClass(
                         isOver,
                       )}`}
                     >
@@ -2749,13 +2761,13 @@ export default function DashboardPage() {
                         onClick={() => toggleCollapsed(`links_${g.id}`)}
                         className="w-full flex items-center justify-between px-4 py-3 text-left"
                       >
-                        <div className="text-xs font-semibold uppercase tracking-wider text-[#e5e2e1]">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-white/78">
                           {g.title}{" "}
                           <span className="text-neutral-500">
                             ({list.length})
                           </span>
                         </div>
-                        <div className="text-xs text-[#bccabb]">
+                        <div className="text-xs text-white/48">
                           {collapsed[`links_${g.id}`] ? "▸" : "▾"}
                         </div>
                       </button>
@@ -2786,41 +2798,41 @@ export default function DashboardPage() {
       <button
         type="button"
         onClick={() => setOpenQuickAdd((value) => !value)}
-        className="fixed bottom-24 right-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-emerald-300 to-teal-300 text-3xl font-light text-emerald-950 shadow-[0_10px_30px_rgba(107,251,154,0.3)] transition active:scale-90"
+        className="accent-gradient fixed bottom-24 right-6 z-40 grid h-14 w-14 place-items-center rounded-xl text-3xl font-light shadow-[0_18px_60px_rgba(80,190,255,0.2)] transition hover:opacity-90 active:scale-95"
         aria-label="Yeni kayıt ekle"
       >
         {openQuickAdd ? "×" : "+"}
       </button>
 
       {openQuickAdd ? (
-        <div className="fixed bottom-40 right-6 z-40 w-48 overflow-hidden rounded-xl border border-[#3d4a3e]/35 bg-[#0e0e0e]/95 p-2 shadow-2xl backdrop-blur-2xl">
+        <div className="fixed bottom-40 right-6 z-40 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#07090d]/95 p-2 shadow-2xl backdrop-blur-2xl">
           <button
             type="button"
             onClick={() => openNew("note")}
-            className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-sm font-semibold text-[#e5e2e1] transition hover:bg-white/5"
+            className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-sm font-semibold text-white/82 transition hover:bg-white/[0.06]"
           >
             <span>Yeni not</span>
-            <span className="text-emerald-300">+</span>
+            <span className="text-cyan-100">+</span>
           </button>
           <button
             type="button"
             onClick={() => openNew("link")}
-            className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-3 text-sm font-semibold text-[#e5e2e1] transition hover:bg-white/5"
+            className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-3 text-sm font-semibold text-white/82 transition hover:bg-white/[0.06]"
           >
             <span>Yeni link</span>
-            <span className="text-emerald-300">+</span>
+            <span className="text-cyan-100">+</span>
           </button>
         </div>
       ) : null}
 
-      <nav className="fixed bottom-0 left-0 z-40 flex h-20 w-full items-center justify-around border-t border-[#3d4a3e]/20 bg-[#1c1b1b]/85 px-4 shadow-2xl backdrop-blur-2xl md:hidden">
+      <nav className="fixed bottom-0 left-0 z-40 flex h-20 w-full items-center justify-around border-t border-white/10 bg-[#030406]/82 px-4 shadow-2xl backdrop-blur-2xl md:hidden">
         <button
           type="button"
           onClick={() => setActiveGroupId("inbox")}
           className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest transition ${
             activeGroupId === "inbox"
-              ? "scale-110 bg-emerald-300/10 text-emerald-300"
-              : "text-[#e5e2e1]/50 hover:bg-[#2a2a2a]"
+              ? "scale-110 bg-cyan-200/10 text-cyan-100"
+              : "text-white/45 hover:bg-white/[0.06]"
           }`}
         >
           <span className="text-lg">□</span>
@@ -2831,8 +2843,8 @@ export default function DashboardPage() {
           onClick={() => setActiveGroupId("forgotten")}
           className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest transition ${
             activeGroupId === "forgotten"
-              ? "scale-110 bg-emerald-300/10 text-emerald-300"
-              : "text-[#e5e2e1]/50 hover:bg-[#2a2a2a]"
+              ? "scale-110 bg-cyan-200/10 text-cyan-100"
+              : "text-white/45 hover:bg-white/[0.06]"
           }`}
         >
           <span className="text-lg">↺</span>
@@ -2843,8 +2855,8 @@ export default function DashboardPage() {
           onClick={() => setActiveGroupId("all")}
           className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest transition ${
             activeGroupId === "all"
-              ? "scale-110 bg-emerald-300/10 text-emerald-300"
-              : "text-[#e5e2e1]/50 hover:bg-[#2a2a2a]"
+              ? "scale-110 bg-cyan-200/10 text-cyan-100"
+              : "text-white/45 hover:bg-white/[0.06]"
           }`}
         >
           <span className="text-lg">▣</span>
@@ -2853,7 +2865,7 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => setOpenGroupModal(true)}
-          className="flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest text-[#e5e2e1]/50 transition hover:bg-[#2a2a2a]"
+          className="flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest text-white/45 transition hover:bg-white/[0.06]"
         >
           <span className="text-lg">+</span>
           Grup

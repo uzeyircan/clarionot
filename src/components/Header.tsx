@@ -141,9 +141,9 @@ export default function Header() {
     <header className="flex items-center justify-between">
       <Link
         href="/"
-        className="flex items-center gap-2 text-sm font-black tracking-tight text-emerald-300 sm:text-xl"
+        className="flex items-center gap-3 text-sm font-semibold tracking-[0.22em] text-white/85 sm:text-base"
       >
-        <span className="grid h-8 w-8 place-items-center rounded-full border border-emerald-300/30 bg-emerald-300/10 text-sm">
+        <span className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-sm font-black shadow-2xl shadow-cyan-500/10 backdrop-blur-xl">
           c
         </span>
         <span className="hidden sm:inline">clarionot</span>
@@ -154,7 +154,7 @@ export default function Header() {
           <>
             <Link
               href="/pro"
-              className="inline-flex items-center justify-center rounded-full border border-[#3d4a3e]/50 bg-[#201f1f] px-4 py-2 text-xs font-semibold text-[#e5e2e1] transition hover:bg-[#2a2a2a]"
+              className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/78 transition hover:bg-white/[0.08]"
             >
               Planlar
             </Link>
@@ -162,7 +162,7 @@ export default function Header() {
             <Button variant="ghost">
               <Link
                 href="/login"
-                className="text-sm text-[#bccabb] hover:text-white"
+                className="text-sm text-white/70 hover:text-white"
               >
                 Giriş Yap
               </Link>
@@ -173,8 +173,8 @@ export default function Header() {
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold border ${
                 plan === "pro"
-                  ? "bg-emerald-300/10 text-emerald-300 border-emerald-300/30"
-                  : "bg-zinc-500/10 text-zinc-300 border-zinc-500/30"
+                      ? "accent-soft accent-text accent-border"
+                  : "bg-white/[0.045] text-white/62 border-white/10"
               }`}
               title={checkingPlan ? "Plan kontrol ediliyor" : undefined}
             >
@@ -185,11 +185,11 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
-                className="inline-flex items-center gap-3 rounded-full border border-[#3d4a3e]/50 bg-[#131313]/70 px-3 py-2 text-sm font-semibold text-zinc-100 transition hover:bg-[#1c1b1b]"
+                className="inline-flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.045] px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2a2a2a] text-[13px] font-bold text-emerald-200">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[13px] font-bold text-[#030406]">
                   {initials}
                 </span>
 
@@ -203,12 +203,12 @@ export default function Header() {
               {menuOpen ? (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-3 w-64 overflow-hidden rounded-xl border border-[#3d4a3e]/40 bg-[#0e0e0e] shadow-2xl"
+                  className="absolute right-0 mt-3 w-64 overflow-hidden rounded-xl border border-white/10 bg-[#07090d] shadow-2xl shadow-black/50"
                 >
                   {/* Email (disabled) */}
-                  <div className="border-b border-[#3d4a3e]/25 px-4 py-3">
-                    <div className="text-[11px] text-zinc-500">Hesap</div>
-                    <div className="mt-0.5 truncate text-xs text-zinc-200">
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <div className="text-[11px] text-white/38">Hesap</div>
+                    <div className="mt-0.5 truncate text-xs text-white/78">
                       {email || "—"}
                     </div>
                   </div>
@@ -218,7 +218,7 @@ export default function Header() {
                       role="menuitem"
                       href="/dashboard"
                       onClick={() => setMenuOpen(false)}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
                     >
                       Dashboard
                     </Link>
@@ -227,8 +227,8 @@ export default function Header() {
                       role="menuitem"
                       href="/pro"
                       onClick={() => setMenuOpen(false)}
-                      className={`mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm hover:bg-neutral-900 ${
-                        hasPaymentIssue ? "text-amber-200" : "text-zinc-200"
+                      className={`mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-white/[0.06] ${
+                        hasPaymentIssue ? "text-amber-200" : "text-white/78"
                       }`}
                     >
                       {hasPaymentIssue
@@ -242,17 +242,17 @@ export default function Header() {
                       role="menuitem"
                       href="/settings"
                       onClick={() => setMenuOpen(false)}
-                      className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
+                      className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
                     >
                       Ayarlar ve export
                     </Link>
 
-                    <div className="my-2 border-t border-[#3d4a3e]/25" />
+                    <div className="my-2 border-t border-white/10" />
 
                     <button
                       role="menuitem"
                       onClick={logout}
-                      className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm text-red-300 hover:bg-red-950/30"
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-red-950/30"
                     >
                       Çıkış Yap
                     </button>

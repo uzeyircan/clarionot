@@ -130,11 +130,11 @@ export default function ItemCard({
     <button
       type="button"
       onClick={() => onOpen(item)}
-      className={`group relative w-full overflow-hidden rounded-xl border border-[#3d4a3e]/20 bg-[#2a2a2a]/40 p-5 text-left shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-2xl transition hover:border-emerald-300/25 hover:bg-[#353534]/55 ${className}`}
+      className={`group relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.045] p-5 text-left shadow-[0_24px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:border-cyan-200/25 hover:bg-white/[0.07] ${className}`}
     >
-      <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full bg-emerald-300/5 blur-3xl transition group-hover:bg-emerald-300/10" />
+      <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full bg-cyan-300/8 blur-3xl transition group-hover:bg-cyan-300/12" />
       <div className="flex items-start justify-between gap-3">
-        <div className="relative z-10 min-w-0 break-words text-[10px] font-bold uppercase tracking-widest text-[#e5e2e1]/40">
+        <div className="relative z-10 min-w-0 break-words text-[10px] font-bold uppercase tracking-widest text-white/42">
           {isLink ? "🔗 Link" : "📝 Not"} ·{" "}
           <span className="text-emerald-300">{formatDaysAgo(daysAgo)}</span>
           <span className="text-neutral-600"> · </span>
@@ -142,11 +142,11 @@ export default function ItemCard({
             {baseDate.toLocaleString("tr-TR")}
           </span>
           {aiStatus === "processing" ? (
-            <span className="ml-2 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-300">
+            <span className="ml-2 rounded-md border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] text-white/62">
               AI…
             </span>
           ) : aiStatus === "done" ? (
-            <span className="ml-2 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-300">
+            <span className="ml-2 rounded-md border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] text-white/62">
               AI
             </span>
           ) : aiStatus === "failed" ? (
@@ -154,7 +154,7 @@ export default function ItemCard({
               AI failed
             </span>
           ) : aiStatus === "disabled" ? (
-            <span className="ml-2 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-400">
+            <span className="ml-2 rounded-md border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] text-white/46">
               AI off
             </span>
           ) : null}
@@ -187,34 +187,34 @@ export default function ItemCard({
         </div>
 
         {snoozeLabel ? (
-          <span className="shrink-0 rounded-full border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[10px] text-neutral-300">
+          <span className="shrink-0 rounded-md border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] text-white/62">
             {snoozeLabel}
           </span>
         ) : null}
       </div>
 
       <div className="mt-1 flex items-center gap-2 min-w-0">
-        <div className="min-w-0 break-words text-base font-semibold leading-snug text-[#e5e2e1] line-clamp-1">
+        <div className="min-w-0 break-words text-base font-semibold leading-snug text-white line-clamp-1">
           {item.title || (isLink ? "Başlıksız link" : "Başlıksız not")}
         </div>
 
         {aiStatus === "done" && cat ? (
-          <span className="shrink-0 rounded-full border border-[#3d4a3e]/30 bg-[#0e0e0e] px-2 py-0.5 text-[10px] text-emerald-200">
+          <span className="shrink-0 rounded-md border border-cyan-200/16 bg-cyan-200/10 px-2 py-0.5 text-[10px] text-cyan-50">
             {cat.icon} {cat.label}
           </span>
         ) : null}
       </div>
 
       {showAiSummary ? (
-        <div className="relative mt-3 overflow-hidden rounded-xl border border-teal-300/25 bg-gradient-to-br from-teal-300/10 to-[#0e0e0e] p-4">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-teal-300/10 blur-3xl" />
+        <div className="relative mt-3 overflow-hidden rounded-xl border border-cyan-200/18 bg-gradient-to-br from-cyan-200/10 to-white/[0.025] p-4">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-cyan-200/10 blur-3xl" />
 
           <div className="relative z-10">
-            <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-teal-300">
+            <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-cyan-100">
               ✨ Smart Insight
             </div>
 
-            <div className="mt-2 text-sm leading-relaxed text-[#e5e2e1] line-clamp-4">
+            <div className="mt-2 text-sm leading-relaxed text-white/82 line-clamp-4">
               {aiSummary}
             </div>
           </div>
@@ -229,22 +229,22 @@ export default function ItemCard({
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="block min-w-0 break-all text-sm text-teal-200 underline decoration-teal-300/30 hover:decoration-teal-200"
+              className="block min-w-0 break-all text-sm text-cyan-100 underline decoration-cyan-200/30 hover:decoration-cyan-100"
             >
               {url}
             </a>
           ) : (
-            <div className="text-sm text-[#bccabb]">URL yok</div>
+            <div className="text-sm text-white/52">URL yok</div>
           )}
 
           {note ? (
-            <div className="min-w-0 break-words whitespace-pre-wrap text-sm text-[#bccabb] line-clamp-2">
+            <div className="min-w-0 break-words whitespace-pre-wrap text-sm text-white/56 line-clamp-2">
               {note}
             </div>
           ) : null}
         </div>
       ) : (
-        <div className="mt-2 min-w-0 break-words whitespace-pre-wrap text-sm text-[#bccabb] line-clamp-2">
+        <div className="mt-2 min-w-0 break-words whitespace-pre-wrap text-sm text-white/56 line-clamp-2">
           {item.content}
         </div>
       )}
@@ -254,12 +254,12 @@ export default function ItemCard({
           {item.tags.slice(0, 6).map((t) => (
             <span
               key={t}
-              className="max-w-full overflow-hidden text-ellipsis rounded
-                         bg-[#353534]
-                         px-2.5 py-1 text-xs text-emerald-200
+              className="max-w-full overflow-hidden text-ellipsis rounded-md
+                         border border-white/10 bg-white/[0.055]
+                         px-2.5 py-1 text-xs text-cyan-50
                          shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]"
             >
-              <span className="text-emerald-300/60">#</span>
+              <span className="text-cyan-200/60">#</span>
               <span className="ml-0.5">{t}</span>
             </span>
           ))}

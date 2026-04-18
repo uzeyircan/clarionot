@@ -1,4 +1,10 @@
-export type ThemeAccent = "mint" | "teal" | "violet" | "rose" | "amber";
+export type ThemeAccent =
+  | "mint"
+  | "teal"
+  | "violet"
+  | "rose"
+  | "amber"
+  | "mono";
 
 export type ThemePreset = {
   id: ThemeAccent;
@@ -51,6 +57,14 @@ export const THEME_PRESETS: ThemePreset[] = [
     secondary: "#fb923c",
     contrast: "#451a03",
     soft: "rgba(252, 211, 77, 0.12)",
+  },
+  {
+    id: "mono",
+    label: "Beyaz + gri",
+    primary: "#f5f5f5",
+    secondary: "#a3a3a3",
+    contrast: "#111111",
+    soft: "rgba(245, 245, 245, 0.1)",
   },
 ];
 
