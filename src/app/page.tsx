@@ -844,9 +844,13 @@ function DashboardShowcase() {
   });
 
   return (
-    <section id="dashboard" ref={ref} className="relative px-5 py-28 sm:px-8 lg:py-40">
+    <section
+      id="dashboard"
+      ref={ref}
+      className="relative px-5 py-20 sm:px-8 sm:py-24 lg:py-40"
+    >
       <div className="mx-auto max-w-7xl">
-        <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+        <div className="grid gap-8 sm:gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start lg:gap-12">
           <div className="lg:sticky lg:top-32">
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -861,7 +865,7 @@ function DashboardShowcase() {
               whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               viewport={{ once: true }}
               transition={{ duration: 0.7 }}
-              className="mt-4 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-6xl"
+              className="mt-4 max-w-3xl text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-5xl lg:text-6xl"
             >
               Hafızayı görünür yapan dashboard.
             </motion.h2>
@@ -870,15 +874,15 @@ function DashboardShowcase() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1, duration: 0.7 }}
-              className="mt-6 max-w-lg text-lg leading-8 text-white/58"
+              className="mt-5 max-w-xl text-base leading-7 text-white/58 sm:mt-6 sm:text-lg sm:leading-8"
             >
               Gruplar, etiketler, kayıtlı linkler ve unutulan rozetleri
               kaydırdıkça adım adım ortaya çıkar.
             </motion.p>
           </div>
 
-          <div className="min-h-[1200px] lg:min-h-[1450px]">
-            <div className="sticky top-28">
+          <div className="lg:min-h-[1450px]">
+            <div className="lg:sticky lg:top-28">
               <DashboardPreview progress={scrollYProgress} />
             </div>
           </div>
@@ -899,20 +903,22 @@ function DashboardPreview({ progress }: { progress: MotionValue<number> }) {
   const groupsOpacity = useTransform(progress, [0.52, 0.76], [0, 1]);
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#06080c]/95 shadow-[0_60px_180px_rgba(0,0,0,0.62)]">
-      <div className="flex items-center justify-between border-b border-white/8 bg-white/[0.035] px-4 py-3">
-        <div className="flex gap-2">
-          <span className="h-3 w-3 rounded-full bg-red-300/70" />
-          <span className="h-3 w-3 rounded-full bg-yellow-200/70" />
-          <span className="h-3 w-3 rounded-full bg-emerald-300/70" />
+    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#06080c]/95 shadow-[0_28px_90px_rgba(0,0,0,0.5)] sm:shadow-[0_60px_180px_rgba(0,0,0,0.62)]">
+      <div className="flex items-center justify-between gap-3 border-b border-white/8 bg-white/[0.035] px-3 py-2.5 sm:px-4 sm:py-3">
+        <div className="flex gap-1.5 sm:gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-red-300/70 sm:h-3 sm:w-3" />
+          <span className="h-2.5 w-2.5 rounded-full bg-yellow-200/70 sm:h-3 sm:w-3" />
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-300/70 sm:h-3 sm:w-3" />
         </div>
-        <span className="text-xs text-white/38">clarionot.app/dashboard</span>
+        <span className="truncate text-[11px] text-white/38 sm:text-xs">
+          clarionot.app/dashboard
+        </span>
       </div>
 
-      <div className="grid min-h-[640px] grid-cols-1 md:grid-cols-[220px_1fr]">
+      <div className="grid grid-cols-1 md:min-h-[560px] md:grid-cols-[190px_1fr] lg:min-h-[640px] lg:grid-cols-[220px_1fr]">
         <motion.aside
           style={{ x: sidebarX, opacity: sidebarOpacity }}
-          className="border-b border-white/8 bg-white/[0.025] p-5 md:border-b-0 md:border-r"
+          className="hidden border-b border-white/8 bg-white/[0.025] p-5 md:block md:border-b-0 md:border-r"
         >
           <div className="mb-8 flex items-center gap-3">
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-sm font-black text-[#030406]">
@@ -939,17 +945,17 @@ function DashboardPreview({ progress }: { progress: MotionValue<number> }) {
           </div>
         </motion.aside>
 
-        <div className="p-5 sm:p-7">
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="p-4 sm:p-6 lg:p-7">
+          <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
-              <p className="text-sm text-white/42">Bugün</p>
-              <h3 className="mt-1 text-2xl font-semibold tracking-[-0.03em]">
+              <p className="text-xs text-white/42 sm:text-sm">Bugün</p>
+              <h3 className="mt-1 max-w-xl text-xl font-semibold tracking-[-0.03em] sm:text-2xl">
                 Yeniden bakmaya değer unutulmuş kayıtlar
               </h3>
             </div>
             <motion.div
               style={{ opacity: recallOpacity, scale: recallScale }}
-              className="w-fit rounded-lg border border-cyan-200/18 bg-cyan-200/10 px-3 py-2 text-sm text-cyan-50"
+              className="w-fit rounded-lg border border-cyan-200/18 bg-cyan-200/10 px-2.5 py-1.5 text-xs text-cyan-50 sm:px-3 sm:py-2 sm:text-sm"
             >
               7 kayıt döndü
             </motion.div>
@@ -957,20 +963,24 @@ function DashboardPreview({ progress }: { progress: MotionValue<number> }) {
 
           <motion.div
             style={{ y: notesY, opacity: notesOpacity }}
-            className="grid gap-3 lg:grid-cols-2"
+            className="grid gap-3 sm:grid-cols-2"
           >
             {dashboardItems.map((item, index) => (
               <div
                 key={item}
-                className="rounded-xl border border-white/9 bg-white/[0.04] p-4"
+                className={`rounded-xl border border-white/9 bg-white/[0.04] p-3 sm:p-4 ${
+                  index > 1 ? "hidden sm:block" : ""
+                }`}
               >
-                <div className="mb-7 flex items-center justify-between">
+                <div className="mb-4 flex items-center justify-between sm:mb-7">
                   <span className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/44">
                     {index % 2 === 0 ? "not" : "link"}
                   </span>
                   <span className="text-xs text-white/34">{index + 2} hf önce</span>
                 </div>
-                <h4 className="font-medium tracking-[-0.02em] text-white">{item}</h4>
+                <h4 className="text-sm font-medium tracking-[-0.02em] text-white sm:text-base">
+                  {item}
+                </h4>
                 <div className="mt-4 h-2 w-4/5 rounded-full bg-white/10" />
                 <div className="mt-2 h-2 w-3/5 rounded-full bg-white/7" />
               </div>
@@ -979,15 +989,17 @@ function DashboardPreview({ progress }: { progress: MotionValue<number> }) {
 
           <motion.div
             style={{ y: groupsY, opacity: groupsOpacity }}
-            className="mt-5 grid gap-3 sm:grid-cols-3"
+            className="mt-4 grid gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3"
           >
             {["Lansman", "Araştırma", "Kişisel OS"].map((group) => (
               <div
                 key={group}
-                className="rounded-xl border border-white/9 bg-gradient-to-br from-white/[0.065] to-white/[0.025] p-4"
+                className="rounded-xl border border-white/9 bg-gradient-to-br from-white/[0.065] to-white/[0.025] p-3 sm:p-4"
               >
                 <p className="text-sm font-medium">{group}</p>
-                <p className="mt-2 text-xs leading-5 text-white/42">12 kayıt gruplandı</p>
+                <p className="mt-1 text-xs leading-5 text-white/42 sm:mt-2">
+                  12 kayıt gruplandı
+                </p>
               </div>
             ))}
           </motion.div>
