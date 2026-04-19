@@ -153,6 +153,13 @@ export default function Header() {
         {!loggedIn ? (
           <>
             <Link
+              href="/support"
+              className="hidden items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/64 transition hover:bg-white/[0.08] hover:text-white sm:inline-flex"
+            >
+              Destek
+            </Link>
+
+            <Link
               href="/pro"
               className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/78 transition hover:bg-white/[0.08]"
             >
@@ -220,7 +227,7 @@ export default function Header() {
                       onClick={() => setMenuOpen(false)}
                       className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
                     >
-                      Dashboard
+                      Çalışma Alanı
                     </Link>
 
                     <Link
@@ -245,6 +252,24 @@ export default function Header() {
                       className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
                     >
                       Ayarlar ve export
+                    </Link>
+
+                    <Link
+                      role="menuitem"
+                      href="/support"
+                      onClick={() => setMenuOpen(false)}
+                      className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
+                    >
+                      Destek
+                    </Link>
+
+                    <Link
+                      role="menuitem"
+                      href="/privacy"
+                      onClick={() => setMenuOpen(false)}
+                      className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/54 hover:bg-white/[0.06] hover:text-white/78"
+                    >
+                      Gizlilik
                     </Link>
 
                     <div className="my-2 border-t border-white/10" />

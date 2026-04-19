@@ -8,6 +8,7 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { supabase as defaultSupabase } from "@/lib/supabase";
 import { getSupabaseAuthErrorMessage } from "@/lib/supabaseErrors";
+import DnaBackdrop from "@/components/DnaBackdrop";
 
 function createAuthClient(remember: boolean) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -68,18 +69,55 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-        <div className="mb-6">
-          <Link href="/" className="text-sm text-neutral-300 hover:text-white">
-            ← clarionot
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#131313] px-5 py-10 text-[#e5e2e1]">
+      <DnaBackdrop className="fixed opacity-25" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(107,251,154,0.09),transparent_42%),linear-gradient(to_bottom,transparent,#131313_82%)]" />
+
+      <div className="relative z-10 grid w-full max-w-5xl overflow-hidden rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/72 shadow-[0_32px_110px_rgba(0,0,0,0.42)] backdrop-blur-2xl lg:grid-cols-[0.92fr_1.08fr]">
+        <section className="border-b border-[#3d4a3e]/25 p-6 sm:p-8 lg:border-b-0 lg:border-r">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-3 text-sm font-semibold tracking-[0.22em] text-white/78 hover:text-white"
+          >
+            <span className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-sm font-black">
+              c
+            </span>
+            clarionot
           </Link>
-          <h1 className="mt-3 text-xl font-semibold">
-            {mode === "login" ? "Giriş Yap" : "Kayıt Ol"}
-          </h1>
-          <p className="mt-1 text-sm text-neutral-400">
-            Link ve notlarını kaydet, sonra anında bul.
+
+          <p className="mt-10 text-xs font-bold uppercase tracking-[0.35em] text-emerald-300">
+            {mode === "login" ? "Giriş" : "Yeni hesap"}
           </p>
+          <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
+            Kaydettiğin fikirler seni bekliyor.
+          </h1>
+          <p className="mt-5 text-sm leading-6 text-[#bccabb]">
+            Linkleri, notları, grupları ve hatırlatma akışını tek sakin
+            çalışma alanında yönet.
+          </p>
+
+          <div className="mt-8 grid gap-3 text-sm text-[#bccabb]">
+            {["Manuel not ve link kaydı", "Etiket ve grup düzeni", "Pro ile sağ tıkla kaydetme"].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/55 px-4 py-3"
+                >
+                  {item}
+                </div>
+              ),
+            )}
+          </div>
+        </section>
+
+        <section className="p-6 sm:p-8">
+          <div className="mb-6">
+            <h2 className="text-2xl font-black tracking-tight">
+              {mode === "login" ? "Giriş yap" : "Kayıt ol"}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#bccabb]">
+              Devam etmek için e-posta ve şifreni gir.
+            </p>
         </div>
 
         <div className="space-y-3">
@@ -154,6 +192,7 @@ export default function LoginPage() {
             Şifre minimum 6 karakter. (Supabase default)
           </div>
         </div>
+        </section>
       </div>
     </main>
   );

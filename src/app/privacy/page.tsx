@@ -11,7 +11,7 @@ const summaryCards = [
   },
   {
     title: "Kontrol sende",
-    text: "Kayıtlarını dashboard üzerinden silebilir, ayarlar sayfasından Markdown, JSON veya CSV olarak dışa aktarabilirsin.",
+    text: "Kayıtlarını çalışma alanı üzerinden silebilir, ayarlar sayfasından Markdown, JSON veya CSV olarak dışa aktarabilirsin.",
   },
   {
     title: "Ödeme verisi ayrıdır",
@@ -24,7 +24,7 @@ const sections = [
     title: "Topladığımız Bilgiler",
     body: [
       "Hesap oluşturduğunda e-posta adresin ve Supabase Auth tarafından yönetilen kimlik bilgileri kullanılır.",
-      "Dashboard'a eklediğin başlık, içerik, link, not, etiket, grup, çalışma durumu, oluşturma ve güncelleme zamanları saklanır.",
+      "Çalışma alanına eklediğin başlık, içerik, link, not, etiket, grup, çalışma durumu, oluşturma ve güncelleme zamanları saklanır.",
       "Tema tercihin gibi ayarlar hesabına ve kullandığın cihaza kaydedilebilir.",
       "Pro plan için abonelik durumu, müşteri ve abonelik kimlikleri gibi faturalandırma kayıtları tutulur.",
     ],
@@ -48,7 +48,7 @@ const sections = [
   {
     title: "Bilgileri Nasıl Kullanırız",
     body: [
-      "Kayıtlarını dashboard'da göstermek, arama, etiket, grup ve hatırlatma akışlarını çalıştırmak için kullanırız.",
+      "Kayıtlarını çalışma alanında göstermek, arama, etiket, grup ve hatırlatma akışlarını çalıştırmak için kullanırız.",
       "Linklerden başlık çekmek, Pro planı doğrulamak, eklenti bağlantısını yönetmek ve ürün güvenliğini korumak için gerekli teknik işlemler yapılır.",
       "Ödeme başarılı veya başarısız olduğunda, e-posta bildirimleri etkinse hesabına servis bildirimi gönderilebilir.",
     ],
@@ -65,7 +65,7 @@ const sections = [
   {
     title: "Saklama ve Silme",
     body: [
-      "Kaydettiğin içerikler, hesabında tuttuğun sürece saklanır. Dashboard'dan tekil kayıtları silebilirsin.",
+      "Kaydettiğin içerikler, hesabında tuttuğun sürece saklanır. Çalışma alanından tekil kayıtları silebilirsin.",
       "Bir grubu sildiğinde, o gruptaki kayıtlar silinmez; Inbox'a taşınır.",
       "Ayarlar sayfasından kayıtlarını Markdown, JSON veya CSV olarak dışa aktarabilirsin.",
       "Hesabın veya tüm verilerin için silme talebi göndermek istersen bizimle e-posta üzerinden iletişime geçebilirsin.",
@@ -86,6 +86,14 @@ const sections = [
     ],
   },
 ];
+
+function AccordionIcon() {
+  return (
+    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 text-lg leading-none text-emerald-300 transition group-open:rotate-45">
+      +
+    </span>
+  );
+}
 
 export default function PrivacyPage() {
   return (
@@ -139,10 +147,9 @@ export default function PrivacyPage() {
           <aside className="h-fit rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-5 backdrop-blur-2xl lg:sticky lg:top-28">
             <h2 className="text-lg font-bold">Kısa Özet</h2>
             <p className="mt-3 text-sm leading-6 text-[#bccabb]">
-              Reklam takibi yapmayız, gezinme geçmişini toplamayı amaçlamayız
-              ve ödeme kartı bilgisini saklamayız. Ürünün çalışması için
-              gereken hesap, içerik, abonelik ve eklenti bağlantı verilerini
-              işleriz.
+              Reklam takibi yapmayız, gezinme geçmişini toplamayı amaçlamayız ve
+              ödeme kartı bilgisini saklamayız. Ürünün çalışması için gereken
+              hesap, içerik, abonelik ve eklenti bağlantı verilerini işleriz.
             </p>
             <div className="mt-5 grid gap-3">
               <Link
@@ -155,29 +162,42 @@ export default function PrivacyPage() {
                 href="/dashboard"
                 className="rounded-lg bg-gradient-to-r from-emerald-300 to-teal-300 px-4 py-3 text-center text-sm font-semibold text-emerald-950 transition hover:scale-[1.01]"
               >
-                Dashboard'a dön
+                Çalışma alanına dön
               </Link>
             </div>
           </aside>
 
-          <section className="rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-5 backdrop-blur-2xl sm:p-7">
-            <div className="space-y-8">
-              {sections.map((section) => (
-                <article key={section.title}>
-                  <h2 className="text-xl font-black tracking-tight text-[#f4f1ef]">
-                    {section.title}
-                  </h2>
-                  <div className="mt-4 grid gap-3">
+          <section className="rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-4 backdrop-blur-2xl sm:p-5">
+            <div className="grid gap-3">
+              {sections.map((section, index) => (
+                <details
+                  key={section.title}
+                  className="group rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/45 open:bg-[#151515]/75"
+                  open={index === 0}
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 marker:hidden sm:p-5 [&::-webkit-details-marker]:hidden">
+                    <span>
+                      <span className="block text-lg font-black tracking-tight text-[#f4f1ef] sm:text-xl">
+                        {section.title}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-[#bccabb]/62">
+                        {section.body.length} madde
+                      </span>
+                    </span>
+                    <AccordionIcon />
+                  </summary>
+
+                  <div className="grid gap-3 border-t border-[#3d4a3e]/20 px-4 pb-4 pt-1 sm:px-5 sm:pb-5">
                     {section.body.map((item) => (
                       <p
                         key={item}
-                        className="rounded-lg border border-[#3d4a3e]/20 bg-[#0e0e0e]/45 p-4 text-sm leading-6 text-[#bccabb]"
+                        className="rounded-lg border border-[#3d4a3e]/20 bg-[#0a0a0a]/55 p-4 text-sm leading-6 text-[#bccabb]"
                       >
                         {item}
                       </p>
                     ))}
                   </div>
-                </article>
+                </details>
               ))}
 
               <article>
@@ -188,10 +208,10 @@ export default function PrivacyPage() {
                   Gizlilik politikası, veri dışa aktarma veya veri silme
                   talepleri için{" "}
                   <a
-                    href="mailto:uzeyircan@gmail.com"
+                    href="mailto:info@clarionot.com"
                     className="font-semibold text-emerald-300 underline-offset-4 hover:underline"
                   >
-                    uzeyircan@gmail.com
+                    info@clarionot.com
                   </a>{" "}
                   adresinden bize ulaşabilirsin.
                 </p>
