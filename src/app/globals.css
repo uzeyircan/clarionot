@@ -22,6 +22,94 @@ a {
   @apply text-neutral-100;
 }
 
+.theme-shell {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(24px);
+}
+
+.theme-shell-strong {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(24px);
+}
+
+.theme-shell-soft {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+}
+
+.theme-field {
+  background: #07090d;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.theme-field::placeholder {
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.theme-field:focus {
+  border-color: color-mix(in srgb, var(--clarionot-accent) 50%, transparent);
+}
+
+.theme-button-primary {
+  background-image: linear-gradient(
+    to right,
+    var(--clarionot-accent),
+    var(--clarionot-accent-2)
+  );
+  color: var(--clarionot-accent-contrast);
+}
+
+.theme-button-primary:hover {
+  opacity: 0.9;
+}
+
+.theme-button-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.theme-button-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.theme-chip {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.theme-accent-chip {
+  background: color-mix(in srgb, var(--clarionot-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--clarionot-accent) 22%, transparent);
+  color: var(--clarionot-accent);
+}
+
+.theme-divider {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.theme-text-muted {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.theme-text-soft {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.theme-accent-ring {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--clarionot-accent) 26%, transparent);
+}
+
+.theme-accent-glow {
+  box-shadow: 0 18px 60px
+    color-mix(in srgb, var(--clarionot-accent) 18%, transparent);
+}
+
 .accent-text {
   color: var(--clarionot-accent);
 }

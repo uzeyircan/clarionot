@@ -143,7 +143,7 @@ export default function Header() {
         href="/"
         className="flex items-center gap-3 text-sm font-semibold tracking-[0.22em] text-white/85 sm:text-base"
       >
-        <span className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-sm font-black shadow-2xl shadow-cyan-500/10 backdrop-blur-xl">
+        <span className="theme-chip theme-accent-glow grid h-9 w-9 place-items-center rounded-lg text-sm font-black">
           c
         </span>
         <span className="hidden sm:inline">clarionot</span>
@@ -154,7 +154,7 @@ export default function Header() {
           <>
             <Link
               href="/pro"
-              className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/78 transition hover:bg-white/[0.08]"
+              className="theme-button-secondary inline-flex items-center justify-center rounded-lg px-4 py-2 text-xs font-semibold transition"
             >
               Planlar
             </Link>
@@ -185,7 +185,7 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
-                className="inline-flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.045] px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+                className="theme-shell inline-flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-white transition"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
               >
@@ -203,7 +203,7 @@ export default function Header() {
               {menuOpen ? (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-3 w-64 overflow-hidden rounded-xl border border-white/10 bg-[#07090d] shadow-2xl shadow-black/50"
+                  className="theme-shell-strong absolute right-0 mt-3 w-64 overflow-hidden rounded-xl bg-[#07090d] shadow-2xl shadow-black/50"
                 >
                   {/* Email (disabled) */}
                   <div className="border-b border-white/10 px-4 py-3">

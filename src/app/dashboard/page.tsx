@@ -2393,7 +2393,7 @@ export default function DashboardPage() {
                       onClick={() => setActiveWorkStatus(statusKey)}
                       className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                         active
-                          ? "bg-teal-300 text-teal-950"
+                          ? "accent-gradient"
                           : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
                       }`}
                       title={String(description)}
@@ -2401,7 +2401,7 @@ export default function DashboardPage() {
                       {label}{" "}
                       <span
                         className={
-                          active ? "text-teal-950/70" : "text-teal-300"
+                          active ? "opacity-70" : "accent-text-2"
                         }
                       >
                         ({workStatusCounts[statusKey] ?? 0})
@@ -2485,7 +2485,7 @@ export default function DashboardPage() {
                       groupEnhancing ||
                       !!regeneratingItemId
                         ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
-                        : "border-teal-300/30 bg-teal-300/10 text-teal-100 hover:bg-teal-300/15"
+                        : "accent-border accent-soft accent-text hover:opacity-90"
                     }`}
                     title="Seçili kayıtlar için AI işlemlerini tekrar çalıştır"
                   >
@@ -2537,7 +2537,7 @@ export default function DashboardPage() {
             </div>
           </div>
           {aiEnhancing || groupEnhancing || regeneratingItemId ? (
-            <div className="mt-3 rounded-xl border border-teal-300/25 bg-teal-300/10 px-3 py-2">
+            <div className="accent-border accent-soft mt-3 rounded-xl border px-3 py-2">
               <div className="flex flex-wrap items-center gap-3 w-full">
                 <AiLoadingInline
                   text={

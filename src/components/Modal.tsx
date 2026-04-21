@@ -22,7 +22,7 @@ export default function Modal({ open, title, onClose, children }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-[#07090d]/95 p-4 shadow-[0_40px_120px_rgba(0,0,0,0.48)] backdrop-blur-2xl">
+      <div className="theme-shell-strong relative w-full max-w-lg rounded-xl bg-[#07090d]/95 p-4 shadow-[0_40px_120px_rgba(0,0,0,0.48)]">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold">{title}</h2>
           <button className="rounded-lg px-2 py-1 text-white/42 hover:bg-white/[0.06] hover:text-white/78" onClick={onClose}>

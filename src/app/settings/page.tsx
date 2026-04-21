@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import DnaBackdrop from "@/components/DnaBackdrop";
 import { supabase } from "@/lib/supabase";
@@ -280,45 +281,56 @@ export default function SettingsPage() {
     );
   };
 
-  return (
-    <main className="relative min-h-screen overflow-hidden bg-[#131313] pb-16 text-[#e5e2e1]">
-      <DnaBackdrop className="fixed opacity-30" />
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(107,251,154,0.08),transparent_42%),linear-gradient(to_bottom,transparent,#131313_82%)]" />
+  const activeThemePreset =
+    THEME_PRESETS.find((preset) => preset.id === themeAccent) ??
+    THEME_PRESETS[0];
 
-      <div className="fixed inset-x-0 top-0 z-50 border-b border-[#3d4a3e]/20 bg-[#131313]/70 px-6 py-4 shadow-[0_20px_40px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
-        <div className="mx-auto max-w-5xl">
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-[#030406] pb-16 text-white selection:bg-[var(--clarionot-accent-soft)]">
+      <DnaBackdrop className="fixed opacity-18" />
+      <div className="theme-page-glow pointer-events-none fixed inset-0" />
+      <div className="pointer-events-none fixed inset-0 opacity-[0.075] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:72px_72px]" />
+
+      <div className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-[#030406]/62 px-6 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
+        <div className="mx-auto max-w-6xl">
           <Header />
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto max-w-5xl px-4 pt-24 sm:px-6">
-        <section className="rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/70 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
-          <div className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-300">
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pt-24 sm:px-6">
+        <motion.section
+          initial={{ opacity: 0, y: 24, filter: "blur(10px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="theme-shell-strong rounded-xl p-6 shadow-[0_40px_120px_rgba(0,0,0,0.34)]"
+        >
+          <div className="accent-text text-xs font-bold uppercase tracking-[0.35em]">
             Ayarlar
           </div>
-          <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
             Verin sende kalsın.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#bccabb]">
+          <p className="theme-text-muted mt-3 max-w-2xl text-sm leading-6">
             Hesabını, planını ve dışa aktarma seçeneklerini buradan yönet.
           </p>
-        </section>
+        </motion.section>
 
-        <section className="mt-6 rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-6 backdrop-blur-2xl">
+        <section className="theme-shell mt-6 rounded-xl p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-lg font-bold">Tema rengi</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#bccabb]">
+              <h2 className="text-lg font-semibold">Tema rengi</h2>
+              <p className="theme-text-muted mt-2 max-w-2xl text-sm leading-6">
                 Vurgu rengini değiştir. Seçim yaptığın tema rengi hemen
                 uygulanır.
               </p>
             </div>
-            <div className="text-xs text-[#bccabb]/70">
+            <div className="theme-text-soft text-xs">
               {themeSaving ? "Kaydediliyor..." : themeMessage}
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {THEME_PRESETS.map((preset) => {
               const active = themeAccent === preset.id;
 
@@ -327,10 +339,10 @@ export default function SettingsPage() {
                   key={preset.id}
                   type="button"
                   onClick={() => void saveThemeAccent(preset.id)}
-                  className={`rounded-lg border p-4 text-left transition hover:bg-[#2a2a2a] ${
+                  className={`rounded-lg border p-4 text-left transition ${
                     active
-                      ? "border-[var(--clarionot-accent)] bg-[var(--clarionot-accent-soft)]"
-                      : "border-[#3d4a3e]/30 bg-[#0e0e0e]/70"
+                      ? "theme-accent-chip"
+                      : "theme-shell-soft hover:bg-white/[0.06]"
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -343,26 +355,69 @@ export default function SettingsPage() {
                       style={{ backgroundColor: preset.secondary }}
                     />
                   </div>
-                  <div className="mt-3 text-sm font-semibold text-[#e5e2e1]">
+                  <div className="mt-3 text-sm font-semibold text-white">
                     {preset.label}
                   </div>
-                  <div className="mt-1 text-xs text-[#bccabb]/65">
+                  <div className="theme-text-soft mt-1 text-xs">
                     {active ? "Aktif" : "Seç"}
                   </div>
                 </button>
               );
             })}
+            </div>
+
+            <div className="theme-shell-soft overflow-hidden rounded-xl p-4">
+              <div className="accent-text text-[11px] font-bold uppercase tracking-[0.28em]">
+                Canlı önizleme
+              </div>
+              <div className="mt-4 rounded-xl border border-white/10 bg-[#05070a] p-4 shadow-[0_30px_90px_rgba(0,0,0,0.28)]">
+                <div className="flex items-center justify-between border-b border-white/8 pb-3">
+                  <div>
+                    <div className="text-sm font-semibold text-white">
+                      {activeThemePreset.label}
+                    </div>
+                    <div className="theme-text-soft mt-1 text-xs">
+                      Landing + dashboard accent
+                    </div>
+                  </div>
+                  <span className="theme-button-primary rounded-lg px-3 py-2 text-xs font-semibold">
+                    Aktif tema
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  <div className="theme-shell rounded-lg p-3">
+                    <div className="theme-text-soft text-xs">Kart</div>
+                    <div className="mt-3 h-2 w-20 rounded-full bg-white/20" />
+                    <div className="mt-2 h-2 w-4/5 rounded-full bg-white/10" />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <span className="theme-button-primary rounded-lg px-4 py-2 text-xs font-semibold">
+                      Birincil
+                    </span>
+                    <span className="theme-button-secondary rounded-lg px-4 py-2 text-xs font-semibold">
+                      İkincil
+                    </span>
+                  </div>
+
+                  <div className="theme-accent-chip w-fit rounded-md px-3 py-1 text-xs font-medium">
+                    Accent önizleme
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <section className="rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-6 backdrop-blur-2xl">
-            <h2 className="text-lg font-bold">Hesap</h2>
-            <div className="mt-4 rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/70 p-4 text-sm text-[#bccabb]">
-              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#bccabb]/60">
+          <section className="theme-shell rounded-xl p-6">
+            <h2 className="text-lg font-semibold">Hesap</h2>
+            <div className="theme-shell-soft mt-4 rounded-lg p-4 text-sm">
+              <div className="theme-text-soft text-[10px] font-bold uppercase tracking-[0.28em]">
                 Email
               </div>
-              <div className="mt-2 break-all text-[#e5e2e1]">
+              <div className="mt-2 break-all text-white">
                 {email || "-"}
               </div>
             </div>
@@ -370,22 +425,22 @@ export default function SettingsPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <Link
                 href="/pro"
-                className="rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-5 py-3 text-center text-sm font-semibold transition hover:bg-[#2a2a2a]"
+                className="theme-button-secondary rounded-lg px-5 py-3 text-center text-sm font-semibold transition"
               >
                 Plan ve faturalandırma
               </Link>
               <Link
                 href="/extension/connect"
-                className="rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 px-5 py-3 text-center text-sm font-semibold text-emerald-950 transition hover:scale-[1.02]"
+                className="theme-button-primary rounded-lg px-5 py-3 text-center text-sm font-semibold transition"
               >
                 Eklentiyi bağla
               </Link>
             </div>
           </section>
 
-          <section className="rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-6 backdrop-blur-2xl">
-            <h2 className="text-lg font-bold">Dışa aktar</h2>
-            <p className="mt-2 text-sm leading-6 text-[#bccabb]">
+          <section className="theme-shell rounded-xl p-6">
+            <h2 className="text-lg font-semibold">Dışa aktar</h2>
+            <p className="theme-text-muted mt-2 text-sm leading-6">
               Kayıtlarını istediğin zaman dışarı al. Bu, Pro ürün güveninin en
               önemli parçalarından biri.
             </p>
@@ -394,27 +449,27 @@ export default function SettingsPage() {
               <button
                 onClick={exportMarkdown}
                 disabled={loading || !!error}
-                className="rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-5 py-3 text-sm font-semibold transition hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
+                className="theme-button-secondary rounded-lg px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Markdown indir
               </button>
               <button
                 onClick={exportJson}
                 disabled={loading || !!error}
-                className="rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-5 py-3 text-sm font-semibold transition hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
+                className="theme-button-secondary rounded-lg px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 JSON indir
               </button>
               <button
                 onClick={exportCsv}
                 disabled={loading || !!error}
-                className="rounded-full border border-[#3d4a3e]/40 bg-[#0e0e0e] px-5 py-3 text-sm font-semibold transition hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
+                className="theme-button-secondary rounded-lg px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 CSV indir
               </button>
             </div>
 
-            <div className="mt-4 text-xs text-[#bccabb]/70">
+            <div className="theme-text-soft mt-4 text-xs">
               {loading
                 ? "Kayıtlar hazırlanıyor..."
                 : error

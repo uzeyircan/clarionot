@@ -28,7 +28,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(true); 
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -135,8 +135,8 @@ export default function LoginPage() {
             {loading
               ? "Bekleniyor..."
               : mode === "login"
-              ? "Giriş Yap"
-              : "Kayıt Ol"}
+                ? "Giriş Yap"
+                : "Kayıt Ol"}
           </Button>
 
           <Button
@@ -151,7 +151,7 @@ export default function LoginPage() {
           </Button>
 
           <div className="text-xs text-neutral-500">
-            Şifre minimum 6 karakter. (Supabase default)
+            Şifre minimum 6 karakter.
           </div>
         </div>
       </div>

@@ -130,23 +130,23 @@ export default function ItemCard({
     <button
       type="button"
       onClick={() => onOpen(item)}
-      className={`group relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.045] p-5 text-left shadow-[0_24px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:border-cyan-200/25 hover:bg-white/[0.07] ${className}`}
+      className={`theme-shell group relative w-full overflow-hidden rounded-xl p-5 text-left shadow-[0_24px_70px_rgba(0,0,0,0.24)] transition hover:bg-white/[0.07] ${className}`}
     >
-      <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full bg-cyan-300/8 blur-3xl transition group-hover:bg-cyan-300/12" />
+      <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full blur-3xl transition group-hover:opacity-100 accent-soft opacity-80" />
       <div className="flex items-start justify-between gap-3">
         <div className="relative z-10 min-w-0 break-words text-[10px] font-bold uppercase tracking-widest text-white/42">
           {isLink ? "🔗 Link" : "📝 Not"} ·{" "}
-          <span className="text-emerald-300">{formatDaysAgo(daysAgo)}</span>
+          <span className="accent-text">{formatDaysAgo(daysAgo)}</span>
           <span className="text-neutral-600"> · </span>
           <span className="text-neutral-500">
             {baseDate.toLocaleString("tr-TR")}
           </span>
           {aiStatus === "processing" ? (
-            <span className="ml-2 rounded-md border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] text-white/62">
+            <span className="theme-chip ml-2 rounded-md px-2 py-0.5 text-[10px] text-white/62">
               AI…
             </span>
           ) : aiStatus === "done" ? (
-            <span className="ml-2 rounded-md border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] text-white/62">
+            <span className="theme-chip ml-2 rounded-md px-2 py-0.5 text-[10px] text-white/62">
               AI
             </span>
           ) : aiStatus === "failed" ? (
@@ -154,7 +154,7 @@ export default function ItemCard({
               AI failed
             </span>
           ) : aiStatus === "disabled" ? (
-            <span className="ml-2 rounded-md border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] text-white/46">
+            <span className="theme-chip ml-2 rounded-md px-2 py-0.5 text-[10px] text-white/46">
               AI off
             </span>
           ) : null}
@@ -187,7 +187,7 @@ export default function ItemCard({
         </div>
 
         {snoozeLabel ? (
-          <span className="shrink-0 rounded-md border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] text-white/62">
+          <span className="theme-chip shrink-0 rounded-md px-2 py-0.5 text-[10px] text-white/62">
             {snoozeLabel}
           </span>
         ) : null}
@@ -199,15 +199,15 @@ export default function ItemCard({
         </div>
 
         {aiStatus === "done" && cat ? (
-          <span className="shrink-0 rounded-md border border-cyan-200/16 bg-cyan-200/10 px-2 py-0.5 text-[10px] text-cyan-50">
+          <span className="theme-accent-chip shrink-0 rounded-md px-2 py-0.5 text-[10px]">
             {cat.icon} {cat.label}
           </span>
         ) : null}
       </div>
 
       {showAiSummary ? (
-        <div className="relative mt-3 overflow-hidden rounded-xl border border-cyan-200/18 bg-gradient-to-br from-cyan-200/10 to-white/[0.025] p-4">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-cyan-200/10 blur-3xl" />
+        <div className="theme-accent-chip relative mt-3 overflow-hidden rounded-xl bg-gradient-to-br from-cyan-200/10 to-white/[0.025] p-4">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full accent-soft blur-3xl" />
 
           <div className="relative z-10">
             <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-cyan-100">
@@ -254,8 +254,7 @@ export default function ItemCard({
           {item.tags.slice(0, 6).map((t) => (
             <span
               key={t}
-              className="max-w-full overflow-hidden text-ellipsis rounded-md
-                         border border-white/10 bg-white/[0.055]
+              className="theme-chip max-w-full overflow-hidden text-ellipsis rounded-md
                          px-2.5 py-1 text-xs text-cyan-50
                          shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]"
             >

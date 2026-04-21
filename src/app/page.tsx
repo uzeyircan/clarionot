@@ -318,14 +318,14 @@ export default function HomePage() {
   const primaryCTA = isAuthed ? (
     <button
       onClick={goDashboard}
-      className="accent-gradient inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold shadow-2xl shadow-cyan-500/10 transition hover:opacity-90"
+      className="accent-gradient theme-accent-glow inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold transition hover:opacity-90"
     >
       Dashboard’a git
     </button>
   ) : (
     <button
       onClick={goLogin}
-      className="accent-gradient inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold shadow-2xl shadow-cyan-500/10 transition hover:opacity-90"
+      className="accent-gradient theme-accent-glow inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold transition hover:opacity-90"
     >
       Ücretsiz başla
     </button>
@@ -411,7 +411,7 @@ function SiteNav({
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
         <Link href="/" className="group flex items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-sm font-black shadow-2xl shadow-cyan-500/10 backdrop-blur-xl">
+          <span className="theme-chip theme-accent-glow grid h-9 w-9 place-items-center rounded-lg text-sm font-black backdrop-blur-xl">
             c
           </span>
           <span className="text-sm font-semibold tracking-[0.22em] text-white/85 sm:text-base">
@@ -580,7 +580,7 @@ function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
             variants={fadeUp}
             className="mb-6 inline-flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.055] px-3 py-2 text-sm text-white/68 backdrop-blur-xl"
           >
-            <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_24px_rgba(103,232,249,0.85)]" />
+            <span className="accent-bg h-2 w-2 rounded-full shadow-[0_0_24px_color-mix(in_srgb,var(--clarionot-accent)_75%,transparent)]" />
             Fikirlerin bir daha kaybolmasın
           </motion.div>
 
