@@ -8,7 +8,6 @@ import {
   useMotionTemplate,
   useScroll,
   useTransform,
-  type MotionValue,
 } from "framer-motion";
 import {
   useEffect,
@@ -96,13 +95,6 @@ const storyCards = [
     meta: "Araştırma",
     body: "Her şeyi kaydediyorum, sonra kaydettiğim yerin içinde tekrar kaybediyorum.",
   },
-];
-
-const dashboardItems = [
-  "Geri döndü: roadmap notu",
-  "Grup: Lansman yazıları",
-  "Link: retention analizi",
-  "Fikir: sakin hatırlatmalar",
 ];
 
 export default function HomePage() {
@@ -320,7 +312,7 @@ export default function HomePage() {
       onClick={goDashboard}
       className="accent-gradient theme-accent-glow inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold transition hover:opacity-90"
     >
-      Dashboard’a git
+      Çalışma alanına git
     </button>
   ) : (
     <button
@@ -426,8 +418,8 @@ function SiteNav({
           <a href="#features" className="transition hover:text-white">
             Özellikler
           </a>
-          <a href="#dashboard" className="transition hover:text-white">
-            Dashboard
+          <a href="#workspace" className="transition hover:text-white">
+            Çalışma Alanı
           </a>
           <a href="#pricing" className="transition hover:text-white">
             Fiyatlandırma
@@ -500,7 +492,7 @@ function SiteNav({
                         onClick={() => setMenuOpen(false)}
                         className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
                       >
-                        Dashboard
+                        Çalışma Alanı
                       </Link>
 
                       <Link
@@ -602,10 +594,10 @@ function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
           <motion.div variants={fadeUp} className="mt-10 flex flex-col gap-3 sm:flex-row">
             {primaryCTA}
             <Link
-              href="/dashboard"
+              href="#workspace"
               className="inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-6 py-3 text-sm font-semibold text-white/82 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
             >
-              Dashboard’u gör
+              Çalışma alanını incele
             </Link>
           </motion.div>
         </motion.div>
@@ -838,83 +830,85 @@ function FeaturesSection() {
 
 function DashboardShowcase() {
   const ref = useRef<HTMLElement | null>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end end"],
-  });
 
   return (
-    <section id="dashboard" ref={ref} className="relative px-5 py-28 sm:px-8 lg:py-40">
+    <section
+      id="workspace"
+      ref={ref}
+      className="relative px-5 py-20 sm:px-8 sm:py-24 lg:py-32"
+    >
       <div className="mx-auto max-w-7xl">
-        <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
-          <div className="lg:sticky lg:top-32">
+        <div className="grid gap-8 sm:gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-center lg:gap-12">
+          <div>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               className="text-sm font-medium text-cyan-100/78"
             >
-              Canlı çalışma alanı
+              Çalışma alanı turu
             </motion.p>
             <motion.h2
               initial={{ opacity: 0, y: 22, filter: "blur(8px)" }}
               whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               viewport={{ once: true }}
               transition={{ duration: 0.7 }}
-              className="mt-4 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-6xl"
+              className="mt-4 max-w-3xl text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-5xl lg:text-6xl"
             >
-              Hafızayı görünür yapan dashboard.
+              Her kayıt için net bir çalışma masası.
             </motion.h2>
             <motion.p
               initial={{ opacity: 0, y: 22 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1, duration: 0.7 }}
-              className="mt-6 max-w-lg text-lg leading-8 text-white/58"
+              className="mt-5 max-w-xl text-base leading-7 text-white/58 sm:mt-6 sm:text-lg sm:leading-8"
             >
-              Gruplar, etiketler, kayıtlı linkler ve unutulan rozetleri
-              kaydırdıkça adım adım ortaya çıkar.
+              Çalışma alanı sadece bir liste değil. Gelen kutusu, gruplar,
+              unutulanlar, işleme durumu, arama ve AI etiketleri aynı ekranda
+              çalışır.
             </motion.p>
-          </div>
 
-          <div className="min-h-[1200px] lg:min-h-[1450px]">
-            <div className="sticky top-28">
-              <DashboardPreview progress={scrollYProgress} />
+            <div className="mt-6 grid gap-3 text-sm text-white/58">
+              {[
+                "Yeni link ve notlar önce Inbox’a düşer.",
+                "Gruplar ve etiketler kayıtları bağlama göre ayırır.",
+                "Unutulanlar bölümü eski ama hâlâ değerli kayıtları geri çağırır.",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-3"
+                >
+                  {item}
+                </div>
+              ))}
             </div>
           </div>
+
+          <DashboardPreview />
         </div>
       </div>
     </section>
   );
 }
 
-function DashboardPreview({ progress }: { progress: MotionValue<number> }) {
-  const sidebarX = useTransform(progress, [0.08, 0.22], [-34, 0]);
-  const sidebarOpacity = useTransform(progress, [0.08, 0.22], [0, 1]);
-  const notesY = useTransform(progress, [0.18, 0.38], [54, 0]);
-  const notesOpacity = useTransform(progress, [0.18, 0.38], [0, 1]);
-  const recallScale = useTransform(progress, [0.38, 0.58], [0.86, 1]);
-  const recallOpacity = useTransform(progress, [0.38, 0.58], [0, 1]);
-  const groupsY = useTransform(progress, [0.52, 0.76], [64, 0]);
-  const groupsOpacity = useTransform(progress, [0.52, 0.76], [0, 1]);
-
+function DashboardPreview() {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#06080c]/95 shadow-[0_60px_180px_rgba(0,0,0,0.62)]">
-      <div className="flex items-center justify-between border-b border-white/8 bg-white/[0.035] px-4 py-3">
-        <div className="flex gap-2">
-          <span className="h-3 w-3 rounded-full bg-red-300/70" />
-          <span className="h-3 w-3 rounded-full bg-yellow-200/70" />
-          <span className="h-3 w-3 rounded-full bg-emerald-300/70" />
+    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#06080c]/95 shadow-[0_28px_90px_rgba(0,0,0,0.5)] sm:shadow-[0_60px_180px_rgba(0,0,0,0.62)]">
+      <div className="flex items-center justify-between gap-3 border-b border-white/8 bg-white/[0.035] px-3 py-2.5 sm:px-4 sm:py-3">
+        <div className="flex gap-1.5 sm:gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-red-300/70 sm:h-3 sm:w-3" />
+          <span className="h-2.5 w-2.5 rounded-full bg-yellow-200/70 sm:h-3 sm:w-3" />
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-300/70 sm:h-3 sm:w-3" />
         </div>
-        <span className="text-xs text-white/38">clarionot.app/dashboard</span>
+        <span className="truncate text-[11px] text-white/38 sm:text-xs">
+          clarionot.app/workspace
+        </span>
       </div>
 
-      <div className="grid min-h-[640px] grid-cols-1 md:grid-cols-[220px_1fr]">
-        <motion.aside
-          style={{ x: sidebarX, opacity: sidebarOpacity }}
-          className="border-b border-white/8 bg-white/[0.025] p-5 md:border-b-0 md:border-r"
-        >
-          <div className="mb-8 flex items-center gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-[190px_1fr] lg:grid-cols-[220px_1fr]">
+        <aside className="hidden border-b border-white/8 bg-white/[0.025] p-5 md:block md:border-b-0 md:border-r">
+          <div className="mb-6 flex items-center gap-3">
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-sm font-black text-[#030406]">
               c
             </span>
@@ -924,73 +918,150 @@ function DashboardPreview({ progress }: { progress: MotionValue<number> }) {
             </div>
           </div>
           <div className="space-y-2">
-            {["Gelenler", "Geri Dönenler", "Gruplar", "Etiketler"].map((item, index) => (
+            {[
+              ["Inbox", "14"],
+              ["Unutulanlar", "7"],
+              ["Bugün bak", "5"],
+              ["Tamamlanan", "28"],
+            ].map(([item, count], index) => (
               <div
                 key={item}
-                className={`rounded-lg px-3 py-2 text-sm ${
+                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
                   index === 1
                     ? "bg-cyan-300/12 text-cyan-50"
                     : "text-white/50"
                 }`}
               >
-                {item}
+                <span>{item}</span>
+                <span className="text-xs text-white/34">{count}</span>
               </div>
             ))}
           </div>
-        </motion.aside>
+          <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/34">
+              Kısayol
+            </p>
+            <p className="mt-1 text-xs leading-5 text-white/48">
+              Ctrl/⌘ + K ile tüm kayıtlarında ara.
+            </p>
+          </div>
+        </aside>
 
-        <div className="p-5 sm:p-7">
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="p-4 sm:p-6 lg:p-7">
+          <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
-              <p className="text-sm text-white/42">Bugün</p>
-              <h3 className="mt-1 text-2xl font-semibold tracking-[-0.03em]">
-                Yeniden bakmaya değer unutulmuş kayıtlar
+              <p className="text-xs text-white/42 sm:text-sm">
+                Pulse Çalışma Alanı
+              </p>
+              <h3 className="mt-1 max-w-xl text-xl font-semibold tracking-[-0.03em] sm:text-2xl">
+                Bugün neyi işleyeceğini net gör.
               </h3>
             </div>
-            <motion.div
-              style={{ opacity: recallOpacity, scale: recallScale }}
-              className="w-fit rounded-lg border border-cyan-200/18 bg-cyan-200/10 px-3 py-2 text-sm text-cyan-50"
-            >
-              7 kayıt döndü
-            </motion.div>
+            <div className="w-fit rounded-lg border border-cyan-200/18 bg-cyan-200/10 px-2.5 py-1.5 text-xs text-cyan-50 sm:px-3 sm:py-2 sm:text-sm">
+              7 unutulan kayıt geri döndü
+            </div>
           </div>
 
-          <motion.div
-            style={{ y: notesY, opacity: notesOpacity }}
-            className="grid gap-3 lg:grid-cols-2"
-          >
-            {dashboardItems.map((item, index) => (
+          <div className="mb-4 grid gap-2 sm:grid-cols-4">
+            {[
+              ["Toplam", "54"],
+              ["Not", "22"],
+              ["Link", "32"],
+              ["Bugün", "5"],
+            ].map(([label, value]) => (
               <div
-                key={item}
-                className="rounded-xl border border-white/9 bg-white/[0.04] p-4"
+                key={label}
+                className="rounded-lg border border-white/10 bg-white/[0.035] p-3"
               >
-                <div className="mb-7 flex items-center justify-between">
-                  <span className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/44">
-                    {index % 2 === 0 ? "not" : "link"}
-                  </span>
-                  <span className="text-xs text-white/34">{index + 2} hf önce</span>
-                </div>
-                <h4 className="font-medium tracking-[-0.02em] text-white">{item}</h4>
-                <div className="mt-4 h-2 w-4/5 rounded-full bg-white/10" />
-                <div className="mt-2 h-2 w-3/5 rounded-full bg-white/7" />
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/34">
+                  {label}
+                </p>
+                <p className="mt-1 text-xl font-semibold text-cyan-100">
+                  {value}
+                </p>
               </div>
             ))}
-          </motion.div>
+          </div>
 
-          <motion.div
-            style={{ y: groupsY, opacity: groupsOpacity }}
-            className="mt-5 grid gap-3 sm:grid-cols-3"
-          >
+          <div className="mb-4 flex flex-wrap gap-2">
+            {["Tümü", "Inbox", "Unutulanlar", "Bugün bak"].map(
+              (filter, index) => (
+                <span
+                  key={filter}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                    index === 2
+                      ? "bg-white text-[#030406]"
+                      : "bg-white/[0.055] text-white/58"
+                  }`}
+                >
+                  {filter}
+                </span>
+              ),
+            )}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              {
+                type: "not",
+                title: "Geri döndü: roadmap notu",
+                desc: "19 gün önce kaydedildi. Bugünkü planlama için ilgili.",
+                status: "Bugün bak",
+              },
+              {
+                type: "link",
+                title: "Retention analizi",
+                desc: "AI etiketi: article, growth, activation",
+                status: "İşleniyor",
+              },
+              {
+                type: "not",
+                title: "Lansman yazıları",
+                desc: "Grup: Lansman. 12 kayıt birlikte duruyor.",
+                status: "Sonra",
+              },
+              {
+                type: "link",
+                title: "Fiyatlandırma fikri",
+                desc: "AI özeti hazır. Pro sayfası için kullanılabilir.",
+                status: "Bitti",
+              },
+            ].map((item, index) => (
+              <div
+                key={item.title}
+                className={`rounded-xl border border-white/9 bg-white/[0.04] p-3 sm:p-4 ${
+                  index > 1 ? "hidden sm:block" : ""
+                }`}
+              >
+                <div className="mb-4 flex items-center justify-between sm:mb-7">
+                  <span className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/44">
+                    {item.type}
+                  </span>
+                  <span className="text-xs text-cyan-100">{item.status}</span>
+                </div>
+                <h4 className="text-sm font-medium tracking-[-0.02em] text-white sm:text-base">
+                  {item.title}
+                </h4>
+                <p className="mt-3 text-xs leading-5 text-white/46">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3">
             {["Lansman", "Araştırma", "Kişisel OS"].map((group) => (
               <div
                 key={group}
-                className="rounded-xl border border-white/9 bg-gradient-to-br from-white/[0.065] to-white/[0.025] p-4"
+                className="rounded-xl border border-white/9 bg-gradient-to-br from-white/[0.065] to-white/[0.025] p-3 sm:p-4"
               >
                 <p className="text-sm font-medium">{group}</p>
-                <p className="mt-2 text-xs leading-5 text-white/42">12 kayıt gruplandı</p>
+                <p className="mt-1 text-xs leading-5 text-white/42 sm:mt-2">
+                  12 kayıt gruplandı
+                </p>
               </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>
@@ -1024,7 +1095,7 @@ function ExtensionFlow({
             </h2>
             <p className="mt-5 max-w-xl text-lg leading-8 text-white/56">
               ClarioNot çalışma şeklini bölmeden yakalar: web sayfası, seçili
-              metin, link ve bağlam tek akışta dashboard’a düşer.
+              metin, link ve bağlam tek akışta çalışma alanına düşer.
             </p>
           </motion.div>
           <a
@@ -1165,10 +1236,10 @@ function PricingSection({
             <div className="text-sm font-semibold text-white/64">Free</div>
             <div className="mt-3 text-4xl font-semibold tracking-[-0.04em]">₺0</div>
             <p className="mt-4 text-sm leading-6 text-white/54">
-              Notları ve linkleri dashboard’dan manuel kaydet.
+              Notları ve linkleri çalışma alanından manuel kaydet.
             </p>
             <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.045] px-5 py-3 text-center text-sm font-semibold">
-              Dashboard’a git
+              Çalışma alanına git
             </div>
           </button>
 
@@ -1267,6 +1338,15 @@ function SiteFooter() {
           </a>
           <Link href="/privacy" className="transition hover:text-white/72">
             Gizlilik
+          </Link>
+          <Link href="/terms" className="transition hover:text-white/72">
+            Şartlar
+          </Link>
+          <Link href="/refund" className="transition hover:text-white/72">
+            İade
+          </Link>
+          <Link href="/support" className="transition hover:text-white/72">
+            Destek
           </Link>
           <a href="#pricing" className="transition hover:text-white/72">
             Fiyatlandırma

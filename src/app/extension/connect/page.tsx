@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Button from "@/components/Button";
+import Header from "@/components/Header";
+import DnaBackdrop from "@/components/DnaBackdrop";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -228,11 +230,11 @@ export default function ExtensionConnectPage() {
   const reload = () => window.location.reload();
 
   const Title = ({ children }: { children: any }) => (
-    <div className="text-base font-semibold text-neutral-100">{children}</div>
+    <div className="text-base font-semibold text-[#f4f1ef]">{children}</div>
   );
 
   const Sub = ({ children }: { children: any }) => (
-    <div className="mt-1 text-sm text-neutral-400 leading-relaxed">
+    <div className="mt-1 text-sm leading-relaxed text-[#bccabb]">
       {children}
     </div>
   );
@@ -263,17 +265,27 @@ export default function ExtensionConnectPage() {
   };
 
   return (
-    <main className="min-h-screen bg-neutral-950">
-      <div className="mx-auto max-w-lg px-6 py-14">
-        <div className="rounded-3xl border border-neutral-800 bg-neutral-950 p-6">
+    <main className="relative min-h-screen overflow-hidden bg-[#131313] pb-16 text-[#e5e2e1]">
+      <DnaBackdrop className="fixed opacity-30" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(107,251,154,0.08),transparent_42%),linear-gradient(to_bottom,transparent,#131313_82%)]" />
+      <div className="fixed inset-x-0 top-0 z-50 border-b border-[#3d4a3e]/20 bg-[#131313]/70 px-5 py-4 shadow-[0_20px_40px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <Header />
+        </div>
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-3xl px-5 pt-24 sm:px-6 lg:pt-28">
+        <section className="rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/70 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-xs text-neutral-500">ClarioNot Clip</div>
-              <div className="mt-1 text-lg font-bold text-neutral-100">
-                Extension Bağlantısı
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-300">
+                ClarioNot Clip
               </div>
-              <div className="mt-1 text-sm text-neutral-400">
-                Token bu tarayıcıya kaydedilecek. Sonra sağ tıkla
+              <div className="mt-3 text-3xl font-black tracking-tight text-[#f4f1ef] sm:text-5xl">
+                Eklenti bağlantısı
+              </div>
+              <div className="mt-3 max-w-xl text-sm leading-6 text-[#bccabb]">
+                Token bu tarayıcıya güvenli şekilde kaydedilecek. Sonra sağ tıkla
                 kaydedebilirsin.
               </div>
             </div>
@@ -291,19 +303,18 @@ export default function ExtensionConnectPage() {
             ) : null}
           </div>
 
-          {/* BODY */}
           <div className="mt-6">
             {(status === "checking" || status === "connecting") && (
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+              <div className="rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/55 p-4">
                 <Title>Bağlanıyor…</Title>
                 <Sub>
-                  Lütfen bu sayfayı kapatma. Birkaç saniye içinde dashboard’a
-                  yönlendireceğim.
+                  Lütfen bu sayfayı kapatma. Birkaç saniye içinde çalışma
+                  alanına yönlendireceğim.
                 </Sub>
 
                 <div className="mt-4 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl border border-neutral-800 bg-neutral-900 animate-pulse" />
-                  <div className="text-xs text-neutral-500">
+                  <div className="h-9 w-9 animate-pulse rounded-lg border border-[#3d4a3e]/30 bg-[#1c1b1b]" />
+                  <div className="text-xs text-[#bccabb]/70">
                     Extension ile el sıkışma yapılıyor (READY/PONG + ACK)
                   </div>
                 </div>
@@ -311,7 +322,7 @@ export default function ExtensionConnectPage() {
             )}
 
             {status === "need_login" && (
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+              <div className="rounded-lg border border-[#3d4a3e]/25 bg-[#0e0e0e]/55 p-4">
                 <Title>Giriş gerekli</Title>
                 <Sub>
                   Extension’ı bağlamak için önce hesabına giriş yapmalısın.
@@ -320,14 +331,14 @@ export default function ExtensionConnectPage() {
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <Button onClick={redirectToLogin}>Giriş Yap</Button>
                   <Button variant="ghost" onClick={goDashboard}>
-                    Dashboard’a dön
+                    Çalışma alanına dön
                   </Button>
                 </div>
               </div>
             )}
 
             {status === "need_pro" && (
-              <div className="rounded-2xl border border-amber-900/40 bg-amber-950/25 p-4">
+              <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-4">
                 <Title>Pro gerekli</Title>
                 <Sub>
                   Sağ tıkla kaydetme özelliği Pro’da. Planını yükseltmeden token
@@ -337,47 +348,47 @@ export default function ExtensionConnectPage() {
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <Button onClick={goPricing}>Pro’ya geç</Button>
                   <Button variant="ghost" onClick={goDashboard}>
-                    Dashboard’a dön
+                    Çalışma alanına dön
                   </Button>
                 </div>
               </div>
             )}
 
             {status === "done" && (
-              <div className="rounded-2xl border border-emerald-900/40 bg-emerald-950/25 p-4">
-                <Title>✅ Bağlandı</Title>
+              <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-4">
+                <Title>Bağlandı</Title>
                 <Sub>
-                  Token kaydedildi. Şimdi dashboard’a yönlendiriliyorsun…
+                  Token kaydedildi. Şimdi çalışma alanına yönlendiriliyorsun…
                 </Sub>
 
                 <div className="mt-4">
-                  <Button onClick={goDashboard}>Dashboard’a git</Button>
+                  <Button onClick={goDashboard}>Çalışma alanına git</Button>
                 </div>
               </div>
             )}
 
             {status === "error" && (
-              <div className="rounded-2xl border border-red-900/40 bg-red-950/25 p-4">
-                <Title>❌ Bağlanamadı</Title>
+              <div className="rounded-lg border border-red-900/40 bg-red-950/25 p-4">
+                <Title>Bağlanamadı</Title>
                 <Sub>{err || "Bir hata oluştu."}</Sub>
 
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <Button onClick={reload}>Tekrar dene</Button>
                   <Button variant="ghost" onClick={goDashboard}>
-                    Dashboard’a dön
+                    Çalışma alanına dön
                   </Button>
                 </div>
 
-                <div className="mt-3 text-xs text-neutral-500">
-                  İpucu: Extension yüklü mü, bu domain match ediyor mu, gizli
-                  pencere mi kullanıyorsun? Bunlar genelde root sebep.
+                <div className="mt-3 text-xs leading-5 text-[#bccabb]/70">
+                  İpucu: Extension yüklü mü, bu domain izinli mi, gizli pencere
+                  mi kullanıyorsun? Genelde sorun burada saklanır.
                 </div>
               </div>
             )}
           </div>
-        </div>
+        </section>
 
-        <div className="mt-6 text-center text-xs text-neutral-600">
+        <div className="mt-6 rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-4 text-center text-xs leading-5 text-[#bccabb] backdrop-blur-2xl">
           Sağ tık → “clarionot’ya Kaydet” ile modal açılmalı.
         </div>
       </div>

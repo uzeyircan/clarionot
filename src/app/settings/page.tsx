@@ -478,6 +478,44 @@ export default function SettingsPage() {
             </div>
           </section>
         </div>
+
+        <section className="mt-6 rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-6 backdrop-blur-2xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold">Güven ve destek</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#bccabb]">
+                Gizlilik, kullanım şartları, iade politikası ve destek
+                kanallarını tek yerden aç.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-4">
+              <Link
+                href="/privacy"
+                className="rounded-lg border border-[#3d4a3e]/40 bg-[#0e0e0e] px-4 py-2 text-center text-xs font-semibold transition hover:bg-[#2a2a2a]"
+              >
+                Gizlilik
+              </Link>
+              <Link
+                href="/terms"
+                className="rounded-lg border border-[#3d4a3e]/40 bg-[#0e0e0e] px-4 py-2 text-center text-xs font-semibold transition hover:bg-[#2a2a2a]"
+              >
+                Şartlar
+              </Link>
+              <Link
+                href="/refund"
+                className="rounded-lg border border-[#3d4a3e]/40 bg-[#0e0e0e] px-4 py-2 text-center text-xs font-semibold transition hover:bg-[#2a2a2a]"
+              >
+                İade
+              </Link>
+              <Link
+                href="/support"
+                className="rounded-lg bg-gradient-to-r from-emerald-300 to-teal-300 px-4 py-2 text-center text-xs font-semibold text-emerald-950 transition hover:scale-[1.01]"
+              >
+                Destek
+              </Link>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   );

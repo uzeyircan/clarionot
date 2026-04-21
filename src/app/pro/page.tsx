@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useProPrice } from "@/lib/useProPrice";
+import Header from "@/components/Header";
+import DnaBackdrop from "@/components/DnaBackdrop";
 
 type PlanRow = {
   plan: string | null;
@@ -156,50 +158,66 @@ export default function ProPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-neutral-300">
-        Yükleniyor…
-      </div>
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#131313] text-[#e5e2e1]">
+        <DnaBackdrop className="fixed opacity-25" />
+        <div className="relative z-10 rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/70 px-5 py-4 text-sm text-[#bccabb] backdrop-blur-2xl">
+          Yükleniyor…
+        </div>
+      </main>
     );
   }
 
   if (needLogin) {
     const redirect = encodeURIComponent("/pro");
     return (
-      <div className="min-h-screen flex items-center justify-center px-6">
-        <div className="w-full max-w-lg rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-          <div className="text-xl font-semibold text-neutral-100">
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#131313] px-5 text-[#e5e2e1]">
+        <DnaBackdrop className="fixed opacity-25" />
+        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(107,251,154,0.09),transparent_42%),linear-gradient(to_bottom,transparent,#131313_82%)]" />
+        <div className="relative z-10 w-full max-w-lg rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/72 p-6 shadow-[0_32px_110px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+          <div className="text-xl font-semibold text-[#f4f1ef]">
             Giriş gerekli
           </div>
-          <div className="mt-2 text-sm text-neutral-400">
+          <div className="mt-2 text-sm text-[#bccabb]">
             Pro planı görmek ve yükseltmek için giriş yapmalısın.
           </div>
           <button
             onClick={() => router.push(`/login?redirect=${redirect}`)}
-            className="mt-4 w-full rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100"
+            className="mt-4 w-full rounded-lg bg-gradient-to-r from-emerald-300 to-teal-300 px-4 py-3 text-sm font-semibold text-emerald-950 transition hover:scale-[1.01]"
           >
             Giriş Yap
           </button>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto max-w-5xl px-6 py-12">
-        <div className="text-center">
-          <div className="text-4xl font-semibold text-neutral-100">
-            Discover the difference
-          </div>
-          <div className="mt-3 text-neutral-400">
-            Upgrade to Pro to unlock the browser extension and save anything in
-            one click. Cancel anytime.
-          </div>
+    <main className="relative min-h-screen overflow-hidden bg-[#131313] pb-16 text-[#e5e2e1]">
+      <DnaBackdrop className="fixed opacity-30" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(107,251,154,0.08),transparent_42%),linear-gradient(to_bottom,transparent,#131313_82%)]" />
+      <div className="fixed inset-x-0 top-0 z-50 border-b border-[#3d4a3e]/20 bg-[#131313]/70 px-5 py-4 shadow-[0_20px_40px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <Header />
         </div>
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-6xl px-5 pt-24 sm:px-6 lg:pt-28">
+        <section className="rounded-xl border border-[#3d4a3e]/30 bg-[#201f1f]/70 p-5 text-center shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-300">
+            Pro
+          </p>
+          <h1 className="mx-auto mt-4 max-w-3xl text-4xl font-black tracking-tight sm:text-6xl">
+            Sağ tıkla kaydet. Sonra gerçekten kullan.
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-[#bccabb]">
+            Eklenti, sınırsız kayıt ve AI destekli özetlerle ClarioNot’u pasif
+            arşivden çalışma alanına taşır. İstediğin zaman iptal edebilirsin.
+          </p>
+        </section>
 
         {/* ✅ Sadece Pro sayfasında ödeme sorunu uyarısı (Header'a dokunmuyoruz) */}
         {isPro && hasPaymentIssue ? (
-          <div className="mt-8 rounded-2xl border border-amber-900/40 bg-amber-950/30 p-4 text-sm text-amber-200">
+          <div className="mt-6 rounded-xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100 backdrop-blur-xl">
             <div className="font-semibold text-amber-100">
               Ödeme sorunu tespit edildi
             </div>
@@ -210,7 +228,7 @@ export default function ProPage() {
             <button
               onClick={openBillingPortal}
               disabled={portalLoading}
-              className="mt-3 rounded-xl bg-amber-200 px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
+              className="mt-3 rounded-lg bg-amber-200 px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
             >
               {portalLoading ? "Opening…" : "Kartı Güncelle"}
             </button>
@@ -219,7 +237,7 @@ export default function ProPage() {
 
         {/* Plan durum badge */}
         <div className="mt-8 flex justify-center">
-          <div className="rounded-full border border-neutral-800 bg-neutral-950 px-4 py-2 text-xs text-neutral-300">
+          <div className="rounded-lg border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 px-4 py-2 text-xs text-[#bccabb] backdrop-blur-2xl">
             Current plan:{" "}
             <span className={isPro ? "text-emerald-300" : "text-amber-300"}>
               {planLabel}
@@ -235,13 +253,13 @@ export default function ProPage() {
         </div>
 
         {/* Compare table */}
-        <div className="mt-10 rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-          <div className="grid grid-cols-3 gap-4 text-sm text-neutral-200">
-            <div className="font-semibold text-neutral-100">Benefits</div>
-            <div className="text-center font-semibold text-neutral-300">
+        <div className="mt-8 rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-4 backdrop-blur-2xl sm:p-6">
+          <div className="grid grid-cols-3 gap-4 text-sm text-[#bccabb]">
+            <div className="font-semibold text-[#f4f1ef]">Özellik</div>
+            <div className="text-center font-semibold text-[#bccabb]">
               Free
             </div>
-            <div className="text-center font-semibold text-neutral-100">
+            <div className="text-center font-semibold text-[#f4f1ef]">
               Pro
             </div>
           </div>
@@ -250,13 +268,13 @@ export default function ProPage() {
             {FEATURES.map((f) => (
               <div
                 key={f.name}
-                className="grid grid-cols-3 gap-4 items-center border-t border-neutral-900 pt-3"
+                className="grid grid-cols-3 items-center gap-4 border-t border-[#3d4a3e]/20 pt-3"
               >
-                <div className="text-neutral-200">{f.name}</div>
-                <div className="text-center text-neutral-400">
+                <div className="text-[#e5e2e1]">{f.name}</div>
+                <div className="text-center text-[#bccabb]">
                   {f.free ? "✅" : "—"}
                 </div>
-                <div className="text-center text-neutral-100">
+                <div className="text-center text-[#f4f1ef]">
                   {f.pro ? "✅" : "—"}
                 </div>
               </div>
@@ -265,41 +283,41 @@ export default function ProPage() {
         </div>
 
         {/* Plan cards */}
-        <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* Free */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-            <div className="text-sm font-semibold text-neutral-300">Free</div>
-            <div className="mt-2 text-3xl font-semibold text-neutral-100">
+          <div className="rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-6 backdrop-blur-2xl">
+            <div className="text-sm font-semibold text-[#bccabb]">Free</div>
+            <div className="mt-2 text-3xl font-semibold text-[#f4f1ef]">
               ₺0
             </div>
-            <div className="mt-2 text-sm text-neutral-400">
-              Save notes & links manually from dashboard.
+            <div className="mt-2 text-sm text-[#bccabb]">
+              Notları ve linkleri çalışma alanından manuel kaydet.
             </div>
 
-            <ul className="mt-4 space-y-2 text-sm text-neutral-300">
-              <li>• Notes & links</li>
-              <li>• Tags & search</li>
-              <li>• Basic limits apply</li>
+            <ul className="mt-4 space-y-2 text-sm text-[#bccabb]">
+              <li>Not ve link kaydı</li>
+              <li>Etiket ve arama</li>
+              <li>Temel limitler</li>
             </ul>
 
             <button
               onClick={() => router.push("/dashboard")}
-              className="mt-6 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-800"
+              className="mt-6 w-full rounded-lg border border-[#3d4a3e]/40 bg-[#0e0e0e] px-4 py-3 text-sm font-semibold text-[#f4f1ef] hover:bg-[#2a2a2a]"
             >
-              Go to Dashboard
+              Çalışma alanına git
             </button>
           </div>
 
           {/* Pro */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
+          <div className="rounded-xl border border-emerald-300/35 bg-[#1c1b1b]/80 p-6 shadow-[0_24px_90px_rgba(80,255,160,0.08)] backdrop-blur-2xl">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-neutral-100">Pro</div>
-              <div className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs text-emerald-300">
-                Recommended
+              <div className="text-sm font-semibold text-[#f4f1ef]">Pro</div>
+              <div className="rounded-lg bg-emerald-300/15 px-3 py-1 text-xs text-emerald-300">
+                Önerilen
               </div>
             </div>
 
-            <div className="mt-2 text-3xl font-semibold text-neutral-100">
+            <div className="mt-2 text-3xl font-semibold text-[#f4f1ef]">
               {priceLoading ? (
                 <span className="text-neutral-400">…</span>
               ) : price?.formatted ? (
@@ -320,43 +338,43 @@ export default function ProPage() {
               <div className="mt-2 text-xs text-red-300">{priceErr}</div>
             ) : null}
 
-            <div className="mt-2 text-sm text-neutral-400">
-              Right-click to save selections and links. Auto titles. Unlimited
-              saves.
+            <div className="mt-2 text-sm text-[#bccabb]">
+              Seçimleri ve linkleri sağ tıkla kaydet. Otomatik başlık,
+              sınırsız kayıt ve AI destekli düzen.
             </div>
 
-            <ul className="mt-4 space-y-2 text-sm text-neutral-200">
-              <li>• Browser extension (right-click save)</li>
-              <li>• Unlimited saves</li>
-              <li>• Priority improvements</li>
+            <ul className="mt-4 space-y-2 text-sm text-[#e5e2e1]">
+              <li>Tarayıcı eklentisi</li>
+              <li>Sınırsız kayıt</li>
+              <li>AI özet, etiket ve kategori</li>
             </ul>
 
             {isPro ? (
               <>
                 <button
                   onClick={() => router.push("/dashboard")}
-                  className="mt-6 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-800"
+                  className="mt-6 w-full rounded-lg border border-[#3d4a3e]/40 bg-[#0e0e0e] px-4 py-3 text-sm font-semibold text-[#f4f1ef] hover:bg-[#2a2a2a]"
                 >
-                  You are Pro ✅
+                  Pro hesabındasın
                 </button>
 
                 <button
                   onClick={openBillingPortal}
                   disabled={portalLoading}
-                  className="mt-3 w-full rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-900 disabled:opacity-60"
+                  className="mt-3 w-full rounded-lg border border-[#3d4a3e]/40 bg-[#0e0e0e] px-4 py-3 text-sm font-semibold text-[#f4f1ef] hover:bg-[#2a2a2a] disabled:opacity-60"
                 >
                   {portalLoading
-                    ? "Opening…"
-                    : "Manage billing (Cancel / Invoice)"}
+                    ? "Açılıyor…"
+                    : "Faturalandırmayı yönet"}
                 </button>
               </>
             ) : (
               <button
                 onClick={startCheckout}
                 disabled={checkoutLoading}
-                className="mt-6 w-full rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100 disabled:opacity-60"
+                className="mt-6 w-full rounded-lg bg-gradient-to-r from-emerald-300 to-teal-300 px-4 py-3 text-sm font-semibold text-emerald-950 transition hover:scale-[1.01] disabled:opacity-60"
               >
-                {checkoutLoading ? "Redirecting…" : "Upgrade to Pro"}
+                {checkoutLoading ? "Yönlendiriliyor…" : "Pro’ya yükselt"}
               </button>
             )}
           </div>

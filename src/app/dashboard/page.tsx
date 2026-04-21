@@ -1514,6 +1514,34 @@ export default function DashboardPage() {
     </div>
   );
 
+  const EmptyState = ({
+    title,
+    text,
+    actionLabel,
+    onAction,
+  }: {
+    title: string;
+    text: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  }) => (
+    <div className="rounded-xl border border-dashed border-white/12 bg-white/[0.035] p-5 text-sm text-white/56 backdrop-blur-xl sm:p-6">
+      <div className="text-base font-semibold tracking-[-0.02em] text-white">
+        {title}
+      </div>
+      <p className="mt-2 max-w-md text-sm leading-6 text-white/52">{text}</p>
+      {actionLabel && onAction ? (
+        <button
+          type="button"
+          onClick={onAction}
+          className="mt-4 rounded-lg border border-white/12 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-white/[0.08]"
+        >
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
+  );
+
   // ✅ Draggable wrapper
   const DraggableWrap = ({ it }: { it: any }) => {
     const isForgottenMode = activeGroupId === "forgotten";
@@ -1690,7 +1718,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-100">
-                Pulse Dashboard
+                Pulse Çalışma Alanı
               </div>
               <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">
                 Kayıtlarını düzenle, geri getir, kullan.
@@ -2588,9 +2616,12 @@ export default function DashboardPage() {
             {loading ? (
               <div className="text-sm text-neutral-400">Yükleniyor…</div>
             ) : notes.length === 0 ? (
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6 text-sm text-white/56">
-                Henüz not yok.
-              </div>
+              <EmptyState
+                title="Henüz not yok"
+                text="İlk notunu ekle; fikirler, kararlar ve kısa hatırlatmalar burada toparlansın."
+                actionLabel="Not ekle"
+                onAction={() => openNew("note")}
+              />
             ) : activeGroupId === "all" ? (
               <div className="space-y-4">
                 {/* Inbox notes section */}
@@ -2621,9 +2652,12 @@ export default function DashboardPage() {
                         <DraggableWrap key={it.id} it={it} />
                       ))}
                       {(notesByGroup["inbox"] ?? []).length === 0 ? (
-                        <div className="text-sm text-neutral-500">
-                          Inbox boş.
-                        </div>
+                        <EmptyState
+                          title="Inbox notları boş"
+                          text="Group seçmeden eklediğin notlar burada görünür."
+                          actionLabel="Inbox’a not ekle"
+                          onAction={() => openNew("note")}
+                        />
                       ) : null}
                     </div>
                   ) : null}
@@ -2676,9 +2710,14 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="grid gap-3">
-                {notes.map((it: any) => (
-                  <DraggableWrap key={it.id} it={it} />
-                ))}
+                {notes.length ? (
+                  notes.map((it: any) => <DraggableWrap key={it.id} it={it} />)
+                ) : (
+                  <EmptyState
+                    title="Bu filtrede not yok"
+                    text="Arama veya görünüm filtresini değiştirerek daha fazla kayıt görebilirsin."
+                  />
+                )}
               </div>
             )}
           </div>
@@ -2697,9 +2736,12 @@ export default function DashboardPage() {
             {loading ? (
               <div className="text-sm text-neutral-400">Yükleniyor…</div>
             ) : links.length === 0 ? (
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6 text-sm text-white/56">
-                Henüz link yok.
-              </div>
+              <EmptyState
+                title="Henüz link yok"
+                text="Bir kaynak, doküman veya fikir linki ekle; geri dönmek istediğin yerler burada toplansın."
+                actionLabel="Link ekle"
+                onAction={() => openNew("link")}
+              />
             ) : activeGroupId === "all" ? (
               <div className="space-y-4">
                 {/* Inbox links section */}
@@ -2730,9 +2772,12 @@ export default function DashboardPage() {
                         <DraggableWrap key={it.id} it={it} />
                       ))}
                       {(linksByGroup["inbox"] ?? []).length === 0 ? (
-                        <div className="text-sm text-neutral-500">
-                          Inbox boş.
-                        </div>
+                        <EmptyState
+                          title="Inbox linkleri boş"
+                          text="Group seçmeden eklediğin linkler burada görünür."
+                          actionLabel="Inbox’a link ekle"
+                          onAction={() => openNew("link")}
+                        />
                       ) : null}
                     </div>
                   ) : null}
@@ -2785,9 +2830,14 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="grid gap-3">
-                {links.map((it: any) => (
-                  <DraggableWrap key={it.id} it={it} />
-                ))}
+                {links.length ? (
+                  links.map((it: any) => <DraggableWrap key={it.id} it={it} />)
+                ) : (
+                  <EmptyState
+                    title="Bu filtrede link yok"
+                    text="Arama veya görünüm filtresini değiştirerek daha fazla kayıt görebilirsin."
+                  />
+                )}
               </div>
             )}
           </div>
