@@ -399,7 +399,7 @@ function SiteNav({
       initial={{ opacity: 0, y: -16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed left-0 right-0 top-0 z-50 border-b border-white/[0.06] bg-[#030406]/58 backdrop-blur-2xl"
+      className="theme-topbar fixed left-0 right-0 top-0 z-50"
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
         <Link href="/" className="group flex items-center gap-3">
@@ -445,10 +445,10 @@ function SiteNav({
           ) : (
             <>
               <span
-                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                   plan === "pro"
-                    ? "border-cyan-200/20 bg-cyan-200/10 text-cyan-50"
-                    : "border-white/10 bg-white/[0.045] text-white/62"
+                    ? "accent-soft accent-text accent-border"
+                    : "bg-white/[0.045] text-white/62 border-white/10"
                 }`}
                 title={checkingPlan ? "Plan kontrol ediliyor" : undefined}
               >
@@ -459,7 +459,7 @@ function SiteNav({
                 <button
                   type="button"
                   onClick={() => setMenuOpen((value) => !value)}
-                  className="inline-flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.045] px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+                  className="theme-shell inline-flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-white transition"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
                 >
@@ -476,7 +476,7 @@ function SiteNav({
                 {menuOpen ? (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-3 w-64 overflow-hidden rounded-xl border border-white/10 bg-[#07090d] text-left shadow-2xl shadow-black/50"
+                    className="theme-menu-panel absolute right-0 mt-3 w-64 overflow-hidden rounded-xl text-left"
                   >
                     <div className="border-b border-white/10 px-4 py-3">
                       <div className="text-[11px] text-white/38">Hesap</div>
@@ -490,7 +490,7 @@ function SiteNav({
                         role="menuitem"
                         href="/dashboard"
                         onClick={() => setMenuOpen(false)}
-                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
+                        className="theme-menu-item"
                       >
                         Çalışma Alanı
                       </Link>
@@ -499,7 +499,7 @@ function SiteNav({
                         role="menuitem"
                         href="/pro"
                         onClick={() => setMenuOpen(false)}
-                        className={`mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-white/[0.06] ${
+                        className={`theme-menu-item mt-1 ${
                           hasPaymentIssue ? "text-amber-200" : "text-white/78"
                         }`}
                       >
@@ -514,12 +514,12 @@ function SiteNav({
                         role="menuitem"
                         href="/settings"
                         onClick={() => setMenuOpen(false)}
-                        className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
+                        className="theme-menu-item mt-1"
                       >
                         Ayarlar ve export
                       </Link>
 
-                      <div className="my-2 border-t border-white/10" />
+                      <div className="theme-menu-divider my-2" />
 
                       <button
                         role="menuitem"

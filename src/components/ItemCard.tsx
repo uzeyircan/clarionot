@@ -7,7 +7,6 @@ function parseLinkContent(content: string) {
   const raw = (content ?? "").trim();
   if (!raw) return { url: "", note: "" };
 
-  // URL \n\n açıklama
   const parts = raw.split(/\n\s*\n/);
   const url = (parts[0] ?? "").trim();
   const note = parts.slice(1).join("\n\n").trim();
@@ -20,14 +19,13 @@ function baseDateOf(item: any) {
 
 function daysAgoFrom(date: Date) {
   const ms = Date.now() - date.getTime();
-  const d = Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
-  return d;
+  return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
 }
 
-function formatDaysAgo(d: number) {
-  if (d <= 0) return "bugün";
-  if (d === 1) return "1 gün önce";
-  return `${d} gün önce`;
+function formatDaysAgo(days: number) {
+  if (days <= 0) return "bugün";
+  if (days === 1) return "1 gün önce";
+  return `${days} gün önce`;
 }
 
 function snoozeLeftLabel(iso?: string | null) {
@@ -37,34 +35,33 @@ function snoozeLeftLabel(iso?: string | null) {
   if (diff <= 0) return null;
 
   const days = Math.ceil(diff / (24 * 60 * 60 * 1000));
-  return days <= 1 ? "Snooze: 1g kaldı" : `Snooze: ${days}g kaldı`;
+  return days <= 1 ? "Erteleme: 1g kaldı" : `Erteleme: ${days}g kaldı`;
 }
 
 function categoryMeta(category?: string | null) {
-  const c = (category ?? "").toLowerCase();
-  switch (c) {
+  const value = (category ?? "").toLowerCase();
+  switch (value) {
     case "documentation":
-      return { label: "Docs", icon: "📘" };
+      return { label: "Doküman", icon: "📘" };
     case "inspiration":
-      return { label: "Inspo", icon: "💡" };
+      return { label: "İlham", icon: "💡" };
     case "tool":
-      return { label: "Tool", icon: "🛠" };
+      return { label: "Araç", icon: "🛠" };
     case "pricing":
-      return { label: "Pricing", icon: "💵" };
+      return { label: "Fiyat", icon: "💵" };
     case "competitor":
-      return { label: "Competitor", icon: "🥊" };
+      return { label: "Rakip", icon: "🥊" };
     case "article":
-      return { label: "Article", icon: "📰" };
+      return { label: "Yazı", icon: "📰" };
     case "other":
-      return { label: "Other", icon: "📌" };
+      return { label: "Diğer", icon: "📌" };
     default:
       return null;
   }
 }
 
-function isDebugAiSummary(s: string) {
-  const lower = s.toLowerCase();
-
+function isDebugAiSummary(summary: string) {
+  const lower = summary.toLowerCase();
   return (
     lower.includes("ai is disabled") ||
     lower.includes("set ai_enabled") ||
@@ -91,13 +88,13 @@ export default function ItemCard({
 }) {
   const isLink = item.type === "link";
 
-  const { url, note } = useMemo(() => {
-    return isLink ? parseLinkContent(item.content) : { url: "", note: "" };
-  }, [isLink, item.content]);
+  const { url, note } = useMemo(
+    () => (isLink ? parseLinkContent(item.content) : { url: "", note: "" }),
+    [isLink, item.content],
+  );
 
   const baseDate = useMemo(() => baseDateOf(item as any), [item]);
   const daysAgo = useMemo(() => daysAgoFrom(baseDate), [baseDate]);
-
   const snoozeLabel = useMemo(
     () => snoozeLeftLabel((item as any).snoozed_until),
     [item],
@@ -116,12 +113,11 @@ export default function ItemCard({
   const aiCategory = (item as any).ai_category as string | null | undefined;
 
   const cat = useMemo(() => categoryMeta(aiCategory), [aiCategory]);
-
   const aiSummary = useMemo(() => {
-    const s = (aiSummaryRaw ?? "").trim();
-    if (!s) return null;
-    if (isDebugAiSummary(s)) return null;
-    return s;
+    const summary = (aiSummaryRaw ?? "").trim();
+    if (!summary) return null;
+    if (isDebugAiSummary(summary)) return null;
+    return summary;
   }, [aiSummaryRaw]);
 
   const showAiSummary = aiStatus === "done" && !!aiSummary;
@@ -132,7 +128,8 @@ export default function ItemCard({
       onClick={() => onOpen(item)}
       className={`theme-shell group relative w-full overflow-hidden rounded-xl p-5 text-left shadow-[0_24px_70px_rgba(0,0,0,0.24)] transition hover:bg-white/[0.07] ${className}`}
     >
-      <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full blur-3xl transition group-hover:opacity-100 accent-soft opacity-80" />
+      <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full accent-soft opacity-80 blur-3xl transition group-hover:opacity-100" />
+
       <div className="flex items-start justify-between gap-3">
         <div className="relative z-10 min-w-0 break-words text-[10px] font-bold uppercase tracking-widest text-white/42">
           {isLink ? "🔗 Link" : "📝 Not"} ·{" "}
@@ -141,47 +138,50 @@ export default function ItemCard({
           <span className="text-neutral-500">
             {baseDate.toLocaleString("tr-TR")}
           </span>
+
           {aiStatus === "processing" ? (
             <span className="theme-chip ml-2 rounded-md px-2 py-0.5 text-[10px] text-white/62">
-              AI…
+              AI çalışıyor
             </span>
           ) : aiStatus === "done" ? (
             <span className="theme-chip ml-2 rounded-md px-2 py-0.5 text-[10px] text-white/62">
-              AI
+              AI hazır
             </span>
           ) : aiStatus === "failed" ? (
             <span className="ml-2 rounded-full border border-red-900 bg-neutral-950 px-2 py-0.5 text-[10px] text-red-300">
-              AI failed
+              AI hatası
             </span>
           ) : aiStatus === "disabled" ? (
             <span className="theme-chip ml-2 rounded-md px-2 py-0.5 text-[10px] text-white/46">
-              AI off
+              AI kapalı
             </span>
           ) : null}
+
           {(aiStatus === "done" || aiStatus === "failed") && onRegenerateAi ? (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 onRegenerateAi(item.id);
               }}
-              className="ml-2 rounded-full border border-sky-900/40 bg-sky-950/30 px-2 py-0.5 text-[10px] text-sky-200 hover:bg-sky-900/30 transition"
-              title="AI yeniden üret"
+              className="ml-2 rounded-full border border-sky-900/40 bg-sky-950/30 px-2 py-0.5 text-[10px] text-sky-200 transition hover:bg-sky-900/30"
+              title="AI özetini yeniden üret"
             >
               ↻
             </button>
           ) : null}
+
           {canUndoAi && onUndoAi ? (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 onUndoAi(item.id);
               }}
-              className="ml-2 rounded-full border border-amber-900/40 bg-amber-950/30 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-900/30 transition"
-              title="AI sonucunu geri al"
+              className="ml-2 rounded-full border border-amber-900/40 bg-amber-950/30 px-2 py-0.5 text-[10px] text-amber-200 transition hover:bg-amber-900/30"
+              title="AI değişikliklerini geri al"
             >
-              Undo
+              Geri al
             </button>
           ) : null}
         </div>
@@ -193,8 +193,8 @@ export default function ItemCard({
         ) : null}
       </div>
 
-      <div className="mt-1 flex items-center gap-2 min-w-0">
-        <div className="min-w-0 break-words text-base font-semibold leading-snug text-white line-clamp-1">
+      <div className="mt-1 flex min-w-0 items-center gap-2">
+        <div className="line-clamp-1 min-w-0 break-words text-base font-semibold leading-snug text-white">
           {item.title || (isLink ? "Başlıksız link" : "Başlıksız not")}
         </div>
 
@@ -205,30 +205,14 @@ export default function ItemCard({
         ) : null}
       </div>
 
-      {showAiSummary ? (
-        <div className="theme-accent-chip relative mt-3 overflow-hidden rounded-xl bg-gradient-to-br from-cyan-200/10 to-white/[0.025] p-4">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full accent-soft blur-3xl" />
-
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-cyan-100">
-              ✨ Smart Insight
-            </div>
-
-            <div className="mt-2 text-sm leading-relaxed text-white/82 line-clamp-4">
-              {aiSummary}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {isLink ? (
-        <div className="mt-2 space-y-1 min-w-0">
+        <div className="mt-2 min-w-0 space-y-1">
           {url ? (
             <a
               href={url}
               target="_blank"
               rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
               className="block min-w-0 break-all text-sm text-cyan-100 underline decoration-cyan-200/30 hover:decoration-cyan-100"
             >
               {url}
@@ -238,28 +222,40 @@ export default function ItemCard({
           )}
 
           {note ? (
-            <div className="min-w-0 break-words whitespace-pre-wrap text-sm text-white/56 line-clamp-2">
+            <div className="line-clamp-2 min-w-0 break-words whitespace-pre-wrap text-sm text-white/56">
               {note}
             </div>
           ) : null}
         </div>
       ) : (
-        <div className="mt-2 min-w-0 break-words whitespace-pre-wrap text-sm text-white/56 line-clamp-2">
+        <div className="mt-2 line-clamp-2 min-w-0 break-words whitespace-pre-wrap text-sm text-white/56">
           {item.content}
         </div>
       )}
 
+      {showAiSummary ? (
+        <div className="mt-3 rounded-md border border-dashed border-white/8 bg-black/10 px-3 py-2.5">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">
+            <span className="theme-accent-chip rounded-sm px-1.5 py-0.5 text-[9px] leading-none">
+              AI
+            </span>
+            Akıllı özet
+          </div>
+          <div className="mt-1.5 line-clamp-3 text-[13px] leading-relaxed text-white/58">
+            {aiSummary}
+          </div>
+        </div>
+      ) : null}
+
       {item.tags?.length ? (
-        <div className="mt-3 flex flex-wrap gap-2 min-w-0">
-          {item.tags.slice(0, 6).map((t) => (
+        <div className="mt-3 flex min-w-0 flex-wrap gap-2">
+          {item.tags.slice(0, 6).map((tag) => (
             <span
-              key={t}
-              className="theme-chip max-w-full overflow-hidden text-ellipsis rounded-md
-                         px-2.5 py-1 text-xs text-cyan-50
-                         shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]"
+              key={tag}
+              className="theme-chip max-w-full overflow-hidden rounded-md px-2.5 py-1 text-xs text-cyan-50 text-ellipsis shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]"
             >
               <span className="text-cyan-200/60">#</span>
-              <span className="ml-0.5">{t}</span>
+              <span className="ml-0.5">{tag}</span>
             </span>
           ))}
         </div>

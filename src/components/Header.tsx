@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Button from "@/components/Button";
-import { useRouter } from "next/navigation";
 
 type PlanRow = {
   plan: "free" | "pro" | null;
@@ -17,19 +17,16 @@ export default function Header() {
   const router = useRouter();
 
   const [loggedIn, setLoggedIn] = useState(false);
-  const [email, setEmail] = useState<string>("");
-
+  const [email, setEmail] = useState("");
   const [plan, setPlan] = useState<"free" | "pro">("free");
   const [checkingPlan, setCheckingPlan] = useState(true);
   const [hasPaymentIssue, setHasPaymentIssue] = useState(false);
-
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const initials = useMemo(() => {
-    const e = (email || "").trim();
-    if (!e) return "U";
-    return e[0].toUpperCase();
+    const value = email.trim();
+    return value ? value[0].toUpperCase() : "U";
   }, [email]);
 
   const fetchPlan = async (uid: string) => {
@@ -48,13 +45,10 @@ export default function Header() {
       }
 
       const row = data as unknown as PlanRow;
-
       const statusOk = row.status === "active" || row.status === "trialing";
-
       const stillValid =
         !!row.current_period_end &&
         new Date(row.current_period_end).getTime() > Date.now();
-
       const inGrace =
         !!row.grace_until && new Date(row.grace_until).getTime() > Date.now();
 
@@ -71,22 +65,22 @@ export default function Header() {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
       const session = data.session;
-
       const uid = session?.user?.id ?? null;
       const mail = session?.user?.email ?? "";
 
       setLoggedIn(!!session);
       setEmail(mail);
 
-      if (uid) fetchPlan(uid);
-      else {
+      if (uid) {
+        void fetchPlan(uid);
+      } else {
         setPlan("free");
         setHasPaymentIssue(false);
         setCheckingPlan(false);
       }
     };
 
-    init();
+    void init();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
@@ -96,8 +90,9 @@ export default function Header() {
         setLoggedIn(!!session);
         setEmail(mail);
 
-        if (uid) fetchPlan(uid);
-        else {
+        if (uid) {
+          void fetchPlan(uid);
+        } else {
           setPlan("free");
           setHasPaymentIssue(false);
           setCheckingPlan(false);
@@ -113,21 +108,25 @@ export default function Header() {
   useEffect(() => {
     if (!menuOpen) return;
 
-    const onDown = (e: MouseEvent) => {
+    const onMouseDown = (event: MouseEvent) => {
       if (!menuRef.current) return;
-      if (!menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (!menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
     };
 
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
     };
 
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
 
     return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
 
@@ -171,17 +170,17 @@ export default function Header() {
                 href="/login"
                 className="text-sm text-white/70 hover:text-white"
               >
-                Giriş Yap
+                Giriş yap
               </Link>
             </Button>
           </>
         ) : (
           <>
             <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold border ${
+              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                 plan === "pro"
-                      ? "accent-soft accent-text accent-border"
-                  : "bg-white/[0.045] text-white/62 border-white/10"
+                  ? "accent-soft accent-text accent-border"
+                  : "border-white/10 bg-white/[0.045] text-white/62"
               }`}
               title={checkingPlan ? "Plan kontrol ediliyor" : undefined}
             >
@@ -191,7 +190,7 @@ export default function Header() {
             <div className="relative" ref={menuRef}>
               <button
                 type="button"
-                onClick={() => setMenuOpen((v) => !v)}
+                onClick={() => setMenuOpen((value) => !value)}
                 className="theme-shell inline-flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-white transition"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
@@ -201,8 +200,8 @@ export default function Header() {
                 </span>
 
                 {hasPaymentIssue ? (
-                  <span className="rounded-full bg-red-500/15 px-2.5 py-1 text-[11px] font-semibold text-red-300 border border-red-500/25">
-                    ⚠️
+                  <span className="rounded-full border border-red-500/25 bg-red-500/15 px-2.5 py-1 text-[11px] font-semibold text-red-300">
+                    !
                   </span>
                 ) : null}
               </button>
@@ -210,9 +209,8 @@ export default function Header() {
               {menuOpen ? (
                 <div
                   role="menu"
-                  className="theme-shell-strong absolute right-0 mt-3 w-64 overflow-hidden rounded-xl bg-[#07090d] shadow-2xl shadow-black/50"
+                  className="theme-menu-panel absolute right-0 mt-3 w-64 overflow-hidden rounded-xl"
                 >
-                  {/* Email (disabled) */}
                   <div className="border-b border-white/10 px-4 py-3">
                     <div className="text-[11px] text-white/38">Hesap</div>
                     <div className="mt-0.5 truncate text-xs text-white/78">
@@ -225,40 +223,40 @@ export default function Header() {
                       role="menuitem"
                       href="/dashboard"
                       onClick={() => setMenuOpen(false)}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
+                      className="theme-menu-item"
                     >
-                      Çalışma Alanı
+                      Çalışma alanı
                     </Link>
 
                     <Link
                       role="menuitem"
                       href="/pro"
                       onClick={() => setMenuOpen(false)}
-                      className={`mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-white/[0.06] ${
+                      className={`theme-menu-item mt-1 ${
                         hasPaymentIssue ? "text-amber-200" : "text-white/78"
                       }`}
                     >
                       {hasPaymentIssue
-                        ? "⚠️ Payment issue"
+                        ? "Ödeme sorunu"
                         : plan === "pro"
-                          ? "Billing"
-                          : "Upgrade to Pro"}
+                          ? "Faturalandırma"
+                          : "Pro'ya geç"}
                     </Link>
 
                     <Link
                       role="menuitem"
                       href="/settings"
                       onClick={() => setMenuOpen(false)}
-                      className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
+                      className="theme-menu-item mt-1"
                     >
-                      Ayarlar ve export
+                      Ayarlar ve dışa aktar
                     </Link>
 
                     <Link
                       role="menuitem"
                       href="/support"
                       onClick={() => setMenuOpen(false)}
-                      className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/78 hover:bg-white/[0.06]"
+                      className="theme-menu-item mt-1"
                     >
                       Destek
                     </Link>
@@ -267,19 +265,19 @@ export default function Header() {
                       role="menuitem"
                       href="/privacy"
                       onClick={() => setMenuOpen(false)}
-                      className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white/54 hover:bg-white/[0.06] hover:text-white/78"
+                      className="theme-menu-item theme-menu-item-soft mt-1"
                     >
                       Gizlilik
                     </Link>
 
-                    <div className="my-2 border-t border-white/10" />
+                    <div className="theme-menu-divider my-2" />
 
                     <button
                       role="menuitem"
                       onClick={logout}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-red-950/30"
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-300 transition hover:bg-red-950/30"
                     >
-                      Çıkış Yap
+                      Çıkış yap
                     </button>
                   </div>
                 </div>

@@ -17,6 +17,13 @@ body {
 }
 body {
   @apply bg-neutral-950 text-neutral-100;
+  font-family:
+    Inter,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
 }
 a {
   @apply text-neutral-100;
@@ -38,6 +45,50 @@ a {
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px);
+}
+
+.theme-topbar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(6, 7, 9, 0.56);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(24px);
+}
+
+.theme-menu-panel {
+  background: rgba(9, 10, 12, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(24px);
+}
+
+.theme-menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.78);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.theme-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.theme-menu-item-soft {
+  color: rgba(255, 255, 255, 0.54);
+}
+
+.theme-menu-item-soft:hover {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.theme-menu-divider {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .theme-field {

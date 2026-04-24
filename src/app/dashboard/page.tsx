@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import type { Item, ItemType, WorkStatus } from "@/lib/types";
 import Button from "@/components/Button";
@@ -146,6 +146,45 @@ export default function DashboardPage() {
     }
 
     showToast("ok", `Durum: ${WORK_STATUS_META[status].label}`);
+  };
+
+  const setSnoozeForItem = async (itemId: string, days: number | null) => {
+    if (!userId) return;
+
+    const previous = items;
+    const nowIso = new Date().toISOString();
+    const snoozedUntil =
+      days === null
+        ? null
+        : new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    setItems((prev: any) =>
+      prev.map((it: any) =>
+        it.id === itemId
+          ? { ...it, snoozed_until: snoozedUntil, updated_at: nowIso }
+          : it,
+      ),
+    );
+
+    const { error } = await supabase
+      .from("items")
+      .update({
+        snoozed_until: snoozedUntil,
+        updated_at: nowIso,
+      })
+      .eq("id", itemId)
+      .eq("user_id", userId);
+
+    if (error) {
+      setItems(previous);
+      showToast("err", error.message ?? "Erteleme kaydedilemedi");
+      return;
+    }
+
+    showToast(
+      "ok",
+      days === null ? "Erteleme kaldırıldı" : `Ertelendi: ${days} gün`,
+    );
   };
 
   useEffect(() => {
@@ -429,8 +468,8 @@ export default function DashboardPage() {
 
       window.location.href = url;
     } catch (e: any) {
-      setErr(e?.message ?? "Billing portal açılamadı.");
-      showToast("err", e?.message ?? "Billing portal açılamadı ❌");
+      setErr(e?.message ?? "Ödeme sayfası açılamadı.");
+      showToast("err", e?.message ?? "Ödeme sayfası açılamadı ❌");
     } finally {
       setPortalLoading(false);
     }
@@ -868,7 +907,7 @@ export default function DashboardPage() {
     );
     if (!ok) return;
 
-    const groupTitle = groups.find((g) => g.id === groupId)?.title ?? "Group";
+    const groupTitle = groups.find((g) => g.id === groupId)?.title ?? "Grup";
 
     try {
       setErr(null);
@@ -898,8 +937,8 @@ export default function DashboardPage() {
 
       showToast("ok", `🗑️ "${groupTitle}" silindi (Inbox’a taşındı)`);
     } catch (e: any) {
-      setErr(e?.message ?? "Group silinemedi.");
-      showToast("err", e?.message ?? "Group silinemedi ❌");
+      setErr(e?.message ?? "Grup silinemedi.");
+      showToast("err", e?.message ?? "Grup silinemedi ❌");
     }
   };
 
@@ -914,8 +953,8 @@ export default function DashboardPage() {
 
     const t = renameTitle.trim();
     if (!t) {
-      setErr("Group title boş olamaz.");
-      showToast("err", "Group title boş olamaz ❌");
+      setErr("Grup adı boş olamaz.");
+      showToast("err", "Grup adı boş olamaz ❌");
       return;
     }
 
@@ -938,8 +977,8 @@ export default function DashboardPage() {
       await loadGroups(userId);
       showToast("ok", "✅ Grup adı güncellendi");
     } catch (e: any) {
-      setErr(e?.message ?? "Group adı güncellenemedi.");
-      showToast("err", e?.message ?? "Group adı güncellenemedi ❌");
+      setErr(e?.message ?? "Grup adı güncellenemedi.");
+      showToast("err", e?.message ?? "Grup adı güncellenemedi ❌");
     } finally {
       setRenaming(false);
     }
@@ -1199,7 +1238,7 @@ export default function DashboardPage() {
   const enhanceSelected = async () => {
     try {
       if (!isPro) {
-        showToast("err", "AI Enhance sadece Pro’da ❌");
+        showToast("err", "AI işlemleri sadece Pro’da ❌");
         return;
       }
 
@@ -1266,14 +1305,14 @@ export default function DashboardPage() {
       showToast(
         failCount === 0 ? "ok" : "err",
         failCount === 0
-          ? `✅ AI Enhance tamam (${okCount})`
-          : `⚠️ AI Enhance: ${okCount} ok, ${failCount} fail`,
+          ? `✅ AI işlemi tamamlandı (${okCount})`
+          : `⚠️ AI işlemi: ${okCount} başarılı, ${failCount} hatalı`,
       );
 
       setAiSelection([]);
       if (userId) await load(userId);
     } catch (e: any) {
-      showToast("err", e?.message ?? "AI Enhance başarısız ❌");
+      showToast("err", e?.message ?? "AI işlemi başarısız ❌");
     } finally {
       setAiEnhancing(false);
       window.setTimeout(() => setAiProgress(null), 1200);
@@ -1288,8 +1327,8 @@ export default function DashboardPage() {
 
       const title = groupTitle.trim();
       if (!title) {
-        setErr("Group title required.");
-        showToast("err", "Group title required ❌");
+        setErr("Grup adı gerekli.");
+        showToast("err", "Grup adı gerekli ❌");
         return;
       }
 
@@ -1323,7 +1362,7 @@ export default function DashboardPage() {
 
       showToast("ok", "✅ Grup oluşturuldu");
     } catch (e: any) {
-      setErr(e?.message ?? "Group oluşturulamadı.");
+      setErr(e?.message ?? "Grup oluşturulamadı.");
       showToast("err", e?.message ?? "Grup oluşturulamadı ❌");
     } finally {
       setSavingGroup(false);
@@ -1332,7 +1371,7 @@ export default function DashboardPage() {
   const enhanceCurrentGroup = async () => {
     try {
       if (!isPro) {
-        showToast("err", "AI Enhance sadece Pro’da ❌");
+        showToast("err", "AI işlemleri sadece Pro’da ❌");
         return;
       }
 
@@ -1413,15 +1452,15 @@ export default function DashboardPage() {
       showToast(
         failCount === 0 ? "ok" : "err",
         failCount === 0
-          ? `✅ Grup AI Enhance tamam (${okCount})`
-          : `⚠️ Grup AI Enhance: ${okCount} ok, ${failCount} fail`,
+          ? `✅ Grup AI işlemi tamamlandı (${okCount})`
+          : `⚠️ Grup AI işlemi: ${okCount} başarılı, ${failCount} hatalı`,
       );
 
       if (userId) {
         await load(userId);
       }
     } catch (e: any) {
-      showToast("err", e?.message ?? "Grup AI Enhance başarısız ❌");
+      showToast("err", e?.message ?? "Grup AI işlemi başarısız ❌");
     } finally {
       setGroupEnhancing(false);
       window.setTimeout(() => setGroupProgress(null), 1200);
@@ -1548,6 +1587,9 @@ export default function DashboardPage() {
     const canBulk = isPro === true && isForgottenMode;
     const canAiSelect = isPro === true && !isForgottenMode; // unutulanlar modunda karışmasın
     const aiChecked = aiSelection.includes(it.id);
+    const hasActiveSnooze =
+      !!(it as any).snoozed_until &&
+      new Date((it as any).snoozed_until).getTime() > Date.now();
 
     const toggleAi = (next: boolean) => {
       setAiSelection((prev) =>
@@ -1564,7 +1606,14 @@ export default function DashboardPage() {
     };
 
     return (
-      <div className="relative">
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        className="relative"
+      >
         {canBulk ? (
           <>
             {/* Bigger hit-area */}
@@ -1617,7 +1666,7 @@ export default function DashboardPage() {
               className="absolute top-2 right-2 z-20 h-9 w-9 rounded-lg
                        bg-neutral-950/70 border border-neutral-800
                        hover:bg-neutral-900 flex items-center justify-center"
-              title="AI Enhance için seç"
+              title="AI işlemi için seç"
             >
               <span
                 className={`h-5 w-5 rounded border flex items-center justify-center
@@ -1637,7 +1686,7 @@ export default function DashboardPage() {
               onChange={(e) => toggleAi(e.target.checked)}
               onClick={(e) => e.stopPropagation()}
               className="sr-only"
-              aria-label="AI Enhance için seç"
+              aria-label="AI işlemi için seç"
             />
           </>
         ) : null}
@@ -1666,34 +1715,90 @@ export default function DashboardPage() {
             }
             className={`${canBulk ? "pl-12" : ""} ${canAiSelect ? "pr-12" : ""}`}
           />
-          <div className="mt-2 flex flex-col gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-white/38">
-                İşleme durumu
+          <div className="mt-2 flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-white/38">
+                  İşleme durumu
+                </div>
+                <div className="mt-0.5 text-xs text-white/52">
+                  {WORK_STATUS_META[workStatus].description}
+                </div>
               </div>
-              <div className="mt-0.5 text-xs text-white/52">
-                {WORK_STATUS_META[workStatus].description}
-              </div>
+
+              <select
+                value={workStatus}
+                onChange={(e) => {
+                  void setWorkStatusForItem(it.id, e.target.value as WorkStatus);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="h-9 rounded-lg border border-white/10 bg-[#07090d] px-3 text-xs font-semibold text-white/82 outline-none focus:border-cyan-200/50"
+                title="Bu kaydın işleme durumunu seç"
+              >
+                {Object.entries(WORK_STATUS_META).map(([key, meta]) => (
+                  <option key={key} value={key}>
+                    {meta.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <select
-              value={workStatus}
-              onChange={(e) => {
-                void setWorkStatusForItem(it.id, e.target.value as WorkStatus);
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className="h-9 rounded-lg border border-white/10 bg-[#07090d] px-3 text-xs font-semibold text-white/82 outline-none focus:border-cyan-200/50"
-              title="Bu kaydın işleme durumunu seç"
-            >
-              {Object.entries(WORK_STATUS_META).map(([key, meta]) => (
-                <option key={key} value={key}>
-                  {meta.label}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-white/38">
+                Hızlı aksiyonlar
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void setWorkStatusForItem(it.id, "today");
+                  }}
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/78 transition hover:bg-white/[0.08]"
+                >
+                  Bugün
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void setWorkStatusForItem(it.id, "done");
+                  }}
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/78 transition hover:bg-white/[0.08]"
+                >
+                  Bitti
+                </button>
+                {[7, 14, 30].map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void setSnoozeForItem(it.id, days);
+                    }}
+                    className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/78 transition hover:bg-white/[0.08]"
+                  >
+                    {days}g
+                  </button>
+                ))}
+                {hasActiveSnooze ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void setSnoozeForItem(it.id, null);
+                    }}
+                    className="rounded-lg border border-amber-300/18 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/15"
+                  >
+                    Sıfırla
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   };
 
@@ -1702,7 +1807,7 @@ export default function DashboardPage() {
       <DnaBackdrop className="fixed opacity-20" />
       <div className="theme-page-glow pointer-events-none fixed inset-0" />
       <div className="pointer-events-none fixed inset-0 opacity-[0.075] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:72px_72px]" />
-      <div className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-[#030406]/62 px-6 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
+      <div className="theme-topbar fixed inset-x-0 top-0 z-50 px-6 py-4">
         <div className="mx-auto max-w-7xl">
           <Header />
         </div>
@@ -1782,7 +1887,7 @@ export default function DashboardPage() {
               disabled={portalLoading}
               className="mt-3 rounded-full bg-amber-200 px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
             >
-              {portalLoading ? "Opening…" : "Kartı Güncelle"}
+              {portalLoading ? "Açılıyor..." : "Kartı güncelle"}
             </button>
           </div>
         ) : null}
@@ -1802,10 +1907,10 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="text-sm font-semibold text-white">
-                  Unutulanlar: Free vs Pro
+                  Unutulanlar: Free ve Pro
                 </div>
                 <div className="mt-1 text-xs text-white/56">
-                  Free planda{" "}
+                  Ücretsiz planda{" "}
                   <span className="text-neutral-200 font-semibold">7+</span>{" "}
                   gündür bakmadıkların burada görünür. Pro’da{" "}
                   <span className="text-neutral-200 font-semibold">
@@ -2024,9 +2129,21 @@ export default function DashboardPage() {
           </div>
         </motion.section>
 
-        <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
-          <div className="space-y-5">
-            <div>
+        <motion.section
+          initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
+          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.28)] backdrop-blur-2xl"
+        >
+          <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.35 }}
+              transition={{ duration: 0.4, delay: 0.05 }}
+              className="xl:col-span-2"
+            >
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
@@ -2064,7 +2181,7 @@ export default function DashboardPage() {
                 title={
                   isPro === true
                     ? `${proForgottenDays}+ gündür açılmayan kayıtlar`
-                    : "Free: 7+ gün | Pro: 30/60/90 seç"
+                    : "Ücretsiz: 7+ gün | Pro: 30/60/90 seç"
                 }
               >
                 Unutulanlar{" "}
@@ -2388,9 +2505,15 @@ export default function DashboardPage() {
                 );
               })}
               </div>
-            </div>
+            </motion.div>
 
-            <div className="border-t border-white/10 pt-4">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.35 }}
+              transition={{ duration: 0.4, delay: 0.12 }}
+              className="border-t border-white/10 pt-4 xl:border xl:border-white/10 xl:bg-black/10 xl:p-4 xl:rounded-xl xl:h-full"
+            >
               <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
@@ -2438,9 +2561,15 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            </div>
+            </motion.div>
 
-            <div className="border-t border-white/10 pt-4">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.35 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+              className="border-t border-white/10 pt-4 xl:border xl:border-white/10 xl:bg-black/10 xl:p-4 xl:rounded-xl xl:h-full"
+            >
               <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
@@ -2519,7 +2648,7 @@ export default function DashboardPage() {
                   >
                     {aiEnhancing
                       ? "AI çalışıyor..."
-                      : `AI Enhance (${aiSelection.length})`}{" "}
+                      : `AI işle (${aiSelection.length})`}{" "}
                   </button>
                 ) : null}
 
@@ -2543,9 +2672,9 @@ export default function DashboardPage() {
                         ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
                         : "border-cyan-200/18 bg-cyan-200/10 text-cyan-50 hover:bg-cyan-200/15"
                     }`}
-                    title="Seçili grup/Inbox içindeki tüm kayıtlar için AI çalıştır"
+                    title="Seçili grup veya Inbox içindeki tüm kayıtlar için AI çalıştır"
                   >
-                    {groupEnhancing ? "Grup işleniyor..." : "Enhance Group"}
+                    {groupEnhancing ? "Grup işleniyor..." : "Grubu AI ile işle"}
                   </button>
                 ) : null}
 
@@ -2562,7 +2691,7 @@ export default function DashboardPage() {
                   />
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
           {aiEnhancing || groupEnhancing || regeneratingItemId ? (
             <div className="accent-border accent-soft mt-3 rounded-xl border px-3 py-2">
@@ -2578,13 +2707,13 @@ export default function DashboardPage() {
                 />
                 {aiProgress ? (
                   <div className="text-[11px] text-sky-200/80">
-                    {aiProgress.done}/{aiProgress.total} • ok:{" "}
-                    {aiProgress.okCount} • fail: {aiProgress.failCount}
+                    {aiProgress.done}/{aiProgress.total} • başarılı:{" "}
+                    {aiProgress.okCount} • hata: {aiProgress.failCount}
                   </div>
                 ) : groupProgress ? (
                   <div className="text-[11px] text-sky-200/80">
                     {groupProgress.okCount + groupProgress.failCount}/
-                    {groupProgress.total} • ok: {groupProgress.okCount} • fail:{" "}
+                    {groupProgress.total} • başarılı: {groupProgress.okCount} • hata:{" "}
                     {groupProgress.failCount}
                   </div>
                 ) : null}
@@ -2597,9 +2726,9 @@ export default function DashboardPage() {
           ) : null}
 
           <div className="mt-3 text-xs text-white/46">
-            İpucu: Bir not/link kartını sürükleyip Inbox veya bir gruba bırak.
+            İpucu: Bir not veya link kartını sürükleyip Inbox ya da bir gruba bırak.
           </div>
-        </div>
+        </motion.section>
 
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* SOL: NOTLAR */}
@@ -2647,19 +2776,21 @@ export default function DashboardPage() {
                   </button>
 
                   {!collapsed["inbox_notes"] ? (
-                    <div className="p-4 pt-0 grid gap-3">
-                      {(notesByGroup["inbox"] ?? []).map((it: any) => (
-                        <DraggableWrap key={it.id} it={it} />
-                      ))}
-                      {(notesByGroup["inbox"] ?? []).length === 0 ? (
-                        <EmptyState
-                          title="Inbox notları boş"
-                          text="Group seçmeden eklediğin notlar burada görünür."
-                          actionLabel="Inbox’a not ekle"
-                          onAction={() => openNew("note")}
-                        />
-                      ) : null}
-                    </div>
+                <motion.div layout className="grid gap-3 p-4 pt-0">
+                  <AnimatePresence initial={false}>
+                    {(notesByGroup["inbox"] ?? []).map((it: any) => (
+                      <DraggableWrap key={it.id} it={it} />
+                    ))}
+                  </AnimatePresence>
+                  {(notesByGroup["inbox"] ?? []).length === 0 ? (
+                    <EmptyState
+                      title="Inbox notları boş"
+                      text="Group seçmeden eklediğin notlar burada görünür."
+                      actionLabel="Inbox’a not ekle"
+                      onAction={() => openNew("note")}
+                    />
+                  ) : null}
+                </motion.div>
                   ) : null}
                 </div>
 
@@ -2698,27 +2829,33 @@ export default function DashboardPage() {
                       </button>
 
                       {!collapsed[`notes_${g.id}`] ? (
-                        <div className="p-4 pt-0 grid gap-3">
-                          {list.map((it: any) => (
-                            <DraggableWrap key={it.id} it={it} />
-                          ))}
-                        </div>
+                        <motion.div layout className="grid gap-3 p-4 pt-0">
+                          <AnimatePresence initial={false}>
+                            {list.map((it: any) => (
+                              <DraggableWrap key={it.id} it={it} />
+                            ))}
+                          </AnimatePresence>
+                        </motion.div>
                       ) : null}
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="grid gap-3">
+              <motion.div layout className="grid gap-3">
                 {notes.length ? (
-                  notes.map((it: any) => <DraggableWrap key={it.id} it={it} />)
+                  <AnimatePresence initial={false}>
+                    {notes.map((it: any) => (
+                      <DraggableWrap key={it.id} it={it} />
+                    ))}
+                  </AnimatePresence>
                 ) : (
                   <EmptyState
                     title="Bu filtrede not yok"
                     text="Arama veya görünüm filtresini değiştirerek daha fazla kayıt görebilirsin."
                   />
                 )}
-              </div>
+              </motion.div>
             )}
           </div>
 
@@ -2767,10 +2904,12 @@ export default function DashboardPage() {
                   </button>
 
                   {!collapsed["inbox_links"] ? (
-                    <div className="p-4 pt-0 grid gap-3">
-                      {(linksByGroup["inbox"] ?? []).map((it: any) => (
-                        <DraggableWrap key={it.id} it={it} />
-                      ))}
+                    <motion.div layout className="grid gap-3 p-4 pt-0">
+                      <AnimatePresence initial={false}>
+                        {(linksByGroup["inbox"] ?? []).map((it: any) => (
+                          <DraggableWrap key={it.id} it={it} />
+                        ))}
+                      </AnimatePresence>
                       {(linksByGroup["inbox"] ?? []).length === 0 ? (
                         <EmptyState
                           title="Inbox linkleri boş"
@@ -2779,7 +2918,7 @@ export default function DashboardPage() {
                           onAction={() => openNew("link")}
                         />
                       ) : null}
-                    </div>
+                    </motion.div>
                   ) : null}
                 </div>
 
@@ -2818,27 +2957,33 @@ export default function DashboardPage() {
                       </button>
 
                       {!collapsed[`links_${g.id}`] ? (
-                        <div className="p-4 pt-0 grid gap-3">
-                          {list.map((it: any) => (
-                            <DraggableWrap key={it.id} it={it} />
-                          ))}
-                        </div>
+                        <motion.div layout className="grid gap-3 p-4 pt-0">
+                          <AnimatePresence initial={false}>
+                            {list.map((it: any) => (
+                              <DraggableWrap key={it.id} it={it} />
+                            ))}
+                          </AnimatePresence>
+                        </motion.div>
                       ) : null}
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="grid gap-3">
+              <motion.div layout className="grid gap-3">
                 {links.length ? (
-                  links.map((it: any) => <DraggableWrap key={it.id} it={it} />)
+                  <AnimatePresence initial={false}>
+                    {links.map((it: any) => (
+                      <DraggableWrap key={it.id} it={it} />
+                    ))}
+                  </AnimatePresence>
                 ) : (
                   <EmptyState
                     title="Bu filtrede link yok"
                     text="Arama veya görünüm filtresini değiştirerek daha fazla kayıt görebilirsin."
                   />
                 )}
-              </div>
+              </motion.div>
             )}
           </div>
         </section>
@@ -2972,7 +3117,7 @@ export default function DashboardPage() {
 
               {ungroupedItems.length === 0 ? (
                 <div className="p-3 text-sm text-neutral-500">
-                  Inbox boş (group’suz item yok).
+                  Inbox boş (grupsuz kayıt yok).
                 </div>
               ) : null}
             </div>
@@ -2980,10 +3125,10 @@ export default function DashboardPage() {
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setOpenGroupModal(false)}>
-              Cancel
+              İptal
             </Button>
             <Button onClick={createGroupAndAssign} disabled={savingGroup}>
-              {savingGroup ? "Saving..." : "Create"}
+              {savingGroup ? "Kaydediliyor..." : "Oluştur"}
             </Button>
           </div>
         </div>
@@ -2992,25 +3137,25 @@ export default function DashboardPage() {
       {/* ✅ RENAME MODAL */}
       <Modal
         open={openRenameModal}
-        title="Rename group"
+        title="Grubu yeniden adlandır"
         onClose={() => setOpenRenameModal(false)}
       >
         <div className="space-y-3">
           <div>
-            <div className="mb-1 text-xs text-neutral-400">New title</div>
+            <div className="mb-1 text-xs text-neutral-400">Yeni başlık</div>
             <Input
               value={renameTitle}
               onChange={(e) => setRenameTitle(e.target.value)}
-              placeholder="Group name..."
+              placeholder="Grup adı..."
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setOpenRenameModal(false)}>
-              Cancel
+              İptal
             </Button>
             <Button onClick={saveRename} disabled={renaming}>
-              {renaming ? "Saving..." : "Save"}
+              {renaming ? "Kaydediliyor..." : "Kaydet"}
             </Button>
           </div>
         </div>
@@ -3147,7 +3292,7 @@ export default function DashboardPage() {
 
           <div>
             <div className="mb-1 text-xs text-neutral-400">
-              Group (optional)
+              Grup (opsiyonel)
             </div>
             <select
               value={draft.group_id ?? ""}
@@ -3159,7 +3304,7 @@ export default function DashboardPage() {
               }
               className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
             >
-              <option value="">Inbox (no group)</option>
+              <option value="">Inbox (grupsuz)</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.title}
@@ -3219,7 +3364,7 @@ export default function DashboardPage() {
           </div>
 
           <div>
-            <div className="mb-1 text-xs text-neutral-400">Group</div>
+            <div className="mb-1 text-xs text-neutral-400">Grup</div>
             <select
               value={draft.group_id ?? ""}
               onChange={(e) =>
@@ -3230,7 +3375,7 @@ export default function DashboardPage() {
               }
               className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
             >
-              <option value="">Inbox (no group)</option>
+              <option value="">Inbox (grupsuz)</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.title}
@@ -3271,7 +3416,7 @@ export default function DashboardPage() {
       {/* ✅ TOAST */}
       {toast ? (
         <div
-          className={`fixed bottom-16 left-1/2 -translate-x-1/2 rounded-xl border px-4 py-2 text-sm ${
+          className={`fixed bottom-16 left-1/2 z-[120] -translate-x-1/2 rounded-xl border px-4 py-2 text-sm ${
             toast.type === "ok"
               ? "border-emerald-900/40 bg-emerald-950/40 text-emerald-100"
               : "border-red-900/40 bg-red-950/40 text-red-100"

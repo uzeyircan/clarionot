@@ -1,8 +1,8 @@
 const CACHE_NAME = "clarionot-static-v2";
 const PRECACHE = [
   "/manifest.webmanifest",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
+  "/icons/android-chrome-192x192.png",
+  "/icons/android-chrome-512x512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -56,4 +56,43 @@ self.addEventListener("fetch", (event) => {
       })
     );
   }
+});
+
+self.addEventListener("push", (event) => {
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || "ClarioNot";
+  const options = {
+    body: data.body || "Unutulan bir kayıt tekrar işine yarayabilir.",
+    icon: "/icons/android-chrome-192x192.png",
+    badge: "/icons/android-chrome-192x192.png",
+    tag: data.tag || "clarionot-reminder",
+    data: {
+      url: data.url || "/dashboard?view=forgotten",
+      itemId: data.itemId || null,
+      kind: data.kind || "forgotten_item",
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const targetUrl = event.notification.data?.url || "/dashboard?view=forgotten";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    }),
+  );
 });
