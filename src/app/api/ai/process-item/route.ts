@@ -3,12 +3,22 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
+function getInternalAiSecret() {
+  return (
+    process.env.INTERNAL_AI_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.OPENAI_API_KEY ||
+    ""
+  );
+}
+
 function requireInternalSecret(req: Request) {
   const secret = req.headers.get("x-internal-secret") ?? "";
-  if (!process.env.INTERNAL_AI_SECRET) {
-    throw new Error("Missing INTERNAL_AI_SECRET");
+  const expected = getInternalAiSecret();
+  if (!expected) {
+    throw new Error("AI is not configured");
   }
-  return secret === process.env.INTERNAL_AI_SECRET;
+  return secret === expected;
 }
 
 function parseLinkContent(content: string) {

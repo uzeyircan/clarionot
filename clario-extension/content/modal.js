@@ -1,4 +1,4 @@
-// content/modal.js
+﻿// content/modal.js
 (() => {
   if (window.__CLARIONOT_MODAL_LOADED__) return;
   window.__CLARIONOT_MODAL_LOADED__ = true;
@@ -167,6 +167,100 @@
   margin-top: 6px;
 }
 
+.cn-recall{
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  padding: 12px;
+}
+.cn-recall-head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap: 10px;
+}
+.cn-recall-title{
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.42);
+}
+.cn-recall-sub{
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.56);
+}
+.cn-recall-list{
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+.cn-recall-item{
+  display:block;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.18);
+  padding: 10px;
+  text-decoration: none;
+}
+.cn-recall-item:hover{ background: rgba(255,255,255,0.05); }
+.cn-recall-meta{
+  display:flex; flex-wrap:wrap; gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.38);
+}
+.cn-recall-name{
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.92);
+}
+.cn-recall-desc{
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.58);
+}
+.cn-recall-tags{
+  display:flex; flex-wrap:wrap; gap: 6px;
+  margin-top: 8px;
+}
+.cn-recall-tag{
+  display:inline-flex; align-items:center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.72);
+  font-size: 10px;
+  font-weight: 600;
+}
+.cn-recall-actions{
+  display:flex; flex-wrap:wrap; gap: 8px;
+  margin-top: 10px;
+}
+.cn-recall-btn{
+  display:inline-flex; align-items:center;
+  padding: 6px 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.82);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cn-recall-btn:hover{
+  background: rgba(255,255,255,0.08);
+}
+.cn-recall-empty, .cn-recall-loading{
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.48);
+}
+
 .cn-error{
   display:none;
   margin-top: 10px;
@@ -251,59 +345,71 @@
       <div id="${ROOT_ID}" role="dialog" aria-modal="true">
         <div class="cn-modal">
           <div class="cn-head">
-            <div class="cn-title">ClarioNot’a Kaydet</div>
-            <button class="cn-x" id="cn-x" title="Kapat (Esc)">✕</button>
+            <div class="cn-title">ClarioNotâ€™a Kaydet</div>
+            <button class="cn-x" id="cn-x" title="Kapat (Esc)">âœ•</button>
           </div>
 
           <div class="cn-body">
             <div class="cn-chiprow">
               <div class="cn-chip">
-                Tür:
+                TÃ¼r:
                 <span class="cn-pill" id="cn-type-pill">${
                   inferredType === "note" ? "Not" : "Link"
                 }</span>
               </div>
               <div class="cn-chip" style="opacity:.75">
-                <span class="cn-pill">⌘/Ctrl + Enter = Kaydet</span>
+                <span class="cn-pill">âŒ˜/Ctrl + Enter = Kaydet</span>
               </div>
             </div>
 
             <div class="cn-grid">
               <div>
-                <div class="cn-label">Başlık</div>
-                <input id="cn-title" class="cn-input" value="${defaultTitle}" placeholder="Örn: React Hooks" />
+                <div class="cn-label">BaÅŸlÄ±k</div>
+                <input id="cn-title" class="cn-input" value="${defaultTitle}" placeholder="Ã–rn: React Hooks" />
               </div>
 
               <div>
-                <div class="cn-label">Açıklama / Not</div>
-                <textarea id="cn-note" class="cn-textarea" placeholder="Kısa açıklama...">${defaultNote}</textarea>
+                <div class="cn-label">AÃ§Ä±klama / Not</div>
+                <textarea id="cn-note" class="cn-textarea" placeholder="KÄ±sa aÃ§Ä±klama...">${defaultNote}</textarea>
               </div>
 
               <div id="cn-url-wrap">
                 <div class="cn-label">Link (opsiyonel)</div>
                 <input id="cn-url" class="cn-input" value="${defaultUrl}" placeholder="https://..." />
-                <div class="cn-help">Not kaydediyorsan link boş kalabilir.</div>
+                <div class="cn-help">Not kaydediyorsan link boÅŸ kalabilir.</div>
               </div>
 
               <div class="cn-row2">
                 <div>
-                  <div class="cn-label">Tags (virgülle)</div>
-                  <input id="cn-tags" class="cn-input" placeholder="örn: react, ui, hooks" />
+                  <div class="cn-label">Tags (virgÃ¼lle)</div>
+                  <input id="cn-tags" class="cn-input" placeholder="Ã¶rn: react, ui, hooks" />
                 </div>
 
                 <div>
                   <div class="cn-label">Group</div>
                   <select id="cn-group" class="cn-select">
                     <option value="">Inbox</option>
-                    <option value="" disabled>Yükleniyor…</option>
+                    <option value="" disabled>YÃ¼kleniyorâ€¦</option>
                   </select>
                 </div>
+              </div>
+
+              <div class="cn-recall" id="cn-recall">
+                <div class="cn-recall-head">
+                  <div>
+                    <div class="cn-recall-title">Context Recall</div>
+                    <div class="cn-recall-sub">Bu sayfayla ilgili eski kayÄ±tlar burada gÃ¶rÃ¼nÃ¼r.</div>
+                  </div>
+                </div>
+                <div id="cn-recall-loading" class="cn-recall-loading">Ä°lgili kayÄ±tlar aranÄ±yor...</div>
+                <div id="cn-recall-list" class="cn-recall-list" style="display:none"></div>
+                <div id="cn-recall-empty" class="cn-recall-empty" style="display:none">Bu sayfa iÃ§in geri Ã§aÄŸrÄ±lan eski kayÄ±t yok.</div>
               </div>
 
               <div id="cn-error" class="cn-error"></div>
 
               <div class="cn-foot">
-                <button id="cn-cancel" class="cn-btn">İptal</button>
+                <button id="cn-cancel" class="cn-btn">Ä°ptal</button>
                 <button id="cn-save" class="cn-btn cn-btn-primary">Kaydet</button>
               </div>
             </div>
@@ -344,10 +450,10 @@
 
       if (!resp?.ok) {
         if (resp?.code === "TOKEN_MISSING" || resp?.code === "TOKEN_INVALID") {
-          setFallback("Önce eklentiyi bağla");
+          setFallback("Ã–nce eklentiyi baÄŸla");
           return;
         }
-        setFallback("Gruplar alınamadı");
+        setFallback("Gruplar alÄ±namadÄ±");
         return;
       }
 
@@ -359,7 +465,147 @@
         selectEl.appendChild(opt);
       }
     } catch {
-      setFallback("Gruplar alınamadı");
+      setFallback("Gruplar alÄ±namadÄ±");
+    }
+  }
+
+  async function populateContextRecall(root, payload) {
+    const loadingEl = root.querySelector("#cn-recall-loading");
+    const listEl = root.querySelector("#cn-recall-list");
+    const emptyEl = root.querySelector("#cn-recall-empty");
+
+    const showEmpty = (text) => {
+      if (loadingEl) loadingEl.style.display = "none";
+      if (listEl) {
+        listEl.innerHTML = "";
+        listEl.style.display = "none";
+      }
+      if (emptyEl) {
+        emptyEl.textContent = text;
+        emptyEl.style.display = "block";
+      }
+    };
+
+    try {
+      const resp = await chrome.runtime.sendMessage({
+        type: "CLARIONOT_GET_CONTEXT_RECALL",
+        payload: {
+          pageUrl: payload?.pageUrl || payload?.link || "",
+          title: tryPrefillTitle(payload?.inferredType || "link", payload),
+          selection: payload?.selection || "",
+        },
+      });
+
+      if (!resp?.ok) {
+        showEmpty("Ä°lgili kayÄ±tlar ÅŸu anda alÄ±namÄ±yor.");
+        return;
+      }
+
+      const recall = Array.isArray(resp.recall) ? resp.recall : [];
+      const apiBase = String(resp.apiBase || "").trim();
+
+      if (!recall.length) {
+        showEmpty("Bu sayfa iÃ§in geri Ã§aÄŸrÄ±lan eski kayÄ±t yok.");
+        return;
+      }
+
+      const cards = recall
+        .map((item) => {
+          const tags = Array.isArray(item.tags) ? item.tags.slice(0, 3) : [];
+          const summary = String(item.summary || "").trim();
+          const allTags = Array.isArray(item.tags)
+            ? item.tags
+                .map((tag) => String(tag || "").trim())
+                .filter(Boolean)
+                .join(", ")
+            : "";
+          const metaBits = [
+            item.type === "link" ? "Link" : "Not",
+            item.age_days === 0 ? "BugÃ¼n" : `${item.age_days} gÃ¼n`,
+          ];
+
+          if (item.matched_hostname && item.hostname) {
+            metaBits.push(item.hostname);
+          }
+
+          return `
+            <div class="cn-recall-item">
+              <a href="${apiBase}/dashboard?focus=${item.id}&view=forgotten" target="_blank" rel="noreferrer">
+                <div class="cn-recall-meta">${metaBits.map(escHtml).join(" · ")}</div>
+                <div class="cn-recall-name">${escHtml(item.title || "Basliksiz kayit")}</div>
+                ${
+                  summary
+                    ? `<div class="cn-recall-desc">${escHtml(summary)}</div>`
+                    : ""
+                }
+                ${
+                  tags.length
+                    ? `<div class="cn-recall-tags">${tags
+                        .map((tag) => `<span class="cn-recall-tag">#${escHtml(tag)}</span>`)
+                        .join("")}</div>`
+                    : ""
+                }
+              </a>
+              <div class="cn-recall-actions">
+                ${
+                  allTags
+                    ? `<button type="button" class="cn-recall-btn" data-recall-tags="${escHtml(allTags)}">Tag'leri al</button>`
+                    : ""
+                }
+                ${
+                  item.group_id
+                    ? `<button type="button" class="cn-recall-btn" data-recall-group-id="${escHtml(item.group_id)}" data-recall-group-title="${escHtml(item.group_title || "Adsiz grup")}">Ayni gruba al</button>`
+                    : ""
+                }
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+
+      if (loadingEl) loadingEl.style.display = "none";
+      if (emptyEl) emptyEl.style.display = "none";
+      if (listEl) {
+        listEl.innerHTML = cards;
+        listEl.style.display = "grid";
+        listEl.onclick = (event) => {
+          const target =
+            event.target instanceof Element ? event.target.closest(".cn-recall-btn") : null;
+          if (!target) return;
+
+          const tagsValue = String(target.getAttribute("data-recall-tags") || "").trim();
+          if (tagsValue) {
+            event.preventDefault();
+            const tagsInput = root.querySelector("#cn-tags");
+            if (!tagsInput) return;
+            tagsInput.value = tagsValue;
+            toast("Etiketler alindi.");
+            return;
+          }
+
+          const groupId = String(target.getAttribute("data-recall-group-id") || "").trim();
+          if (!groupId) return;
+
+          event.preventDefault();
+          const groupTitle =
+            String(target.getAttribute("data-recall-group-title") || "").trim() || "Grup";
+          const groupSelect = root.querySelector("#cn-group");
+          if (!groupSelect) return;
+
+          let option = Array.from(groupSelect.options).find((entry) => entry.value === groupId);
+          if (!option) {
+            option = document.createElement("option");
+            option.value = groupId;
+            option.textContent = groupTitle;
+            groupSelect.appendChild(option);
+          }
+
+          groupSelect.value = groupId;
+          toast("Grup secildi.");
+        };
+      }
+    } catch {
+      showEmpty("Ä°lgili kayÄ±tlar ÅŸu anda alÄ±namÄ±yor.");
     }
   }
 
@@ -451,6 +697,7 @@
     // groups
     const groupSel = root.querySelector("#cn-group");
     if (groupSel) populateGroups(groupSel, payload?.groups);
+    populateContextRecall(root, payload);
 
     const btnSave = root.querySelector("#cn-save");
     const btnCancel = root.querySelector("#cn-cancel");
@@ -458,7 +705,7 @@
     const setLoading = (on) => {
       if (btnSave) btnSave.disabled = !!on;
       if (btnCancel) btnCancel.disabled = !!on;
-      if (btnSave) btnSave.textContent = on ? "Kaydediliyor…" : "Kaydet";
+      if (btnSave) btnSave.textContent = on ? "Kaydediliyorâ€¦" : "Kaydet";
     };
 
     const doSave = async () => {
@@ -477,14 +724,14 @@
       if (inferredType === "note") {
         if (!String(note).trim() && !String(title).trim()) {
           setLoading(false);
-          setError(root, "Not için en az başlık ya da içerik gir.");
+          setError(root, "Not iÃ§in en az baÅŸlÄ±k ya da iÃ§erik gir.");
           return;
         }
       } else {
         const u = String(url).trim();
         if (!u && !String(title).trim()) {
           setLoading(false);
-          setError(root, "Link için en az URL ya da başlık gir.");
+          setError(root, "Link iÃ§in en az URL ya da baÅŸlÄ±k gir.");
           return;
         }
       }
@@ -514,7 +761,7 @@
           return;
         }
 
-        toast("Kaydedildi ✅");
+        toast("Kaydedildi âœ…");
         window.setTimeout(() => close(), 450);
       } catch (e) {
         const emsg = e?.message || String(e);
@@ -546,9 +793,9 @@
       return;
     }
 
-    // ✅ background -> "saved" sinyali
+    // âœ… background -> "saved" sinyali
     if (msg?.type === "CLARIONOT_SAVED") {
-      toast("Kaydedildi ✅");
+      toast("Kaydedildi âœ…");
       try {
         window.postMessage(
           { type: "CLARIONOT_SAVED_UI" },

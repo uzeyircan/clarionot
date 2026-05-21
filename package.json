@@ -6,9 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "cap:sync": "cap sync",
+    "android": "cap open android",
+    "android:sync": "cap sync android",
+    "android:run": "cap run android",
+    "ios:add": "cap add ios",
+    "ios": "cap open ios",
+    "ios:sync": "cap sync ios"
   },
   "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1",
+    "@capacitor/ios": "^6.2.1",
+    "@capacitor/ios": "^6.2.1",
     "@supabase/supabase-js": "^2.45.4",
     "cheerio": "^1.1.2",
     "framer-motion": "^12.38.0",

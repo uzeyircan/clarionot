@@ -12,6 +12,7 @@ const LOCAL_BASE = "http://localhost:3000";
 
 const API_PATH = "/api/clip";
 const GROUPS_PATH = "/api/groups";
+const RECALL_PATH = "/api/clip/recall";
 
 /**
  * Token key artık tek değil:
@@ -142,6 +143,30 @@ async function fetchGroups(apiBase) {
   if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
 
   return Array.isArray(json?.groups) ? json.groups : [];
+}
+
+async function fetchContextRecall(apiBase, payload) {
+  const token = await getToken(apiBase);
+  if (!token) throw new Error("TOKEN_MISSING");
+
+  const res = await fetch(`${apiBase}${RECALL_PATH}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload || {}),
+  });
+
+  const json = await res.json().catch(() => ({}));
+
+  if (res.status === 401) {
+    await clearToken(apiBase);
+    throw new Error(json?.error || "TOKEN_INVALID");
+  }
+
+  if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+  return Array.isArray(json?.recall) ? json.recall : [];
 }
 
 function setupMenus() {
@@ -302,6 +327,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   // ✅ modal -> kaydet
+  if (msg?.type === "CLARIONOT_GET_CONTEXT_RECALL") {
+    (async () => {
+      try {
+        const recall = await fetchContextRecall(apiBase, msg.payload || {});
+        sendResponse({ ok: true, recall, apiBase });
+      } catch (e) {
+        const emsg = e?.message || String(e);
+
+        if (emsg === "TOKEN_MISSING" || emsg === "TOKEN_INVALID") {
+          sendResponse({ ok: false, code: emsg });
+          return;
+        }
+
+        sendResponse({ ok: false, code: "RECALL_FETCH_FAILED", error: emsg });
+      }
+    })();
+
+    return true;
+  }
+
   if (msg?.type === "CLARIONOT_SAVE_FROM_MODAL") {
     (async () => {
       try {

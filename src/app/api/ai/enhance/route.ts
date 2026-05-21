@@ -3,6 +3,15 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
+function getInternalAiSecret() {
+  return (
+    process.env.INTERNAL_AI_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.OPENAI_API_KEY ||
+    ""
+  );
+}
+
 function getBearer(req: Request) {
   const auth = req.headers.get("authorization") ?? "";
   const m = auth.match(/^Bearer\s+(.+)$/i);
@@ -100,9 +109,10 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!process.env.INTERNAL_AI_SECRET) {
+    const internalSecret = getInternalAiSecret();
+    if (!internalSecret) {
       return NextResponse.json(
-        { error: "Missing INTERNAL_AI_SECRET" },
+        { error: "AI is not configured" },
         { status: 500 },
       );
     }
@@ -125,7 +135,7 @@ export async function POST(req: Request) {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "x-internal-secret": process.env.INTERNAL_AI_SECRET!,
+                "x-internal-secret": internalSecret,
               },
               body: JSON.stringify({ itemId }),
             });
@@ -171,7 +181,7 @@ export async function POST(req: Request) {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "x-internal-secret": process.env.INTERNAL_AI_SECRET!,
+                "x-internal-secret": internalSecret,
               },
               body: JSON.stringify({ itemId }),
             });

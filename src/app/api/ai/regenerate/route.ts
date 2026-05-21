@@ -3,6 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
+function getInternalAiSecret() {
+  return (
+    process.env.INTERNAL_AI_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.OPENAI_API_KEY ||
+    ""
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const auth = req.headers.get("authorization") || "";
@@ -90,11 +99,16 @@ export async function POST(req: Request) {
 
     const baseUrl = process.env.APP_ORIGIN || new URL(req.url).origin;
 
+    const internalSecret = getInternalAiSecret();
+    if (!internalSecret) {
+      return NextResponse.json({ error: "AI is not configured" }, { status: 500 });
+    }
+
     const processRes = await fetch(`${baseUrl}/api/ai/process-item`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-internal-secret": process.env.INTERNAL_AI_SECRET!,
+        "x-internal-secret": internalSecret,
       },
       body: JSON.stringify({ itemId }),
     });

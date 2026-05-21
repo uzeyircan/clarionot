@@ -15,6 +15,15 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false },
 });
 
+function getInternalAiSecret() {
+  return (
+    process.env.INTERNAL_AI_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.OPENAI_API_KEY ||
+    ""
+  );
+}
+
 function sha256Hex(input: string) {
   return crypto.createHash("sha256").update(input, "utf8").digest("hex");
 }
@@ -235,13 +244,14 @@ export async function POST(req: Request) {
     if (insErr) throw insErr;
 
     // ✅ AI processing tetikle (fire-and-forget). Secret yoksa sessizce geç.
-    if (process.env.INTERNAL_AI_SECRET) {
+    const internalSecret = getInternalAiSecret();
+    if (internalSecret) {
       const origin = process.env.APP_ORIGIN || new URL(req.url).origin;
       void fetch(`${origin}/api/ai/process-item`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-internal-secret": process.env.INTERNAL_AI_SECRET,
+          "x-internal-secret": internalSecret,
         },
         body: JSON.stringify({ itemId: inserted.id }),
       });

@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import type { Item, ItemType, WorkStatus } from "@/lib/types";
@@ -36,6 +36,7 @@ const emptyDraft = (type: ItemType): Draft => ({
 type Group = { id: string; title: string; created_at?: string };
 
 type WorkStatusFilter = "all" | WorkStatus;
+type ForgottenSegment = "all" | "7" | "30" | "90" | "today" | "snoozed";
 
 const WORK_STATUS_META: Record<
   WorkStatus,
@@ -70,6 +71,7 @@ type ToastState = {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -90,6 +92,8 @@ export default function DashboardPage() {
   const [forgottenSort, setForgottenSort] = useState<"oldest" | "newest">(
     "oldest",
   );
+  const [forgottenSegment, setForgottenSegment] =
+    useState<ForgottenSegment>("all");
 
   // ✅ Pro durumu DB’den
   const [isPro, setIsPro] = useState<boolean | null>(null);
@@ -109,9 +113,26 @@ export default function DashboardPage() {
 
   // ✅ Toast
   const [toast, setToast] = useState<ToastState>(null);
+  const normalizeAiError = (message?: string | null) => {
+    if (!message) return "AI işlemi şu anda kullanılamıyor";
+
+    if (
+      message.includes("INTERNAL_AI_SECRET") ||
+      message.includes("AI is not configured")
+    ) {
+      return "AI özelliği henüz yapılandırılmamış";
+    }
+
+    if (message.includes("OPENAI_API_KEY")) {
+      return "AI sağlayıcı ayarları eksik";
+    }
+
+    return message;
+  };
   const showToast = (type: "ok" | "err", text: string) =>
     setToast({ type, text });
   const viewTimersRef = useRef<Record<string, number>>({});
+  const focusedQueryHandledRef = useRef<string | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   useEffect(() => {
     if (!toast) return;
@@ -305,6 +326,11 @@ export default function DashboardPage() {
     },
     [FORGOTTEN_MS],
   );
+
+  const isActivelySnoozed = useCallback((it: any) => {
+    if (!it?.snoozed_until) return false;
+    return new Date(it.snoozed_until).getTime() > Date.now();
+  }, []);
 
   const baseDateOf = (it: any) => new Date(it.last_viewed_at ?? it.created_at);
 
@@ -722,6 +748,12 @@ export default function DashboardPage() {
     }
   }, [activeGroupId, isPro]);
 
+  useEffect(() => {
+    if (activeGroupId !== "forgotten") {
+      setForgottenSegment("all");
+    }
+  }, [activeGroupId]);
+
   const groupCounts = useMemo(() => {
     const counts: Record<string, number> = { inbox: 0, forgotten: 0 };
     for (const it of items as any) {
@@ -731,6 +763,39 @@ export default function DashboardPage() {
     }
     return counts;
   }, [items, isForgotten]);
+
+  const forgottenSegmentCounts = useMemo(() => {
+    const counts: Record<ForgottenSegment, number> = {
+      all: 0,
+      "7": 0,
+      "30": 0,
+      "90": 0,
+      today: 0,
+      snoozed: 0,
+    };
+
+    for (const it of items as any[]) {
+      const age = daysSinceBase(it);
+      const status = (it.work_status ?? "later") as WorkStatus;
+
+      if (isActivelySnoozed(it)) counts.snoozed += 1;
+      if (isForgotten(it)) {
+        counts.all += 1;
+        if (age >= 7) counts["7"] += 1;
+        if (age >= 30) counts["30"] += 1;
+        if (age >= 90) counts["90"] += 1;
+        if (status === "today") counts.today += 1;
+      }
+    }
+
+    return counts;
+  }, [items, isActivelySnoozed, isForgotten]);
+
+  useEffect(() => {
+    if (searchParams.get("view") === "forgotten") {
+      setActiveGroupId("forgotten");
+    }
+  }, [searchParams]);
 
   const aiCategoryCounts = useMemo(() => {
     const counts: Record<string, number> = { all: 0 };
@@ -832,7 +897,33 @@ export default function DashboardPage() {
     if (activeGroupId === "all") return afterWorkStatus;
 
     if (activeGroupId === "forgotten") {
-      return afterWorkStatus.filter((it: any) => isForgotten(it));
+      if (forgottenSegment === "snoozed") {
+        return afterWorkStatus.filter((it: any) => isActivelySnoozed(it));
+      }
+
+      const forgottenItems = afterWorkStatus.filter((it: any) =>
+        isForgotten(it),
+      );
+
+      if (forgottenSegment === "today") {
+        return forgottenItems.filter(
+          (it: any) => (it.work_status ?? "later") === "today",
+        );
+      }
+
+      if (forgottenSegment === "7") {
+        return forgottenItems.filter((it: any) => daysSinceBase(it) >= 7);
+      }
+
+      if (forgottenSegment === "30") {
+        return forgottenItems.filter((it: any) => daysSinceBase(it) >= 30);
+      }
+
+      if (forgottenSegment === "90") {
+        return forgottenItems.filter((it: any) => daysSinceBase(it) >= 90);
+      }
+
+      return forgottenItems;
     }
 
     if (activeGroupId === "inbox")
@@ -845,7 +936,9 @@ export default function DashboardPage() {
     items,
     q,
     activeGroupId,
+    forgottenSegment,
     isForgotten,
+    isActivelySnoozed,
     activeAiCategory,
     activeWorkStatus,
   ]);
@@ -859,8 +952,17 @@ export default function DashboardPage() {
       return forgottenSort === "oldest" ? da - db : db - da;
     });
 
+    const focusedItemId = searchParams.get("focus");
+    if (focusedItemId) {
+      sorted.sort((a: any, b: any) => {
+        if (a.id === focusedItemId) return -1;
+        if (b.id === focusedItemId) return 1;
+        return 0;
+      });
+    }
+
     return sorted;
-  }, [filteredItems, activeGroupId, forgottenSort]);
+  }, [filteredItems, activeGroupId, forgottenSort, searchParams]);
 
   const { notes, links } = useMemo(() => {
     return {
@@ -1094,6 +1196,21 @@ export default function DashboardPage() {
     markViewed(it.id);
   };
 
+  useEffect(() => {
+    const focusedItemId = searchParams.get("focus");
+    if (!focusedItemId || !items.length) return;
+    if (focusedQueryHandledRef.current === focusedItemId) return;
+
+    const focusedItem = (items as any[]).find((it) => it.id === focusedItemId);
+    if (!focusedItem) return;
+
+    focusedQueryHandledRef.current = focusedItemId;
+    setActiveGroupId("forgotten");
+    setForgottenSegment("all");
+    openItem(focusedItem);
+    router.replace("/dashboard?view=forgotten");
+  }, [items, router, searchParams]);
+
   const updateItem = async () => {
     setErr(null);
     try {
@@ -1184,7 +1301,7 @@ export default function DashboardPage() {
       showToast("ok", "AI geri alındı ✅");
       await load(userId);
     } catch (e: any) {
-      showToast("err", e?.message ?? "AI geri alınamadı ❌");
+      showToast("err", `${normalizeAiError(e?.message) } ❌`);
     }
   };
   const regenerateAi = async (itemId: string) => {
@@ -1228,7 +1345,7 @@ export default function DashboardPage() {
       showToast("ok", "AI yeniden üretildi ✨");
       await load(userId);
     } catch (e: any) {
-      showToast("err", e?.message ?? "AI yeniden üretilemedi ❌");
+      showToast("err", `${normalizeAiError(e?.message)} ❌`);
       if (userId) await load(userId);
     } finally {
       setRegeneratingItemId(null);
@@ -1312,7 +1429,7 @@ export default function DashboardPage() {
       setAiSelection([]);
       if (userId) await load(userId);
     } catch (e: any) {
-      showToast("err", e?.message ?? "AI işlemi başarısız ❌");
+      showToast("err", `${normalizeAiError(e?.message)} ❌`);
     } finally {
       setAiEnhancing(false);
       window.setTimeout(() => setAiProgress(null), 1200);
@@ -1460,7 +1577,7 @@ export default function DashboardPage() {
         await load(userId);
       }
     } catch (e: any) {
-      showToast("err", e?.message ?? "Grup AI işlemi başarısız ❌");
+      showToast("err", `${normalizeAiError(e?.message)} ❌`);
     } finally {
       setGroupEnhancing(false);
       window.setTimeout(() => setGroupProgress(null), 1200);
@@ -2237,6 +2354,41 @@ export default function DashboardPage() {
                       7+ gün <span className="ml-1">🔒</span>
                     </button>
                   )}
+                </div>
+              ) : null}
+
+              {activeGroupId === "forgotten" ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[
+                    ["all", "Tümü", forgottenSegmentCounts.all],
+                    ["7", "7+ gün", forgottenSegmentCounts["7"]],
+                    ["30", "30+ gün", forgottenSegmentCounts["30"]],
+                    ["90", "90+ gün", forgottenSegmentCounts["90"]],
+                    ["today", "Bugün bak", forgottenSegmentCounts.today],
+                    ["snoozed", "Ertelenenler", forgottenSegmentCounts.snoozed],
+                  ].map(([key, label, count]) => {
+                    const active = forgottenSegment === key;
+
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() =>
+                          setForgottenSegment(key as ForgottenSegment)
+                        }
+                        className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                          active
+                            ? "accent-gradient"
+                            : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
+                        }`}
+                      >
+                        {label}{" "}
+                        <span className={active ? "opacity-70" : "accent-text-2"}>
+                          ({count})
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               ) : null}
 
