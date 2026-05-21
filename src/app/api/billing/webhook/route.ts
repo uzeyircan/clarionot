@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { sendPaymentFailedEmail, sendPaymentSucceededEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -27,6 +27,7 @@ function isUniqueViolation(err: any) {
 
 // ✅ Billing portal URL üret (email’de CTA için)
 async function createManageBillingUrl(customerId: string) {
+  const stripe = getStripe();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const portal = await stripe.billingPortal.sessions.create({
     customer: customerId,
@@ -42,6 +43,7 @@ function computeGraceUntilIso() {
 }
 
 export async function POST(req: Request) {
+  const stripe = getStripe();
   const sig = req.headers.get("stripe-signature");
   if (!sig) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });

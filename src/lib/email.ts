@@ -1,11 +1,18 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 function mustGetEnv(name: string) {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env: ${name}`);
   return v;
+}
+
+let resendClient: Resend | null = null;
+
+function getResend() {
+  if (resendClient) return resendClient;
+
+  resendClient = new Resend(mustGetEnv("RESEND_API_KEY"));
+  return resendClient;
 }
 
 export async function sendPaymentFailedEmail(args: {
@@ -13,6 +20,7 @@ export async function sendPaymentFailedEmail(args: {
   manageUrl?: string | null;
 }) {
   const from = mustGetEnv("EMAIL_FROM");
+  const resend = getResend();
 
   await resend.emails.send({
     from,
@@ -44,6 +52,7 @@ export async function sendPaymentSucceededEmail(args: {
   manageUrl?: string | null;
 }) {
   const from = mustGetEnv("EMAIL_FROM");
+  const resend = getResend();
 
   await resend.emails.send({
     from,

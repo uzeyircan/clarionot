@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -11,6 +11,7 @@ function requireEnv(name: string) {
 
 export async function GET() {
   try {
+    const stripe = getStripe();
     // ✅ Netlify’de bu env adı olmalı:
     const lookupKey = requireEnv("STRIPE_LOOKUP_KEY_PRO_MONTHLY");
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -28,6 +28,7 @@ function mustGetEnv(name: string) {
 }
 
 async function getProPriceIdByLookupKey() {
+  const stripe = getStripe();
   // ✅ Netlify’da birebir bu isimle tanımla:
   const lookupKey = mustGetEnv("STRIPE_LOOKUP_KEY_PRO_MONTHLY");
 
@@ -52,6 +53,7 @@ async function getProPriceIdByLookupKey() {
 
 export async function POST(req: Request) {
   try {
+    const stripe = getStripe();
     const user = await getUser(req);
     if (!user?.id || !user.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

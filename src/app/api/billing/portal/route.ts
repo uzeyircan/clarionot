@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -20,6 +20,7 @@ async function getUser(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const stripe = getStripe();
   const user = await getUser(req);
   if (!user?.id || !user.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
