@@ -126,7 +126,7 @@ export default function ItemCard({
     <button
       type="button"
       onClick={() => onOpen(item)}
-      className={`theme-shell group relative w-full overflow-hidden rounded-xl p-5 text-left shadow-[0_24px_70px_rgba(0,0,0,0.24)] transition hover:bg-white/[0.07] ${className}`}
+      className={`theme-shell group relative w-full overflow-hidden rounded-xl p-4 text-left shadow-[0_24px_70px_rgba(0,0,0,0.24)] transition hover:bg-white/[0.07] sm:p-5 ${className}`}
     >
       <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full accent-soft opacity-80 blur-3xl transition group-hover:opacity-100" />
 
@@ -206,42 +206,42 @@ export default function ItemCard({
       </div>
 
       {isLink ? (
-        <div className="mt-2 min-w-0 space-y-1">
+        <div className="mt-3 min-w-0 space-y-2 rounded-lg border border-white/12 bg-white/[0.06] px-3 py-3 sm:border-white/10 sm:bg-white/[0.045] sm:py-2.5">
           {url ? (
             <a
               href={url}
               target="_blank"
               rel="noreferrer"
               onClick={(event) => event.stopPropagation()}
-              className="block min-w-0 break-all text-sm text-cyan-100 underline decoration-cyan-200/30 hover:decoration-cyan-100"
+              className="block min-w-0 break-all text-sm font-medium text-cyan-50 underline decoration-cyan-200/30 hover:decoration-cyan-100"
             >
               {url}
             </a>
           ) : (
-            <div className="text-sm text-white/52">URL yok</div>
+            <div className="text-sm font-medium text-white/72">URL yok</div>
           )}
 
           {note ? (
-            <div className="line-clamp-2 min-w-0 break-words whitespace-pre-wrap text-sm text-white/56">
+            <div className="line-clamp-4 min-w-0 break-words whitespace-pre-wrap text-[15px] leading-6 text-white/86 sm:line-clamp-3 sm:text-white/82">
               {note}
             </div>
           ) : null}
         </div>
       ) : (
-        <div className="mt-2 line-clamp-2 min-w-0 break-words whitespace-pre-wrap text-sm text-white/56">
+        <div className="mt-3 line-clamp-5 min-w-0 break-words whitespace-pre-wrap rounded-lg border border-white/12 bg-white/[0.06] px-3 py-3 text-[15px] leading-6 text-white/88 sm:line-clamp-4 sm:border-white/10 sm:bg-white/[0.045] sm:py-2.5 sm:text-white/84">
           {item.content}
         </div>
       )}
 
       {showAiSummary ? (
-        <div className="mt-3 rounded-md border border-dashed border-white/8 bg-black/10 px-3 py-2.5">
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">
-            <span className="theme-accent-chip rounded-sm px-1.5 py-0.5 text-[9px] leading-none">
+        <div className="mt-2.5 rounded-lg border border-white/8 bg-black/10 px-3 py-2 sm:mt-3 sm:bg-black/15 sm:py-2.5">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/32 sm:text-white/34">
+            <span className="rounded-sm border border-white/10 bg-white/[0.055] px-1.5 py-0.5 text-[9px] leading-none text-white/58">
               AI
             </span>
             Akıllı özet
           </div>
-          <div className="mt-1.5 line-clamp-3 text-[13px] leading-relaxed text-white/58">
+          <div className="mt-1.5 line-clamp-2 text-[12px] leading-5 text-white/48 sm:line-clamp-3 sm:text-[13px] sm:leading-relaxed sm:text-white/52">
             {aiSummary}
           </div>
         </div>

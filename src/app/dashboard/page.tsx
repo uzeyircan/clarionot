@@ -1920,17 +1920,17 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#030406] pb-28 text-white selection:bg-cyan-300/25">
+    <main className="relative min-h-screen overflow-hidden bg-[#030406] pb-[calc(7rem+var(--safe-bottom))] text-white selection:bg-cyan-300/25">
       <DnaBackdrop className="fixed opacity-20" />
       <div className="theme-page-glow pointer-events-none fixed inset-0" />
       <div className="pointer-events-none fixed inset-0 opacity-[0.075] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:72px_72px]" />
-      <div className="theme-topbar fixed inset-x-0 top-0 z-50 px-6 py-4">
+      <div className="theme-topbar fixed inset-x-0 top-0 z-50 px-6 pb-4 pt-[calc(1rem+var(--safe-top))] safe-x">
         <div className="mx-auto max-w-7xl">
           <Header />
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-10 pt-24 sm:px-6">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-10 pt-[calc(6rem+var(--safe-top))] safe-x sm:px-6">
         <motion.section
           initial={{ opacity: 0, y: 24, filter: "blur(10px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
@@ -3145,14 +3145,14 @@ export default function DashboardPage() {
       <button
         type="button"
         onClick={() => setOpenQuickAdd((value) => !value)}
-        className="accent-gradient fixed bottom-24 right-6 z-40 grid h-14 w-14 place-items-center rounded-xl text-3xl font-light shadow-[0_18px_60px_rgba(80,190,255,0.2)] transition hover:opacity-90 active:scale-95"
+        className="accent-gradient mobile-fab fixed z-40 grid h-14 w-14 place-items-center rounded-xl text-3xl font-light shadow-[0_18px_60px_rgba(80,190,255,0.2)] transition hover:opacity-90 active:scale-95"
         aria-label="Yeni kayıt ekle"
       >
         {openQuickAdd ? "×" : "+"}
       </button>
 
       {openQuickAdd ? (
-        <div className="fixed bottom-40 right-6 z-40 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#07090d]/95 p-2 shadow-2xl backdrop-blur-2xl">
+        <div className="mobile-fab-menu fixed z-40 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#07090d]/95 p-2 shadow-2xl backdrop-blur-2xl">
           <button
             type="button"
             onClick={() => openNew("note")}
@@ -3172,7 +3172,7 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <nav className="fixed bottom-0 left-0 z-40 flex h-20 w-full items-center justify-around border-t border-white/10 bg-[#030406]/82 px-4 shadow-2xl backdrop-blur-2xl md:hidden">
+      <nav className="mobile-bottom-nav fixed bottom-0 left-0 z-40 flex w-full items-center justify-around border-t border-white/10 bg-[#030406]/82 px-4 safe-x shadow-2xl backdrop-blur-2xl md:hidden">
         <button
           type="button"
           onClick={() => setActiveGroupId("inbox")}
@@ -3560,7 +3560,7 @@ export default function DashboardPage() {
 
       {/* ✅ ERR */}
       {err ? (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-xl border border-red-900/40 bg-red-950/60 px-4 py-2 text-sm text-red-200">
+        <div className="mobile-toast fixed left-1/2 z-[120] -translate-x-1/2 rounded-xl border border-red-900/40 bg-red-950/60 px-4 py-2 text-sm text-red-200">
           {err}
         </div>
       ) : null}
@@ -3568,7 +3568,7 @@ export default function DashboardPage() {
       {/* ✅ TOAST */}
       {toast ? (
         <div
-          className={`fixed bottom-16 left-1/2 z-[120] -translate-x-1/2 rounded-xl border px-4 py-2 text-sm ${
+          className={`mobile-toast fixed left-1/2 z-[120] -translate-x-1/2 rounded-xl border px-4 py-2 text-sm ${
             toast.type === "ok"
               ? "border-emerald-900/40 bg-emerald-950/40 text-emerald-100"
               : "border-red-900/40 bg-red-950/40 text-red-100"

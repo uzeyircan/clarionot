@@ -8,6 +8,10 @@
   --clarionot-accent-2: #44e2cd;
   --clarionot-accent-contrast: #052e16;
   --clarionot-accent-soft: rgba(107, 251, 154, 0.12);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 }
 html,
 body {
@@ -24,6 +28,7 @@ body {
     "Helvetica Neue",
     Arial,
     sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 a {
   @apply text-neutral-100;
@@ -39,6 +44,38 @@ a {
   background: rgba(255, 255, 255, 0.055);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(24px);
+}
+
+.safe-top {
+  padding-top: var(--safe-top);
+}
+
+.safe-bottom {
+  padding-bottom: var(--safe-bottom);
+}
+
+.safe-x {
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+.mobile-bottom-nav {
+  height: calc(5rem + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+}
+
+.mobile-fab {
+  bottom: calc(6rem + var(--safe-bottom));
+  right: calc(1.5rem + var(--safe-right));
+}
+
+.mobile-fab-menu {
+  bottom: calc(9.5rem + var(--safe-bottom));
+  right: calc(1.5rem + var(--safe-right));
+}
+
+.mobile-toast {
+  bottom: calc(5.25rem + var(--safe-bottom));
 }
 
 .theme-shell-soft {
