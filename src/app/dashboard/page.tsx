@@ -2118,6 +2118,27 @@ function DashboardPageInner() {
               <div>
                 <div className="text-sm font-semibold text-white">
                   Tarayıcı Eklentisi
+                  {!clipUsageLoading && !clipUsageError && clipUsage ? (
+                    clipUsage.unlimited ? (
+                      <span className="ml-1.5 text-xs font-normal text-cyan-200/70">
+                        (Sınırsız)
+                      </span>
+                    ) : (
+                      <span
+                        className={`ml-1.5 text-xs font-normal ${
+                          clipUsage.remaining <= 5
+                            ? "text-amber-300/80"
+                            : "text-cyan-200/70"
+                        }`}
+                      >
+                        (
+                        {clipUsage.remaining > 0
+                          ? `${clipUsage.remaining} kullanım hakkı kaldı`
+                          : "kullanım hakkın kalmadı"}
+                        )
+                      </span>
+                    )
+                  ) : null}
                 </div>
 
                 {extChecking ? (
@@ -2169,71 +2190,20 @@ function DashboardPageInner() {
               </div>
             ) : null}
 
-            {/* ✅ Dinamik kullanım hakkı (yalnızca bu kartta gösterilir) */}
-            <div className="mt-3 border-t border-white/10 pt-3">
-              {clipUsageLoading ? (
-                <div className="space-y-2">
-                  <div className="h-3 w-44 animate-pulse rounded bg-white/10" />
-                  <div className="h-2.5 w-24 animate-pulse rounded bg-white/10" />
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-900">
-                    <div className="h-full w-0 rounded-full bg-white/10" />
-                  </div>
-                </div>
-              ) : clipUsageError || !clipUsage ? (
-                <div className="text-xs text-white/40">
-                  Kullanım bilgisi alınamadı
-                </div>
-              ) : clipUsage.unlimited ? (
-                <div className="text-xs font-medium text-cyan-100">
-                  Sınırsız eklenti kullanımı
-                </div>
-              ) : (
-                (() => {
-                  const { used, limit, remaining } = clipUsage;
-                  const pct = Math.min(
-                    100,
-                    Math.max(0, (used / limit) * 100),
-                  );
-                  const isLow = remaining <= 5;
-
-                  return (
-                    <div>
-                      <div
-                        className={`text-xs font-medium ${
-                          isLow ? "text-amber-300" : "text-cyan-100"
-                        }`}
-                      >
-                        {remaining > 0
-                          ? `Bu ay ${remaining} kullanım hakkın kaldı`
-                          : "Bu ay kullanım hakkın kalmadı"}
-                      </div>
-
-                      <div className="mt-1 text-[11px] text-white/46">
-                        {used} / {limit} kullanıldı
-                      </div>
-
-                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-900">
-                        <div
-                          className={`h-full rounded-full transition-[width] duration-500 ${
-                            isLow ? "bg-amber-400/70" : "bg-cyan-300/70"
-                          }`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-
-                      {remaining <= 0 ? (
-                        <a
-                          href="/pro"
-                          className="mt-2 inline-block text-[11px] font-semibold text-cyan-100 underline decoration-cyan-200/30"
-                        >
-                          Sınırsız kullanım için Pro’ya geç
-                        </a>
-                      ) : null}
-                    </div>
-                  );
-                })()
-              )}
-            </div>
+            {!clipUsageLoading &&
+            !clipUsageError &&
+            clipUsage &&
+            !clipUsage.unlimited &&
+            clipUsage.remaining <= 0 ? (
+              <div className="mt-2">
+                <a
+                  href="/pro"
+                  className="text-[11px] font-semibold text-cyan-100 underline decoration-cyan-200/30"
+                >
+                  Sınırsız kullanım için Pro’ya geç
+                </a>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
