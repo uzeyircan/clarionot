@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { isProFromPlanRow } from "@/lib/planServer";
+import { FREE_MONTHLY_CLIP_LIMIT } from "@/lib/clipLimits";
 
 export const runtime = "nodejs"; // crypto için net olsun
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -19,7 +20,6 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
 // ✅ Free kullanıcı için eklentiden ayda en fazla bu kadar kayıt.
 // Web'den manuel eklenen kayıtlar bu sayaca hiç dahil olmaz (yalnızca bu
 // route'tan geçen kayıtlar create_free_clip_item() RPC'si üzerinden sayılır).
-const FREE_MONTHLY_CLIP_LIMIT = 30;
 
 function getInternalAiSecret() {
   return (

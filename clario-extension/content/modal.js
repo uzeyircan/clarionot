@@ -70,23 +70,35 @@
   display:flex; align-items:center; justify-content:center;
   background: rgba(0,0,0,0.58);
   backdrop-filter: blur(6px);
+  padding: 16px;
 }
 #${ROOT_ID} *{ box-sizing:border-box; }
 .cn-modal{
   width: 520px;
   max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   border-radius: 16px;
   background: rgba(15,15,15,0.95);
   color: #fff;
   border: 1px solid rgba(255,255,255,0.10);
   box-shadow: 0 24px 80px rgba(0,0,0,0.65);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  display:flex;
+  flex-direction:column;
   overflow:hidden;
+}
+@media (max-width: 480px), (max-height: 700px){
+  .cn-modal{
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+  }
 }
 .cn-head{
   display:flex; align-items:center; justify-content:space-between;
   padding: 14px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
 }
 .cn-title{
   font-weight: 700;
@@ -103,7 +115,22 @@
 }
 .cn-x:hover{ background: rgba(255,255,255,0.08); color:#fff; }
 
-.cn-body{ padding: 14px 16px 16px; }
+.cn-body{
+  padding: 14px 16px 16px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.22) transparent;
+}
+.cn-body::-webkit-scrollbar{ width: 8px; }
+.cn-body::-webkit-scrollbar-track{ background: transparent; }
+.cn-body::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.18);
+  border-radius: 8px;
+}
+.cn-body::-webkit-scrollbar-thumb:hover{ background: rgba(255,255,255,0.28); }
 
 .cn-chiprow{
   display:flex; align-items:center; justify-content:space-between;
@@ -193,7 +220,23 @@
   margin-top: 10px;
   display: grid;
   gap: 8px;
+  max-height: 300px;
+  max-height: clamp(180px, 30vh, 300px);
+  max-height: clamp(180px, 30dvh, 300px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.22) transparent;
 }
+.cn-recall-list::-webkit-scrollbar{ width: 8px; }
+.cn-recall-list::-webkit-scrollbar-track{ background: transparent; }
+.cn-recall-list::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.18);
+  border-radius: 8px;
+}
+.cn-recall-list::-webkit-scrollbar-thumb:hover{ background: rgba(255,255,255,0.28); }
 .cn-recall-item{
   display:block;
   border: 1px solid rgba(255,255,255,0.08);
@@ -276,7 +319,9 @@
   display:flex;
   gap: 10px;
   justify-content:flex-end;
-  padding-top: 12px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
 }
 .cn-btn{
   padding: 10px 12px;
@@ -407,12 +452,12 @@
               </div>
 
               <div id="cn-error" class="cn-error"></div>
-
-              <div class="cn-foot">
-                <button id="cn-cancel" class="cn-btn">İptal</button>
-                <button id="cn-save" class="cn-btn cn-btn-primary">Kaydet</button>
-              </div>
             </div>
+          </div>
+
+          <div class="cn-foot">
+            <button id="cn-cancel" class="cn-btn">İptal</button>
+            <button id="cn-save" class="cn-btn cn-btn-primary">Kaydet</button>
           </div>
         </div>
       </div>
@@ -657,6 +702,18 @@
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
 
+    // lock background page scroll while modal is open
+    const htmlEl = document.documentElement;
+    const bodyEl = document.body;
+    const prevHtmlOverflow = htmlEl.style.overflow;
+    const prevBodyOverflow = bodyEl.style.overflow;
+    htmlEl.style.overflow = "hidden";
+    bodyEl.style.overflow = "hidden";
+    const unlockScroll = () => {
+      htmlEl.style.overflow = prevHtmlOverflow;
+      bodyEl.style.overflow = prevBodyOverflow;
+    };
+
     const close = () => removeExisting();
 
     // overlay click
@@ -675,6 +732,7 @@
 
     const cleanup = () => {
       document.removeEventListener("keydown", onKey, { capture: true });
+      unlockScroll();
     };
 
     // make sure cleanup runs

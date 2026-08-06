@@ -42,6 +42,16 @@ const emptyDraft = (type: ItemType): Draft => ({
 
 type Group = { id: string; title: string; created_at?: string };
 
+type ClipUsage =
+  | { plan: "pro"; unlimited: true }
+  | {
+      plan: "free";
+      unlimited: false;
+      used: number;
+      limit: number;
+      remaining: number;
+    };
+
 type WorkStatusFilter = "all" | WorkStatus;
 type ForgottenSegment = "all" | "7" | "30" | "90" | "today" | "snoozed";
 
@@ -102,6 +112,11 @@ function DashboardPageInner() {
   // ✅ bu tarayıcıda gerçekten canlı mı?
   const [extLiveHere, setExtLiveHere] = useState<boolean>(false);
   const [extChecking, setExtChecking] = useState<boolean>(true);
+
+  // ✅ Eklenti kartındaki aylık kullanım hakkı (GET /api/clip/usage'tan gelir)
+  const [clipUsage, setClipUsage] = useState<ClipUsage | null>(null);
+  const [clipUsageLoading, setClipUsageLoading] = useState<boolean>(true);
+  const [clipUsageError, setClipUsageError] = useState<boolean>(false);
 
   const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
   const [forgottenSort, setForgottenSort] = useState<"oldest" | "newest">(
@@ -478,6 +493,40 @@ function DashboardPageInner() {
       setIsPro(false);
     }
   };
+  // ✅ Eklenti kartındaki dinamik kullanım hakkını sunucudan çeker.
+  // Kimlik doğrulama mevcut kalıpla aynı: Supabase access token Bearer
+  // header'da gönderilir, user_id istemciden hiç geçilmez.
+  const fetchClipUsage = useCallback(async () => {
+    setClipUsageLoading(true);
+    setClipUsageError(false);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) {
+        setClipUsageError(true);
+        return;
+      }
+
+      const res = await fetch("/api/clip/usage", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json) {
+        setClipUsageError(true);
+        return;
+      }
+
+      setClipUsage(json as ClipUsage);
+    } catch {
+      setClipUsageError(true);
+    } finally {
+      setClipUsageLoading(false);
+    }
+  }, []);
+
   const openBillingPortal = async () => {
     try {
       setPortalLoading(true);
@@ -537,13 +586,14 @@ function DashboardPageInner() {
       if (data?.type === "CLARIONOT_SAVED_UI") {
         showToast("ok", "✅ Eklenti ile kaydedildi");
         if (userId) load(userId); // listeyi yenile
+        fetchClipUsage(); // ✅ eklenti kartındaki kalan hakkı güncelle
         return;
       }
     }
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [userId]); // load userId ile çalışıyor
+  }, [userId, fetchClipUsage]); // load userId ile çalışıyor
 
   // auth gate
   useEffect(() => {
@@ -748,6 +798,12 @@ function DashboardPageInner() {
       cancelled = true;
     };
   }, [userId, isPro]); // load/loadGroups/ping/check fonksiyonların stable değilse useCallback yap
+
+  // ✅ Eklenti kartı: sayfa açıldığında kalan kullanım hakkını çek.
+  useEffect(() => {
+    if (!userId) return;
+    fetchClipUsage();
+  }, [userId, fetchClipUsage]);
 
   useEffect(() => {
     if (activeGroupId !== "forgotten" || isPro !== true) {
@@ -2055,15 +2111,13 @@ function DashboardPageInner() {
           </div>
         ) : null}
 
-        {/* ✅ Extension card: Free (30/ay) + Pro (sınırsız) */}
+        {/* ✅ Extension card: Free (kalan kullanım hakkı) + Pro (sınırsız) */}
         {isPro !== null ? (
           <div className="mt-4 rounded-xl border border-cyan-200/18 bg-cyan-200/[0.055] p-4 backdrop-blur-xl">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="text-sm font-semibold text-white">
-                  {isPro
-                    ? "Tarayıcı Eklentisi (Sınırsız)"
-                    : "Tarayıcı Eklentisi (Free: ayda 30)"}
+                  Tarayıcı Eklentisi
                 </div>
 
                 {extChecking ? (
@@ -2114,6 +2168,72 @@ function DashboardPageInner() {
                 Sağ tık → “ClarioNot’a Kaydet” ile tek tık kaydeder.
               </div>
             ) : null}
+
+            {/* ✅ Dinamik kullanım hakkı (yalnızca bu kartta gösterilir) */}
+            <div className="mt-3 border-t border-white/10 pt-3">
+              {clipUsageLoading ? (
+                <div className="space-y-2">
+                  <div className="h-3 w-44 animate-pulse rounded bg-white/10" />
+                  <div className="h-2.5 w-24 animate-pulse rounded bg-white/10" />
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-900">
+                    <div className="h-full w-0 rounded-full bg-white/10" />
+                  </div>
+                </div>
+              ) : clipUsageError || !clipUsage ? (
+                <div className="text-xs text-white/40">
+                  Kullanım bilgisi alınamadı
+                </div>
+              ) : clipUsage.unlimited ? (
+                <div className="text-xs font-medium text-cyan-100">
+                  Sınırsız eklenti kullanımı
+                </div>
+              ) : (
+                (() => {
+                  const { used, limit, remaining } = clipUsage;
+                  const pct = Math.min(
+                    100,
+                    Math.max(0, (used / limit) * 100),
+                  );
+                  const isLow = remaining <= 5;
+
+                  return (
+                    <div>
+                      <div
+                        className={`text-xs font-medium ${
+                          isLow ? "text-amber-300" : "text-cyan-100"
+                        }`}
+                      >
+                        {remaining > 0
+                          ? `Bu ay ${remaining} kullanım hakkın kaldı`
+                          : "Bu ay kullanım hakkın kalmadı"}
+                      </div>
+
+                      <div className="mt-1 text-[11px] text-white/46">
+                        {used} / {limit} kullanıldı
+                      </div>
+
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-900">
+                        <div
+                          className={`h-full rounded-full transition-[width] duration-500 ${
+                            isLow ? "bg-amber-400/70" : "bg-cyan-300/70"
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+
+                      {remaining <= 0 ? (
+                        <a
+                          href="/pro"
+                          className="mt-2 inline-block text-[11px] font-semibold text-cyan-100 underline decoration-cyan-200/30"
+                        >
+                          Sınırsız kullanım için Pro’ya geç
+                        </a>
+                      ) : null}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
           </div>
         ) : null}
 
