@@ -14,7 +14,6 @@ const supabase = createClient(
 type Status =
   | "checking"
   | "need_login"
-  | "need_pro"
   | "connecting"
   | "done"
   | "error";
@@ -35,42 +34,12 @@ export default function ExtensionConnectPage() {
           return;
         }
 
-        const uid = session.user.id;
-
-        // 2) plan kontrol
-        const { data: planRow, error: planErr } = await supabase
-          .from("user_plan")
-          .select("plan,status,current_period_end,grace_until")
-          .eq("user_id", uid)
-          .maybeSingle();
-
-        if (planErr || !planRow) {
-          setStatus("need_pro");
-          return;
-        }
-
-        const statusOk =
-          planRow.status === "active" || planRow.status === "trialing";
-
-        const stillValid =
-          !!planRow.current_period_end &&
-          new Date(planRow.current_period_end).getTime() > Date.now();
-
-        const inGrace =
-          !!(planRow as any).grace_until &&
-          new Date((planRow as any).grace_until).getTime() > Date.now();
-
-        const isPro =
-          planRow.plan === "pro" && (statusOk || stillValid || inGrace);
-
-        if (!isPro) {
-          setStatus("need_pro");
-          return;
-        }
-
+        // ✅ Free + Pro: giriş yapmış her kullanıcı token alıp bağlanabilir.
+        // Free/Pro ayrımı artık burada değil, kayıt oluşturma anında
+        // (/api/clip) uygulanıyor.
         setStatus("connecting");
 
-        // 3) backend’den token al
+        // 2) backend’den token al
         const res = await fetch("/api/clip/token", {
           method: "POST",
           headers: {
@@ -219,10 +188,6 @@ export default function ExtensionConnectPage() {
     window.location.href = `/login?redirect=${redirect}`;
   };
 
-  const goPricing = () => {
-    window.location.href = "/#pricing";
-  };
-
   const goDashboard = () => {
     window.location.href = "/dashboard";
   };
@@ -286,7 +251,8 @@ export default function ExtensionConnectPage() {
               </div>
               <div className="mt-3 max-w-xl text-sm leading-6 text-[#bccabb]">
                 Token bu tarayıcıya güvenli şekilde kaydedilecek. Sonra sağ tıkla
-                kaydedebilirsin.
+                kaydedebilirsin. Free planda ayda 30 kayda kadar, Pro planda
+                sınırsız.
               </div>
             </div>
 
@@ -294,8 +260,6 @@ export default function ExtensionConnectPage() {
               <Badge tone="info">⏳ İşleniyor</Badge>
             ) : status === "done" ? (
               <Badge tone="ok">✅ Tamam</Badge>
-            ) : status === "need_pro" ? (
-              <Badge tone="warn">🔒 Pro</Badge>
             ) : status === "need_login" ? (
               <Badge tone="warn">👤 Login</Badge>
             ) : status === "error" ? (
@@ -330,23 +294,6 @@ export default function ExtensionConnectPage() {
 
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <Button onClick={redirectToLogin}>Giriş Yap</Button>
-                  <Button variant="ghost" onClick={goDashboard}>
-                    Çalışma alanına dön
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {status === "need_pro" && (
-              <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-4">
-                <Title>Pro gerekli</Title>
-                <Sub>
-                  Sağ tıkla kaydetme özelliği Pro’da. Planını yükseltmeden token
-                  bağlamayı açmıyorum.
-                </Sub>
-
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                  <Button onClick={goPricing}>Pro’ya geç</Button>
                   <Button variant="ghost" onClick={goDashboard}>
                     Çalışma alanına dön
                   </Button>
@@ -389,7 +336,7 @@ export default function ExtensionConnectPage() {
         </section>
 
         <div className="mt-6 rounded-xl border border-[#3d4a3e]/30 bg-[#1c1b1b]/70 p-4 text-center text-xs leading-5 text-[#bccabb] backdrop-blur-2xl">
-          Sağ tık → “clarionot’ya Kaydet” ile modal açılmalı.
+          Sağ tık → “ClarioNot’a Kaydet” ile modal açılmalı.
         </div>
       </div>
     </main>

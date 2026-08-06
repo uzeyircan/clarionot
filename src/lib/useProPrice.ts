@@ -19,27 +19,43 @@ export function useProPrice() {
 
   useEffect(() => {
     let alive = true;
+    const controller = new AbortController();
+    // ✅ İstek askıda kalırsa (ağ/timeout) arayüz sonsuza kadar
+    // "Yükleniyor..." göstermesin; belirli bir sürede hataya düş.
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
     (async () => {
       try {
         setLoading(true);
         setError("");
 
-        const res = await fetch("/api/billing/price", { cache: "no-store" });
+        const res = await fetch("/api/billing/price", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
         const json = await res.json().catch(() => ({}));
 
         if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
 
         if (alive) setPrice(json as ProPrice);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? "Fiyat alınamadı");
+        if (alive) {
+          setError(
+            e?.name === "AbortError"
+              ? "Fiyat alınamadı (zaman aşımı)"
+              : (e?.message ?? "Fiyat alınamadı"),
+          );
+        }
       } finally {
+        clearTimeout(timeoutId);
         if (alive) setLoading(false);
       }
     })();
 
     return () => {
       alive = false;
+      controller.abort();
+      clearTimeout(timeoutId);
     };
   }, []);
 

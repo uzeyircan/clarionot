@@ -26,11 +26,12 @@ const CHROME_STORE_URL =
   "https://chromewebstore.google.com/detail/clarionot-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
 
 const benefitRows = [
-  ["Sağ tıkla kaydetme (eklenti)", "-", "✓"],
+  ["Sağ tıkla kaydetme (eklenti)", "Ayda 30 kayıt", "Sınırsız"],
   ["Linklerden otomatik başlık", "✓", "✓"],
   ["Etiketler ve arama", "✓", "✓"],
   ["Sınırsız kayıt", "-", "✓"],
-  ["Öncelikli güncellemeler", "-", "✓"],
+  ["30/60/90 günlük hatırlatma seçenekleri", "-", "✓"],
+  ["AI özet ve otomatik etiketleme", "-", "✓"],
 ];
 
 type PlanRow = {
@@ -63,8 +64,8 @@ const features = [
     eyebrow: "Yakalama",
   },
   {
-    title: "Akıllı Hatırlatma",
-    copy: "Unuttuğun kayıtlar, tekrar işe yarayabilecekleri anda görünür hale gelir.",
+    title: "Hatırlatma",
+    copy: "Unuttuğun kayıtları belirlediğin aralıklarla yeniden keşfet.",
     eyebrow: "Geri Getirme",
   },
   {
@@ -610,7 +611,7 @@ function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
             <FloatingCard
               label="Note"
               title="Lansman cümlesi"
-              body="Fikirler kaybolmaz. Doğru anı bekler."
+              body="Kaydettiğin fikirler unutulsa bile yeniden karşına çıkar."
               accent="cyan"
             />
           </motion.div>
@@ -626,7 +627,7 @@ function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
             <FloatingCard
               label="Geri döndü"
               title="Unutuldu ama işe yarıyor"
-              body="19 gün önce kaydedildi. Bugünkü planlama için ilgili."
+              body="19 gün önce kaydedildi. Unutulanlar'da yeniden karşına çıktı."
               accent="mint"
             />
           </motion.div>
@@ -729,11 +730,11 @@ function StorySection() {
             variants={fadeUp}
             className="mt-4 text-balance text-4xl font-semibold tracking-[-0.04em] text-white sm:text-6xl"
           >
-            Arşiv bulanıklaşır. Doğru fikir geri gelir.
+            Arşiv büyür. Uzun süredir açmadığın kayıtlar yeniden görünür olur.
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-6 max-w-xl text-lg leading-8 text-white/58">
-            Kaydetmek işin sadece yarısı. ClarioNot, unutulmuş bir kaydın
-            yeniden işe yaradığı ikinci an için tasarlandı.
+            Kaydetmek işin sadece yarısı. ClarioNot, uzun süredir açmadığın
+            kayıtları Unutulanlar bölümünde yeniden karşına çıkarır.
           </motion.p>
         </motion.div>
 
@@ -902,7 +903,7 @@ function DashboardPreview() {
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-300/70 sm:h-3 sm:w-3" />
         </div>
         <span className="truncate text-[11px] text-white/38 sm:text-xs">
-          clarionot.app/workspace
+          clarionot.com/workspace
         </span>
       </div>
 
@@ -1259,7 +1260,7 @@ function PricingSection({
             </div>
             <p className="mt-4 text-sm leading-6 text-white/58">
               Seçimleri ve linkleri sağ tıkla kaydet. Otomatik başlık,
-              sınırsız kayıt ve öncelikli geliştirmeler.
+              sınırsız kayıt ve AI destekli özet/etiketleme.
             </p>
 
             {isProUser ? (

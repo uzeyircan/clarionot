@@ -37,34 +37,10 @@ async function getUserFromAuthHeader(req: Request) {
   return data.user ?? null;
 }
 
-async function isProUser(userId: string, email?: string | null) {
-  // 1) Asıl kaynak: user_plan tablosu
-  const { data: planRow, error } = await admin
-    .from("user_plan")
-    .select("plan,status")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (!error && planRow?.plan === "pro" && planRow?.status === "active") {
-    return true;
-  }
-
-  // 2) Opsiyonel fallback: env whitelist (istersen kaldırabilirsin)
-  const proEmails = (process.env.PRO_EMAILS ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (email && proEmails.length > 0) {
-    return proEmails.includes(email.toLowerCase());
-  }
-
-  return false;
-}
-
 export async function POST(req: Request) {
   try {
-    // 1) Kullanıcı kim?
+    // 1) Kullanıcı kim? (Free/Pro fark etmeksizin geçerli bir Supabase
+    // oturumu şart — kimlik doğrulaması korunuyor.)
     const user = await getUserFromAuthHeader(req);
     const userId = user?.id ?? null;
 
@@ -75,14 +51,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2) ✅ PRO kontrolü (Free kullanıcı token alamaz)
-    const okPro = await isProUser(userId, user?.email ?? null);
-    if (!okPro) {
-      return NextResponse.json(
-        { error: "Pro plan required to connect the extension." },
-        { status: 403 }
-      );
-    }
+    // ✅ Free + Pro: her giriş yapmış kullanıcı token alabilir.
+    // Free/Pro ayrımı artık bağlantı anında değil, /api/clip'te
+    // (kayıt oluşturma anında) uygulanıyor.
 
     // 3) Aynı label’daki eski tokenları revoke et (tek aktif kalsın)
     await admin

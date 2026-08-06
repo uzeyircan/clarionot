@@ -173,19 +173,19 @@ function setupMenus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: "clarionot_save_link",
-      title: "clarionot'a Kaydet (Link)",
+      title: "ClarioNot'a Kaydet (Link)",
       contexts: ["link"],
     });
 
     chrome.contextMenus.create({
       id: "clarionot_save_page",
-      title: "clarionot'ya Kaydet (Bu Sayfa)",
+      title: "ClarioNot'a Kaydet (Bu Sayfa)",
       contexts: ["page"],
     });
 
     chrome.contextMenus.create({
       id: "clarionot_save_selection",
-      title: "clarionot'ya Kaydet (Not - Seçili Metin)",
+      title: "ClarioNot'a Kaydet (Not - Seçili Metin)",
       contexts: ["selection"],
     });
   });

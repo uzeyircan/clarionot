@@ -13,7 +13,7 @@ const sections = [
   },
   {
     title: "Pro Abonelik",
-    body: "Pro plan; tarayıcı eklentisi, sınırsız kayıt ve AI destekli özellikler gibi ek imkanlar sağlar. Abonelik ve ödeme işlemleri Stripe üzerinden yönetilir.",
+    body: "Pro plan; tarayıcı eklentisinde sınırsız kayıt, sınırsız toplam kayıt ve AI destekli özellikler gibi ek imkanlar sağlar. Free planda tarayıcı eklentisi ayda 30 kayıtla sınırlıdır. Abonelik ve ödeme işlemleri Stripe üzerinden yönetilir.",
   },
   {
     title: "Servis Değişiklikleri",

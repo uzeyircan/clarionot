@@ -1,6 +1,13 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
@@ -70,6 +77,14 @@ type ToastState = {
 } | null;
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardPageInner />
+    </Suspense>
+  );
+}
+
+function DashboardPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -692,21 +707,13 @@ export default function DashboardPage() {
     load(userId);
     loadGroups(userId);
 
-    // 2) Extension check yalnızca Pro ise
+    // 2) Extension check: Free de Pro da eklentiyi bağlayabiliyor
+    // (Free ayda 30 kayıtla sınırlı, Pro sınırsız) — plan farkı burada
+    // değil /api/clip'te uygulanıyor.
     const run = async () => {
       // isPro henüz belli değilse (null) hiçbir şey yapma
       if (isPro == null) return;
 
-      // Pro değilse extension state'lerini temizle
-      if (isPro === false) {
-        if (cancelled) return;
-        setExtConnected(false);
-        setExtLiveHere(false);
-        setExtChecking(false);
-        return;
-      }
-
-      // Pro ise kontrol et
       if (cancelled) return;
       setExtChecking(true);
 
@@ -2011,7 +2018,8 @@ export default function DashboardPage() {
 
         {isPro === false ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/58 backdrop-blur-xl">
-            Pro ile tarayıcı eklentisini kullanıp sağ tıkla kaydedebilirsin.{" "}
+            Tarayıcı eklentisiyle sağ tıkla kaydet — Free planda ayda 30
+            kayıt. Sınırsız kullanım için{" "}
             <a className="font-semibold text-cyan-100 underline decoration-cyan-200/30" href="/pro">
               Pro planı gör
             </a>
@@ -2047,13 +2055,15 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
-        {/* ✅ Extension card only Pro */}
-        {isPro === true ? (
+        {/* ✅ Extension card: Free (30/ay) + Pro (sınırsız) */}
+        {isPro !== null ? (
           <div className="mt-4 rounded-xl border border-cyan-200/18 bg-cyan-200/[0.055] p-4 backdrop-blur-xl">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="text-sm font-semibold text-white">
-                  Tarayıcı Eklentisi (PRO)
+                  {isPro
+                    ? "Tarayıcı Eklentisi (Sınırsız)"
+                    : "Tarayıcı Eklentisi (Free: ayda 30)"}
                 </div>
 
                 {extChecking ? (
@@ -2101,8 +2111,7 @@ export default function DashboardPage() {
 
             {!extChecking && !extLiveHere ? (
               <div className="mt-2 text-xs text-white/46">
-                Pro kullanıcılar sağ tık → “clarionot’ya Kaydet” ile tek tık
-                kaydeder.
+                Sağ tık → “ClarioNot’a Kaydet” ile tek tık kaydeder.
               </div>
             ) : null}
           </div>

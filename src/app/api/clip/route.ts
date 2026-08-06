@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { isProFromPlanRow } from "@/lib/planServer";
 
 export const runtime = "nodejs"; // crypto için net olsun
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -14,6 +15,11 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false },
 });
+
+// ✅ Free kullanıcı için eklentiden ayda en fazla bu kadar kayıt.
+// Web'den manuel eklenen kayıtlar bu sayaca hiç dahil olmaz (yalnızca bu
+// route'tan geçen kayıtlar create_free_clip_item() RPC'si üzerinden sayılır).
+const FREE_MONTHLY_CLIP_LIMIT = 30;
 
 function getInternalAiSecret() {
   return (
@@ -131,25 +137,18 @@ export async function POST(req: Request) {
       .update({ last_seen_at: new Date().toISOString() })
       .eq("id", tokenRow.id);
 
-    // ✅ Pro kontrolü (downgrade olursa çalışmasın)
+    // ✅ Plan kontrolü (downgrade olursa Pro akışı otomatik kapanır).
+    // active/trialing dışında current_period_end veya grace_until hâlâ
+    // gelecekteyse de Pro sayılır — dashboard/Header ile aynı kural.
     const { data: planRow, error: planErr } = await admin
       .from("user_plan")
-      .select("plan,status")
+      .select("plan,status,current_period_end,grace_until")
       .eq("user_id", userId)
       .maybeSingle();
 
     if (planErr) throw planErr;
 
-    const okPro =
-      planRow?.plan === "pro" &&
-      (planRow?.status === "active" || planRow?.status === "trialing");
-
-    if (!okPro) {
-      return NextResponse.json(
-        { error: "Pro plan required." },
-        { status: 403, headers: corsHeaders() },
-      );
-    }
+    const okPro = isProFromPlanRow(planRow);
 
     // 3) Body parse et
     const body = await req.json().catch(() => null);
@@ -174,7 +173,10 @@ export async function POST(req: Request) {
     const note = String(body.note ?? "").trim();
 
     // ✅✅✅ GROUP_ID: body’den al + doğrula (bu user’ın grubu mu?)
-    let group_id: string | null =
+    // Free/Pro ayrımından önce, ortak olarak kontrol edilir: geçersiz veya
+    // başkasına ait bir group_id gönderilirse istek bütünüyle reddedilir —
+    // sessizce Inbox'a düşürülmez, ne kayıt ne de aylık sayaç değişir.
+    const group_id: string | null =
       body.group_id === undefined ||
       body.group_id === null ||
       body.group_id === ""
@@ -190,7 +192,17 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       if (gErr) throw gErr;
-      if (!g) group_id = null; // user’a ait değilse inbox’a düşsün
+
+      if (!g) {
+        return NextResponse.json(
+          {
+            error:
+              "Seçilen grup bulunamadı veya bu gruba erişim yetkin yok.",
+            code: "INVALID_GROUP",
+          },
+          { status: 400, headers: corsHeaders() },
+        );
+      }
     }
 
     // link formatı: URL \n\n açıklama
@@ -227,23 +239,82 @@ export async function POST(req: Request) {
     }
 
     // 4) items insert  ✅✅✅ group_id EKLENDİ
-    const { data: inserted, error: insErr } = await admin
-      .from("items")
-      .insert({
-        user_id: userId,
-        type,
-        title,
-        content,
-        tags,
-        group_id, // ✅ burası kritik
-        ai_status: "pending",
-      })
-      .select("id")
-      .single();
+    let insertedId: string;
 
-    if (insErr) throw insErr;
+    if (okPro) {
+      // ✅ Pro: mevcut davranış — sınırsız, doğrudan insert.
+      const { data: inserted, error: insErr } = await admin
+        .from("items")
+        .insert({
+          user_id: userId,
+          type,
+          title,
+          content,
+          tags,
+          group_id, // ✅ burası kritik
+          ai_status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (insErr) throw insErr;
+      insertedId = inserted.id;
+    } else {
+      // ✅ Free: toplam limit + aylık eklenti limiti (30) TEK atomik RPC
+      // içinde kontrol edilir ve kayıt+sayaç birlikte yazılır. Mevcut
+      // toplam Free limiti (NEXT_PUBLIC_FREE_LIMIT, varsayılan 50) korunur.
+      const totalLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
+      const monthlyLimit = FREE_MONTHLY_CLIP_LIMIT;
+
+      const { data: rpcRow, error: rpcErr } = await admin
+        .rpc("create_free_clip_item", {
+          p_user_id: userId,
+          p_total_limit: totalLimit,
+          p_monthly_limit: monthlyLimit,
+          p_type: type,
+          p_title: title,
+          p_content: content,
+          p_tags: tags,
+          p_group_id: group_id,
+        })
+        .single();
+
+      if (rpcErr) throw rpcErr;
+
+      const result = (rpcRow as any)?.result as string | undefined;
+
+      if (result === "monthly_limit_reached") {
+        return NextResponse.json(
+          {
+            error:
+              "Free planda eklentiden ayda en fazla 30 kayıt oluşturabilirsin. Sınırsız kullanım için Pro’ya geç.",
+            code: "MONTHLY_LIMIT_REACHED",
+          },
+          { status: 403, headers: corsHeaders() },
+        );
+      }
+
+      if (result === "total_limit_reached") {
+        return NextResponse.json(
+          {
+            error:
+              "Free planındaki toplam kayıt sınırına ulaştın. Yeni kayıt eklemek için bazı kayıtları silebilir veya Pro’ya geçebilirsin.",
+            code: "TOTAL_LIMIT_REACHED",
+          },
+          { status: 403, headers: corsHeaders() },
+        );
+      }
+
+      if (result !== "created" || !(rpcRow as any)?.item_id) {
+        throw new Error("Kayıt oluşturulamadı.");
+      }
+
+      insertedId = (rpcRow as any).item_id as string;
+    }
 
     // ✅ AI processing tetikle (fire-and-forget). Secret yoksa sessizce geç.
+    // Yalnızca kayıt başarıyla oluştuktan sonra çalışır; limit nedeniyle
+    // reddedilen isteklerde bu noktaya hiç gelinmez.
     const internalSecret = getInternalAiSecret();
     if (internalSecret) {
       const origin = process.env.APP_ORIGIN || new URL(req.url).origin;
@@ -253,7 +324,7 @@ export async function POST(req: Request) {
           "Content-Type": "application/json",
           "x-internal-secret": internalSecret,
         },
-        body: JSON.stringify({ itemId: inserted.id }),
+        body: JSON.stringify({ itemId: insertedId }),
       });
     }
 
@@ -264,7 +335,7 @@ export async function POST(req: Request) {
       .eq("id", tokenRow.id);
 
     return NextResponse.json(
-      { ok: true, id: inserted.id },
+      { ok: true, id: insertedId },
       { status: 200, headers: corsHeaders() },
     );
   } catch (e: any) {

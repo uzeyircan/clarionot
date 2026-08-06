@@ -14,13 +14,19 @@ type PlanRow = {
   cancel_at_period_end?: boolean | null;
 };
 
-const FEATURES = [
-  { name: "Right-click save (Extension)", free: false, pro: true },
-  { name: "Auto title from links", free: true, pro: true },
-  { name: "Tags & search", free: true, pro: true },
-  { name: "Unlimited saves", free: false, pro: true },
-  { name: "Priority updates", free: false, pro: true },
+const FEATURES: { name: string; free: boolean | string; pro: boolean | string }[] = [
+  { name: "Sağ tıkla kaydetme (eklenti)", free: "Ayda 30 kayıt", pro: "Sınırsız" },
+  { name: "Linklerden otomatik başlık", free: true, pro: true },
+  { name: "Etiketler ve arama", free: true, pro: true },
+  { name: "Sınırsız kayıt", free: false, pro: true },
+  { name: "30/60/90 günlük hatırlatma seçenekleri", free: false, pro: true },
+  { name: "AI özet ve otomatik etiketleme", free: false, pro: true },
 ];
+
+function featureCell(value: boolean | string) {
+  if (typeof value === "string") return value;
+  return value ? "✅" : "—";
+}
 
 export default function ProPage() {
   const router = useRouter();
@@ -272,10 +278,10 @@ export default function ProPage() {
               >
                 <div className="text-[#e5e2e1]">{f.name}</div>
                 <div className="text-center text-[#bccabb]">
-                  {f.free ? "✅" : "—"}
+                  {featureCell(f.free)}
                 </div>
                 <div className="text-center text-[#f4f1ef]">
-                  {f.pro ? "✅" : "—"}
+                  {featureCell(f.pro)}
                 </div>
               </div>
             ))}
@@ -297,6 +303,7 @@ export default function ProPage() {
             <ul className="mt-4 space-y-2 text-sm text-[#bccabb]">
               <li>Not ve link kaydı</li>
               <li>Etiket ve arama</li>
+              <li>Eklentiden ayda 30 kayıt</li>
               <li>Temel limitler</li>
             </ul>
 
@@ -344,7 +351,7 @@ export default function ProPage() {
             </div>
 
             <ul className="mt-4 space-y-2 text-sm text-[#e5e2e1]">
-              <li>Tarayıcı eklentisi</li>
+              <li>Tarayıcı eklentisiyle sınırsız kayıt</li>
               <li>Sınırsız kayıt</li>
               <li>AI özet, etiket ve kategori</li>
             </ul>

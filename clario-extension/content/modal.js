@@ -1,4 +1,4 @@
-﻿// content/modal.js
+// content/modal.js
 (() => {
   if (window.__CLARIONOT_MODAL_LOADED__) return;
   window.__CLARIONOT_MODAL_LOADED__ = true;
@@ -345,51 +345,51 @@
       <div id="${ROOT_ID}" role="dialog" aria-modal="true">
         <div class="cn-modal">
           <div class="cn-head">
-            <div class="cn-title">ClarioNotâ€™a Kaydet</div>
-            <button class="cn-x" id="cn-x" title="Kapat (Esc)">âœ•</button>
+            <div class="cn-title">ClarioNot’a Kaydet</div>
+            <button class="cn-x" id="cn-x" title="Kapat (Esc)">✕</button>
           </div>
 
           <div class="cn-body">
             <div class="cn-chiprow">
               <div class="cn-chip">
-                TÃ¼r:
+                Tür:
                 <span class="cn-pill" id="cn-type-pill">${
                   inferredType === "note" ? "Not" : "Link"
                 }</span>
               </div>
               <div class="cn-chip" style="opacity:.75">
-                <span class="cn-pill">âŒ˜/Ctrl + Enter = Kaydet</span>
+                <span class="cn-pill">⌘/Ctrl + Enter = Kaydet</span>
               </div>
             </div>
 
             <div class="cn-grid">
               <div>
-                <div class="cn-label">BaÅŸlÄ±k</div>
-                <input id="cn-title" class="cn-input" value="${defaultTitle}" placeholder="Ã–rn: React Hooks" />
+                <div class="cn-label">Başlık</div>
+                <input id="cn-title" class="cn-input" value="${defaultTitle}" placeholder="Örn: React Hooks" />
               </div>
 
               <div>
-                <div class="cn-label">AÃ§Ä±klama / Not</div>
-                <textarea id="cn-note" class="cn-textarea" placeholder="KÄ±sa aÃ§Ä±klama...">${defaultNote}</textarea>
+                <div class="cn-label">Açıklama / Not</div>
+                <textarea id="cn-note" class="cn-textarea" placeholder="Kısa açıklama...">${defaultNote}</textarea>
               </div>
 
               <div id="cn-url-wrap">
                 <div class="cn-label">Link (opsiyonel)</div>
                 <input id="cn-url" class="cn-input" value="${defaultUrl}" placeholder="https://..." />
-                <div class="cn-help">Not kaydediyorsan link boÅŸ kalabilir.</div>
+                <div class="cn-help">Not kaydediyorsan link boş kalabilir.</div>
               </div>
 
               <div class="cn-row2">
                 <div>
-                  <div class="cn-label">Tags (virgÃ¼lle)</div>
-                  <input id="cn-tags" class="cn-input" placeholder="Ã¶rn: react, ui, hooks" />
+                  <div class="cn-label">Tags (virgülle)</div>
+                  <input id="cn-tags" class="cn-input" placeholder="örn: react, ui, hooks" />
                 </div>
 
                 <div>
                   <div class="cn-label">Group</div>
                   <select id="cn-group" class="cn-select">
                     <option value="">Inbox</option>
-                    <option value="" disabled>YÃ¼kleniyorâ€¦</option>
+                    <option value="" disabled>Yükleniyor…</option>
                   </select>
                 </div>
               </div>
@@ -398,18 +398,18 @@
                 <div class="cn-recall-head">
                   <div>
                     <div class="cn-recall-title">Context Recall</div>
-                    <div class="cn-recall-sub">Bu sayfayla ilgili eski kayÄ±tlar burada gÃ¶rÃ¼nÃ¼r.</div>
+                    <div class="cn-recall-sub">Bu sayfayla ilgili eski kayıtlar burada görünür.</div>
                   </div>
                 </div>
-                <div id="cn-recall-loading" class="cn-recall-loading">Ä°lgili kayÄ±tlar aranÄ±yor...</div>
+                <div id="cn-recall-loading" class="cn-recall-loading">İlgili kayıtlar aranıyor...</div>
                 <div id="cn-recall-list" class="cn-recall-list" style="display:none"></div>
-                <div id="cn-recall-empty" class="cn-recall-empty" style="display:none">Bu sayfa iÃ§in geri Ã§aÄŸrÄ±lan eski kayÄ±t yok.</div>
+                <div id="cn-recall-empty" class="cn-recall-empty" style="display:none">Bu sayfa için geri çağrılan eski kayıt yok.</div>
               </div>
 
               <div id="cn-error" class="cn-error"></div>
 
               <div class="cn-foot">
-                <button id="cn-cancel" class="cn-btn">Ä°ptal</button>
+                <button id="cn-cancel" class="cn-btn">İptal</button>
                 <button id="cn-save" class="cn-btn cn-btn-primary">Kaydet</button>
               </div>
             </div>
@@ -450,10 +450,10 @@
 
       if (!resp?.ok) {
         if (resp?.code === "TOKEN_MISSING" || resp?.code === "TOKEN_INVALID") {
-          setFallback("Ã–nce eklentiyi baÄŸla");
+          setFallback("Önce eklentiyi bağla");
           return;
         }
-        setFallback("Gruplar alÄ±namadÄ±");
+        setFallback("Gruplar alınamadı");
         return;
       }
 
@@ -465,7 +465,7 @@
         selectEl.appendChild(opt);
       }
     } catch {
-      setFallback("Gruplar alÄ±namadÄ±");
+      setFallback("Gruplar alınamadı");
     }
   }
 
@@ -497,7 +497,7 @@
       });
 
       if (!resp?.ok) {
-        showEmpty("Ä°lgili kayÄ±tlar ÅŸu anda alÄ±namÄ±yor.");
+        showEmpty("İlgili kayıtlar şu anda alınamıyor.");
         return;
       }
 
@@ -505,7 +505,7 @@
       const apiBase = String(resp.apiBase || "").trim();
 
       if (!recall.length) {
-        showEmpty("Bu sayfa iÃ§in geri Ã§aÄŸrÄ±lan eski kayÄ±t yok.");
+        showEmpty("Bu sayfa için geri çağrılan eski kayıt yok.");
         return;
       }
 
@@ -521,7 +521,7 @@
             : "";
           const metaBits = [
             item.type === "link" ? "Link" : "Not",
-            item.age_days === 0 ? "BugÃ¼n" : `${item.age_days} gÃ¼n`,
+            item.age_days === 0 ? "Bugün" : `${item.age_days} gün`,
           ];
 
           if (item.matched_hostname && item.hostname) {
@@ -605,7 +605,7 @@
         };
       }
     } catch {
-      showEmpty("Ä°lgili kayÄ±tlar ÅŸu anda alÄ±namÄ±yor.");
+      showEmpty("İlgili kayıtlar şu anda alınamıyor.");
     }
   }
 
@@ -705,7 +705,7 @@
     const setLoading = (on) => {
       if (btnSave) btnSave.disabled = !!on;
       if (btnCancel) btnCancel.disabled = !!on;
-      if (btnSave) btnSave.textContent = on ? "Kaydediliyorâ€¦" : "Kaydet";
+      if (btnSave) btnSave.textContent = on ? "Kaydediliyor…" : "Kaydet";
     };
 
     const doSave = async () => {
@@ -724,14 +724,14 @@
       if (inferredType === "note") {
         if (!String(note).trim() && !String(title).trim()) {
           setLoading(false);
-          setError(root, "Not iÃ§in en az baÅŸlÄ±k ya da iÃ§erik gir.");
+          setError(root, "Not için en az başlık ya da içerik gir.");
           return;
         }
       } else {
         const u = String(url).trim();
         if (!u && !String(title).trim()) {
           setLoading(false);
-          setError(root, "Link iÃ§in en az URL ya da baÅŸlÄ±k gir.");
+          setError(root, "Link için en az URL ya da başlık gir.");
           return;
         }
       }
@@ -761,7 +761,7 @@
           return;
         }
 
-        toast("Kaydedildi âœ…");
+        toast("Kaydedildi ✅");
         window.setTimeout(() => close(), 450);
       } catch (e) {
         const emsg = e?.message || String(e);
@@ -793,9 +793,9 @@
       return;
     }
 
-    // âœ… background -> "saved" sinyali
+    // ✅ background -> "saved" sinyali
     if (msg?.type === "CLARIONOT_SAVED") {
-      toast("Kaydedildi âœ…");
+      toast("Kaydedildi ✅");
       try {
         window.postMessage(
           { type: "CLARIONOT_SAVED_UI" },
