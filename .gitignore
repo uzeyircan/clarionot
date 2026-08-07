@@ -5,3 +5,17 @@ out
 .env
 .env.*
 .DS_Store
+
+# Signing keys / secrets
+*.jks
+*.keystore
+android/key.properties
+
+# Android build outputs
+android/**/output-metadata.json
+android/**/outputs/
+
+# iOS dependencies / build artifacts
+ios/App/Pods/
+ios/Pods/
+DerivedData/

@@ -20,6 +20,7 @@ import TagInput from "@/components/TagInput";
 import ItemCard from "@/components/ItemCard";
 import Header from "@/components/Header";
 import DnaBackdrop from "@/components/DnaBackdrop";
+import { NATIVE_BACK_EVENT } from "@/lib/nativeBack";
 
 type Draft = {
   id?: string;
@@ -816,6 +817,54 @@ function DashboardPageInner() {
       setForgottenSegment("all");
     }
   }, [activeGroupId]);
+
+  // ✅ Android donanım geri tuşu: açık modal/dialog varsa yalnızca onu kapat,
+  // sayfa aynı basışta geri gitmesin (bkz. NativeBackController).
+  useEffect(() => {
+    const closeTopmostDialog = () => {
+      if (openOnboarding) {
+        setOpenOnboarding(false);
+        return true;
+      }
+      if (openDetail) {
+        setOpenDetail(false);
+        return true;
+      }
+      if (openAdd) {
+        setOpenAdd(false);
+        return true;
+      }
+      if (openRenameModal) {
+        setOpenRenameModal(false);
+        return true;
+      }
+      if (openGroupModal) {
+        setOpenGroupModal(false);
+        return true;
+      }
+      if (openQuickAdd) {
+        setOpenQuickAdd(false);
+        return true;
+      }
+      return false;
+    };
+
+    const onNativeBack = (event: Event) => {
+      if (closeTopmostDialog()) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener(NATIVE_BACK_EVENT, onNativeBack);
+    return () => window.removeEventListener(NATIVE_BACK_EVENT, onNativeBack);
+  }, [
+    openOnboarding,
+    openDetail,
+    openAdd,
+    openRenameModal,
+    openGroupModal,
+    openQuickAdd,
+  ]);
 
   const groupCounts = useMemo(() => {
     const counts: Record<string, number> = { inbox: 0, forgotten: 0 };

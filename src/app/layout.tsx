@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import PushController from "@/components/PushController";
 import ThemeController from "@/components/ThemeController";
+import NativeBackController from "@/components/NativeBackController";
 import "./globals.css";
 
 const inter = Inter({
@@ -53,6 +54,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeController />
         <PushController />
+        <NativeBackController />
         {children}
       </body>
     </html>

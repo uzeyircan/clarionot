@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+// Release signing is loaded from android/key.properties, which is gitignored and never
+// committed. See android/key.properties.example for the expected format.
+def keystorePropertiesFile = rootProject.file('key.properties')
+def keystoreProperties = new Properties()
+def hasKeystoreProperties = keystorePropertiesFile.exists()
+if (hasKeystoreProperties) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.clarionot.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +25,38 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasKeystoreProperties) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasKeystoreProperties) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+// Fail loudly instead of producing a silently unsigned/debug-signed release artifact
+// when android/key.properties is missing.
+tasks.whenTaskAdded { task ->
+    def isReleasePackagingTask = task.name.startsWith('assembleRelease') || task.name.startsWith('bundleRelease')
+    if (!hasKeystoreProperties && isReleasePackagingTask) {
+        task.doFirst {
+            throw new GradleException(
+                "android/key.properties bulunamadi; release build imzalanamaz.\n" +
+                "android/key.properties.example dosyasini android/key.properties olarak kopyalayip " +
+                "gercek keystore bilgilerini girin."
+            )
         }
     }
 }

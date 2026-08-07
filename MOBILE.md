@@ -8,18 +8,19 @@ https://clarionot.com
 
 Bu tercih Next.js API route'lari, Supabase auth ve odeme akislarini mobil pakette statik export'a zorlamadan calistirir.
 
-## Su An Neden Calismiyor?
+## Android Gelistirme Durumu (Dogrulandi)
 
-Android APK derleniyor, fakat cihaz/emulator tarafinda hedef yoksa uygulama calismaz.
+Bu makinede asagidaki adimlar fiilen calistirilip dogrulandi:
 
-Bu makinede kontrol edilen durum:
-
-- `android/` projesi var.
-- Debug APK uretiliyor.
-- Android SDK kurulu.
-- `adb` sistem PATH'inde degil.
-- `Pixel_4_XL` emulator tanimi var, fakat su an calisan/ bagli cihaz gorunmuyor.
-- `ios/` projesi yok; App Store build'i icin macOS + Xcode gerekiyor.
+- `android/` projesi var; `npx cap sync android` basarili.
+- Java: ayri bir JDK kurulu degil, Android Studio'nun bundled JBR'i (`Android Studio.app/Contents/jbr`) `JAVA_HOME` olarak kullanildi ve build'ler bununla calisti.
+- Android SDK `~/Library/Android/sdk` altinda kurulu; `adb` bu SDK icinde (`platform-tools/adb`) calisiyor ama sistem PATH'inde degil.
+- `./gradlew assembleDebug` basarili, `app-debug.apk` uretiliyor.
+- `./gradlew bundleRelease` basarili (yerel `android/key.properties` + gecerli keystore mevcutken), imzali `app-release.aab` uretiliyor ve imza `jarsigner -verify` ile dogrulandi.
+- Mevcut/kullanilabilir AVD: `Medium_Phone_API_36.1` (onceki `Pixel_4_XL` referansi bu makinede artik gecerli degil).
+- Debug APK bu AVD'ye kuruldu ve `com.clarionot.app/.MainActivity` ile acildi: uygulama crash/beyaz ekran olmadan canli web ana sayfasini (giris yapilmamis misafir gorunumu) gosterdi. Durdur + yeniden baslat testinde de crash, beyaz ekran veya sonsuz yukleme gozlenmedi.
+- Giris, oturum kalıcılığı ve dashboard akislari bu testte DENENMEDI; kullanici tarafindan manuel dogrulanmali.
+- `ios/` projesi repoda mevcut (Capacitor ile eklenmis). Derleme ve imzalama icin macOS + Xcode gerekiyor; bu henuz dogrulanmadi.
 
 Android'de calistirmak icin:
 
@@ -28,7 +29,7 @@ $env:Path += ";$env:LOCALAPPDATA\Android\Sdk\platform-tools"
 npm run android:run
 ```
 
-Alternatif olarak Android Studio'yu acip `Pixel_4_XL` emulatorunu baslatin:
+Alternatif olarak Android Studio'yu acip `Medium_Phone_API_36.1` emulatorunu baslatin:
 
 ```bash
 npm run android
@@ -62,13 +63,12 @@ npm run android
 
 Android Studio acildiktan sonra bir emulator veya fiziksel cihaz secip uygulamayi calistirin.
 
-## iOS Projesi Olusturma
+## iOS Projesini Acma
 
-Bu adim Windows'ta degil, Mac uzerinde yapilmalidir:
+`ios/` klasoru repoda zaten mevcut (Capacitor ile eklenmis), bu yuzden `npm run ios:add` tekrar calistirilmamali. Bu adim Windows'ta degil, Mac uzerinde yapilmalidir:
 
 ```bash
 npm install
-npm run ios:add
 npm run ios:sync
 npm run ios
 ```
@@ -93,9 +93,25 @@ Windows PowerShell:
 $env:CAPACITOR_SERVER_URL="https://staging.example.com"; npm run android:sync
 ```
 
-## Play Store Icin AAB Uretme
+## Android Release Signing
 
-Android Studio icinde:
+Release build'i imzalamak icin gereken keystore repoda tutulmaz ve repo icinde olusturulmaz. Kurulum:
+
+1. Keystore'u repo disinda, guvenli bir klasorde uretin. Bu ortamda `android/key.properties` icinde referans verilen keystore'un varligi Gradle uzerinden dogrulandi (mutlak yol ve sifreler bu dokumana yazilmaz).
+2. `android/key.properties.example` dosyasini `android/key.properties` olarak kopyalayin ve gercek `storeFile` (mutlak yol), `storePassword`, `keyAlias`, `keyPassword` degerlerini bu yerel dosyaya yazin.
+3. `android/key.properties` ve `.jks`/`.keystore` dosyalari `.gitignore` icinde oldugu icin commit edilmez; yalnizca yerel makinede/CI secret store'da tutulur.
+4. Keystore'un sifreli bir yedegini (ör. sifre yoneticisi veya guvenli bulut depolama) saklayin — kaybolursa Play Store'daki uygulamayi guncelleyemezsiniz.
+
+`android/key.properties` yoksa release build Gradle tarafinda acik bir hata ile durur (sessizce debug anahtariyla imzalanmaz). Debug build bu yapilandirmadan etkilenmez.
+
+Release AAB uretmek icin (key.properties hazir oldugunda):
+
+```bash
+cd android
+./gradlew bundleRelease
+```
+
+Alternatif olarak Android Studio icinde:
 
 ```txt
 Build > Generate Signed Bundle / APK > Android App Bundle
@@ -107,7 +123,7 @@ Paket adi:
 com.clarionot.app
 ```
 
-Play Store'a debug APK yuklenmez. Release imzali `.aab` yuklenmelidir.
+Play Store'a debug APK yuklenmez. Release imzali `.aab` yuklenmelidir. Bu ortamda `./gradlew bundleRelease` calistirilip basarili oldu; uretilen `app-release.aab` imzali oldugu `jarsigner -verify` ile dogrulandi (bkz. yukaridaki "Android Gelistirme Durumu"). Play Store'a henuz yukleme yapilmadi.
 
 ## App Store Icin Archive Uretme
 

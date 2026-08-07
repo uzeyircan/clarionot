@@ -17,9 +17,9 @@
   },
   "dependencies": {
     "@capacitor/android": "^6.2.1",
+    "@capacitor/app": "^6.0.3",
     "@capacitor/cli": "^6.2.1",
     "@capacitor/core": "^6.2.1",
-    "@capacitor/ios": "^6.2.1",
     "@capacitor/ios": "^6.2.1",
     "@supabase/supabase-js": "^2.45.4",
     "cheerio": "^1.1.2",
