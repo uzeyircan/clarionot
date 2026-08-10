@@ -21,6 +21,7 @@ import ItemCard from "@/components/ItemCard";
 import Header from "@/components/Header";
 import DnaBackdrop from "@/components/DnaBackdrop";
 import { NATIVE_BACK_EVENT } from "@/lib/nativeBack";
+import { useIsNativeApp } from "@/lib/useIsNativeApp";
 
 type Draft = {
   id?: string;
@@ -98,6 +99,7 @@ export default function DashboardPage() {
 function DashboardPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isNativeApp, isPlatformResolved } = useIsNativeApp();
 
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -762,6 +764,19 @@ function DashboardPageInner() {
     // (Free ayda 30 kayıtla sınırlı, Pro sınırsız) — plan farkı burada
     // değil /api/clip'te uygulanıyor.
     const run = async () => {
+      // Platform henüz çözülmediyse (isNativeApp geçici olarak "false"
+      // görünüyor olabilir) hiçbir DB/ping isteği atma — bekle.
+      if (!isPlatformResolved) return;
+
+      // Native uygulamada tarayıcı eklentisi hiç kullanılamaz; DB/ping
+      // isteklerini boşuna atmayalım.
+      if (isNativeApp) {
+        setExtChecking(false);
+        setExtConnected(false);
+        setExtLiveHere(false);
+        return;
+      }
+
       // isPro henüz belli değilse (null) hiçbir şey yapma
       if (isPro == null) return;
 
@@ -798,13 +813,17 @@ function DashboardPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [userId, isPro]); // load/loadGroups/ping/check fonksiyonların stable değilse useCallback yap
+  }, [userId, isPro, isNativeApp, isPlatformResolved]); // load/loadGroups/ping/check fonksiyonların stable değilse useCallback yap
 
   // ✅ Eklenti kartı: sayfa açıldığında kalan kullanım hakkını çek.
+  // Native uygulamada bu kart hiç gösterilmiyor, isteği de atmaya gerek yok.
+  // Platform çözülmeden (isPlatformResolved=false) hiçbir istek atma —
+  // aksi halde native cihazda ilk render'da isNativeApp henüz "false"
+  // görünürken bu fetch yanlışlıkla tetiklenebilir.
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isPlatformResolved || isNativeApp) return;
     fetchClipUsage();
-  }, [userId, fetchClipUsage]);
+  }, [userId, isPlatformResolved, isNativeApp, fetchClipUsage]);
 
   useEffect(() => {
     if (activeGroupId !== "forgotten" || isPro !== true) {
@@ -850,6 +869,10 @@ function DashboardPageInner() {
     };
 
     const onNativeBack = (event: Event) => {
+      // Header'ın kullanıcı menüsü aynı basışta bu event'i bizden önce
+      // claim etmiş olabilir (bkz. Header.tsx) — böyle bir durumda iki UI'ı
+      // birden kapatmayalım.
+      if (event.defaultPrevented) return;
       if (closeTopmostDialog()) {
         event.preventDefault();
       }
@@ -2054,32 +2077,38 @@ function DashboardPageInner() {
               <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-100">
                 Pulse Çalışma Alanı
               </div>
-              <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">
+              <h1 className="mt-3 max-w-3xl text-2xl font-semibold tracking-[-0.03em] text-white sm:hidden">
+                Kayıtların
+              </h1>
+              <h1 className="mt-3 hidden max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-white sm:block sm:text-5xl">
                 Kayıtlarını düzenle, geri getir, kullan.
               </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-white/58">
+              <p className="mt-2 max-w-2xl text-sm leading-5 text-white/58 sm:hidden">
+                Notlarını ve linklerini tek yerden yönet.
+              </p>
+              <p className="mt-4 hidden max-w-2xl text-sm leading-6 text-white/58 sm:block">
                 Linkler ve notlar akışta kalır; arama, gruplar, unutulanlar ve
                 AI işlemleri ayrı katmanlarda çalışır.
               </p>
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:flex sm:flex-row">
                 <button
                   type="button"
                   onClick={() => openNew("note")}
-                  className="inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/82 transition hover:bg-white/[0.08] hover:text-white"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/82 transition hover:bg-white/[0.08] hover:text-white"
                 >
                   + Yeni not
                 </button>
                 <button
                   type="button"
                   onClick={() => openNew("link")}
-                  className="accent-gradient inline-flex items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold transition hover:opacity-90"
+                  className="accent-gradient inline-flex min-h-[44px] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold transition hover:opacity-90"
                 >
                   + Yeni link
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[520px]">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 lg:min-w-[520px]">
               {[
                 ["Toplam", items.length],
                 ["Not", notes.length],
@@ -2088,12 +2117,12 @@ function DashboardPageInner() {
               ].map(([label, value]) => (
                 <div
                   key={label}
-                  className="rounded-xl border border-white/10 bg-black/20 p-4"
+                  className="rounded-xl border border-white/10 bg-black/20 p-3 sm:p-4"
                 >
                   <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/40">
                     {label}
                   </div>
-                  <div className="mt-2 text-2xl font-semibold text-cyan-100">
+                  <div className="mt-1 text-xl font-semibold text-cyan-100 sm:mt-2 sm:text-2xl">
                     {value}
                   </div>
                 </div>
@@ -2121,7 +2150,7 @@ function DashboardPageInner() {
           </div>
         ) : null}
 
-        {isPro === false ? (
+        {isPro === false && isPlatformResolved && !isNativeApp ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/58 backdrop-blur-xl">
             Tarayıcı eklentisiyle sağ tıkla kaydet — Free planda ayda 30
             kayıt. Sınırsız kullanım için{" "}
@@ -2160,8 +2189,8 @@ function DashboardPageInner() {
           </div>
         ) : null}
 
-        {/* ✅ Extension card: Free (kalan kullanım hakkı) + Pro (sınırsız) */}
-        {isPro !== null ? (
+        {/* ✅ Extension card: Free (kalan kullanım hakkı) + Pro (sınırsız) — native uygulamada gösterilmez */}
+        {isPro !== null && isPlatformResolved && !isNativeApp ? (
           <div className="mt-4 rounded-xl border border-cyan-200/18 bg-cyan-200/[0.055] p-4 backdrop-blur-xl">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -3290,17 +3319,19 @@ function DashboardPageInner() {
       </div>
 
       {/* ✅ CREATE GROUP MODAL */}
+      {/* Masaüstünde korunuyor; mobilde üstteki "Yeni not/Yeni link" düğmeleriyle
+          aynı işi tekrar ettiği için gizli. */}
       <button
         type="button"
         onClick={() => setOpenQuickAdd((value) => !value)}
-        className="accent-gradient mobile-fab fixed z-40 grid h-14 w-14 place-items-center rounded-xl text-3xl font-light shadow-[0_18px_60px_rgba(80,190,255,0.2)] transition hover:opacity-90 active:scale-95"
+        className="accent-gradient mobile-fab fixed z-40 hidden h-14 w-14 place-items-center rounded-xl text-3xl font-light shadow-[0_18px_60px_rgba(80,190,255,0.2)] transition hover:opacity-90 active:scale-95 md:grid"
         aria-label="Yeni kayıt ekle"
       >
         {openQuickAdd ? "×" : "+"}
       </button>
 
       {openQuickAdd ? (
-        <div className="mobile-fab-menu fixed z-40 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#07090d]/95 p-2 shadow-2xl backdrop-blur-2xl">
+        <div className="mobile-fab-menu fixed z-40 hidden w-48 overflow-hidden rounded-xl border border-white/10 bg-[#07090d]/95 p-2 shadow-2xl backdrop-blur-2xl md:block">
           <button
             type="button"
             onClick={() => openNew("note")}
@@ -3567,7 +3598,7 @@ function DashboardPageInner() {
                   Açıklama (opsiyonel)
                 </div>
                 <Textarea
-                  className="min-h-[90px]"
+                  className="min-h-[90px] max-h-[22vh] overflow-y-auto sm:max-h-none"
                   value={(draft as any).note ?? ""}
                   onChange={(e) =>
                     setDraft({ ...(draft as any), note: e.target.value } as any)
@@ -3580,7 +3611,7 @@ function DashboardPageInner() {
             <div>
               <div className="mb-1 text-xs text-neutral-400">Not</div>
               <Textarea
-                className="min-h-[180px]"
+                className="min-h-[180px] max-h-[32vh] overflow-y-auto sm:max-h-none"
                 value={draft.content}
                 onChange={(e) =>
                   setDraft({ ...draft, content: e.target.value })
@@ -3621,11 +3652,19 @@ function DashboardPageInner() {
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setOpenAdd(false)}>
+          <div className="sticky bottom-0 -mx-4 -mb-4 mt-2 flex justify-end gap-2 border-t border-white/10 bg-[#07090d]/95 px-4 py-3 pb-[calc(0.75rem+var(--safe-bottom))] backdrop-blur-xl">
+            <Button
+              variant="ghost"
+              onClick={() => setOpenAdd(false)}
+              className="min-h-[44px] sm:min-h-0"
+            >
               İptal
             </Button>
-            <Button onClick={saveDraft} disabled={saving}>
+            <Button
+              onClick={saveDraft}
+              disabled={saving}
+              className="min-h-[44px] sm:min-h-0"
+            >
               {saving
                 ? draft.type === "link"
                   ? "Başlık alınıyor…"
@@ -3658,6 +3697,7 @@ function DashboardPageInner() {
           <div>
             <div className="mb-1 text-xs text-neutral-400">İçerik</div>
             <Textarea
+              className="max-h-[30vh] overflow-y-auto sm:max-h-none"
               value={draft.content}
               onChange={(e) => setDraft({ ...draft, content: e.target.value })}
             />
@@ -3692,15 +3732,28 @@ function DashboardPageInner() {
             />
           </div>
 
-          <div className="flex items-center justify-between pt-2">
-            <Button variant="danger" onClick={removeItem}>
+          <div className="sticky bottom-0 -mx-4 -mb-4 mt-2 flex items-center justify-between border-t border-white/10 bg-[#07090d]/95 px-4 py-3 pb-[calc(0.75rem+var(--safe-bottom))] backdrop-blur-xl">
+            <Button
+              variant="danger"
+              onClick={removeItem}
+              className="min-h-[44px] sm:min-h-0"
+            >
               Sil
             </Button>
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setOpenDetail(false)}>
+              <Button
+                variant="ghost"
+                onClick={() => setOpenDetail(false)}
+                className="min-h-[44px] sm:min-h-0"
+              >
                 Kapat
               </Button>
-              <Button onClick={updateItem}>Kaydet</Button>
+              <Button
+                onClick={updateItem}
+                className="min-h-[44px] sm:min-h-0"
+              >
+                Kaydet
+              </Button>
             </div>
           </div>
         </div>

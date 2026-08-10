@@ -121,17 +121,27 @@ export default function ItemCard({
   }, [aiSummaryRaw]);
 
   const showAiSummary = aiStatus === "done" && !!aiSummary;
+  const cardTitle = item.title || (isLink ? "Başlıksız link" : "Başlıksız not");
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(item)}
+    <article
       className={`theme-shell group relative w-full overflow-hidden rounded-xl p-4 text-left shadow-[0_24px_70px_rgba(0,0,0,0.24)] transition hover:bg-white/[0.07] sm:p-5 ${className}`}
     >
+      {/* Kartın tamamını kaplayan tek gerçek "aç" butonu. Diğer aksiyon
+          kontrolleri (AI yeniden üret/geri al, dış link) bunun DOM
+          kardeşi olarak kendi z-index'leriyle üstte kalır, böylece
+          <button> içinde <button>/<a> gibi geçersiz iç içe yapı oluşmaz. */}
+      <button
+        type="button"
+        onClick={() => onOpen(item)}
+        aria-label={`${cardTitle} detayını aç`}
+        className="absolute inset-0 z-0 h-full w-full cursor-pointer appearance-none rounded-xl border-0 bg-transparent p-0"
+      />
+
       <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full accent-soft opacity-80 blur-3xl transition group-hover:opacity-100" />
 
       <div className="flex items-start justify-between gap-3">
-        <div className="relative z-10 min-w-0 break-words text-[10px] font-bold uppercase tracking-widest text-white/42">
+        <div className="relative min-w-0 break-words text-[10px] font-bold uppercase tracking-widest text-white/42">
           {isLink ? "🔗 Link" : "📝 Not"} ·{" "}
           <span className="accent-text">{formatDaysAgo(daysAgo)}</span>
           <span className="text-neutral-600"> · </span>
@@ -160,11 +170,8 @@ export default function ItemCard({
           {(aiStatus === "done" || aiStatus === "failed") && onRegenerateAi ? (
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onRegenerateAi(item.id);
-              }}
-              className="ml-2 rounded-full border border-sky-900/40 bg-sky-950/30 px-2 py-0.5 text-[10px] text-sky-200 transition hover:bg-sky-900/30"
+              onClick={() => onRegenerateAi(item.id)}
+              className="relative z-10 ml-2 rounded-full border border-sky-900/40 bg-sky-950/30 px-2 py-0.5 text-[10px] text-sky-200 transition hover:bg-sky-900/30"
               title="AI özetini yeniden üret"
             >
               ↻
@@ -174,11 +181,8 @@ export default function ItemCard({
           {canUndoAi && onUndoAi ? (
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onUndoAi(item.id);
-              }}
-              className="ml-2 rounded-full border border-amber-900/40 bg-amber-950/30 px-2 py-0.5 text-[10px] text-amber-200 transition hover:bg-amber-900/30"
+              onClick={() => onUndoAi(item.id)}
+              className="relative z-10 ml-2 rounded-full border border-amber-900/40 bg-amber-950/30 px-2 py-0.5 text-[10px] text-amber-200 transition hover:bg-amber-900/30"
               title="AI değişikliklerini geri al"
             >
               Geri al
@@ -195,7 +199,7 @@ export default function ItemCard({
 
       <div className="mt-1 flex min-w-0 items-center gap-2">
         <div className="line-clamp-1 min-w-0 break-words text-base font-semibold leading-snug text-white">
-          {item.title || (isLink ? "Başlıksız link" : "Başlıksız not")}
+          {cardTitle}
         </div>
 
         {aiStatus === "done" && cat ? (
@@ -212,8 +216,7 @@ export default function ItemCard({
               href={url}
               target="_blank"
               rel="noreferrer"
-              onClick={(event) => event.stopPropagation()}
-              className="block min-w-0 break-all text-sm font-medium text-cyan-50 underline decoration-cyan-200/30 hover:decoration-cyan-100"
+              className="relative z-10 block min-w-0 break-all text-sm font-medium text-cyan-50 underline decoration-cyan-200/30 hover:decoration-cyan-100"
             >
               {url}
             </a>
@@ -260,6 +263,6 @@ export default function ItemCard({
           ))}
         </div>
       ) : null}
-    </button>
+    </article>
   );
 }

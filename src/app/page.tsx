@@ -21,6 +21,7 @@ import {
 } from "react";
 import { supabase } from "@/lib/supabase";
 import { useProPrice } from "@/lib/useProPrice";
+import { useIsNativeApp } from "@/lib/useIsNativeApp";
 
 const CHROME_STORE_URL =
   "https://chromewebstore.google.com/detail/clarionot-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
@@ -111,6 +112,9 @@ export default function HomePage() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const { price: proPrice, loading: proPriceLoading } = useProPrice();
   const [activeShot, setActiveShot] = useState<ShotKey>("webstore");
+  const { isNativeApp, isPlatformResolved } = useIsNativeApp();
+  const [nativeRedirecting, setNativeRedirecting] = useState(false);
+  const nativeRedirectStartedRef = useRef(false);
 
   const shots = useMemo<Shot[]>(
     () => [
@@ -262,6 +266,31 @@ export default function HomePage() {
     };
   }, [menuOpen]);
 
+  // ✅ Native Capacitor shell: "/" is never the home screen. Send the user
+  // straight to /dashboard (session var) or /login (no session) instead of
+  // showing the marketing landing page. Waits for isPlatformResolved so a
+  // regular web visitor is never mistaken for native during the resolving
+  // window, and the ref guard makes sure this runs (and calls
+  // getSession/redirect) exactly once even if effect deps re-fire.
+  useEffect(() => {
+    if (!isPlatformResolved || !isNativeApp) return;
+    if (nativeRedirectStartedRef.current) return;
+    nativeRedirectStartedRef.current = true;
+
+    setNativeRedirecting(true);
+    let cancelled = false;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      router.replace(data.session ? "/dashboard" : "/login");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPlatformResolved, isNativeApp, router]);
+
   const startProCheckout = async () => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
@@ -324,6 +353,10 @@ export default function HomePage() {
     </button>
   );
 
+  if (nativeRedirecting) {
+    return <NativeAppLoadingScreen />;
+  }
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#030406] text-white selection:bg-cyan-300/25">
       <div className="pointer-events-none fixed inset-0 -z-10">
@@ -366,6 +399,21 @@ export default function HomePage() {
       />
       <FinalCta primaryCTA={primaryCTA} />
       <SiteFooter />
+    </main>
+  );
+}
+
+function NativeAppLoadingScreen() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#030406] text-white">
+      <div className="flex flex-col items-center gap-4">
+        <span className="theme-chip theme-accent-glow grid h-12 w-12 place-items-center rounded-xl text-lg font-black backdrop-blur-xl">
+          c
+        </span>
+        <div className="h-1 w-24 overflow-hidden rounded-full bg-white/10">
+          <div className="accent-gradient h-full w-1/2 animate-pulse rounded-full" />
+        </div>
+      </div>
     </main>
   );
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import Button from "@/components/Button";
+import { NATIVE_BACK_EVENT } from "@/lib/nativeBack";
 
 type PlanRow = {
   plan: "free" | "pro" | null;
@@ -130,6 +130,26 @@ export default function Header() {
     };
   }, [menuOpen]);
 
+  // ✅ Android donanım geri tuşu: menü açıkken yalnızca menüyü kapatsın,
+  // sayfa aynı basışta geri gitmesin veya uygulama minimize olmasın (bkz.
+  // NativeBackController). Listener sadece menü açıkken bağlı kalır, bu
+  // yüzden aynı anda birden fazla eklenmesi veya menü kapalıyken olayı
+  // yutması söz konusu olmaz. Bir dashboard modalı bu event'i bizden önce
+  // claim ettiyse (defaultPrevented) dokunmayız — görsel olarak üstte olan
+  // modal varsa aynı basışta ikisini birden kapatmayız.
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onNativeBack = (event: Event) => {
+      if (event.defaultPrevented) return;
+      setMenuOpen(false);
+      event.preventDefault();
+    };
+
+    window.addEventListener(NATIVE_BACK_EVENT, onNativeBack);
+    return () => window.removeEventListener(NATIVE_BACK_EVENT, onNativeBack);
+  }, [menuOpen]);
+
   const logout = async () => {
     setMenuOpen(false);
     await supabase.auth.signOut();
@@ -165,14 +185,12 @@ export default function Header() {
               Planlar
             </Link>
 
-            <Button variant="ghost">
-              <Link
-                href="/login"
-                className="text-sm text-white/70 hover:text-white"
-              >
-                Giriş yap
-              </Link>
-            </Button>
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-transparent px-4 py-2 text-sm font-medium text-white/70 transition hover:bg-neutral-900 hover:text-white active:scale-[0.99]"
+            >
+              Giriş yap
+            </Link>
           </>
         ) : (
           <>
@@ -273,6 +291,7 @@ export default function Header() {
                     <div className="theme-menu-divider my-2" />
 
                     <button
+                      type="button"
                       role="menuitem"
                       onClick={logout}
                       className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-300 transition hover:bg-red-950/30"

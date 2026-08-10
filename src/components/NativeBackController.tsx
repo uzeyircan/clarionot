@@ -9,7 +9,7 @@ import { NATIVE_BACK_EVENT } from "@/lib/nativeBack";
 // Screens where the hardware back button should minimize the app instead of
 // walking further back into WebView history (e.g. bouncing into /login,
 // which redirects straight back to /dashboard and looks like a freeze).
-const ROOT_PATHS = new Set(["/", "/dashboard"]);
+const ROOT_PATHS = new Set(["/", "/dashboard", "/login"]);
 
 export default function NativeBackController() {
   const pathname = usePathname();

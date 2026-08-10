@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: "ClarioNot",
   webDir: "public",
   server: {
-    url: process.env.CAPACITOR_SERVER_URL ?? "https://clarionot.com",
+    url: process.env.CAPACITOR_SERVER_URL ?? "https://clarionot.com/dashboard",
     cleartext: false,
   },
   android: {

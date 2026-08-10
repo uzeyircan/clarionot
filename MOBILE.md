@@ -8,6 +8,16 @@ https://clarionot.com
 
 Bu tercih Next.js API route'lari, Supabase auth ve odeme akislarini mobil pakette statik export'a zorlamadan calistirir.
 
+## Native Baslangic Rotasi
+
+Native kabugun soguk baslangic adresi artik marketing landing (`/`) degil, dogrudan `/dashboard`:
+
+```txt
+https://clarionot.com/dashboard
+```
+
+`/dashboard` kendi auth kontrolune sahiptir: oturum varsa calisma alani acilir, yoksa kullanici `/login`'e yonlendirilir. `CAPACITOR_SERVER_URL` ortam degiskeni bu varsayilani hala override edebilir (bkz. "Farkli Bir Web URL ile Paketleme"). Kullanici native uygulama icinde bilincli olarak `/` adresine giderse `src/app/page.tsx` icindeki native-redirect fallback'i hala calisir ve onu `/dashboard` veya `/login`'e yonlendirir.
+
 ## Android Gelistirme Durumu (Dogrulandi)
 
 Bu makinede asagidaki adimlar fiilen calistirilip dogrulandi:
