@@ -17,12 +17,14 @@ export default function Header() {
   const router = useRouter();
 
   const [loggedIn, setLoggedIn] = useState(false);
+  const [sessionResolved, setSessionResolved] = useState(false);
   const [email, setEmail] = useState("");
   const [plan, setPlan] = useState<"free" | "pro">("free");
   const [checkingPlan, setCheckingPlan] = useState(true);
   const [hasPaymentIssue, setHasPaymentIssue] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const mountedRef = useRef(true);
 
   const initials = useMemo(() => {
     const value = email.trim();
@@ -62,31 +64,16 @@ export default function Header() {
   };
 
   useEffect(() => {
+    mountedRef.current = true;
+
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
-      const uid = session?.user?.id ?? null;
-      const mail = session?.user?.email ?? "";
-
-      setLoggedIn(!!session);
-      setEmail(mail);
-
-      if (uid) {
-        void fetchPlan(uid);
-      } else {
-        setPlan("free");
-        setHasPaymentIssue(false);
-        setCheckingPlan(false);
-      }
-    };
-
-    void init();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data.session;
         const uid = session?.user?.id ?? null;
         const mail = session?.user?.email ?? "";
 
+        if (!mountedRef.current) return;
         setLoggedIn(!!session);
         setEmail(mail);
 
@@ -97,10 +84,36 @@ export default function Header() {
           setHasPaymentIssue(false);
           setCheckingPlan(false);
         }
+      } finally {
+        if (mountedRef.current) setSessionResolved(true);
+      }
+    };
+
+    void init();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        const uid = session?.user?.id ?? null;
+        const mail = session?.user?.email ?? "";
+
+        if (!mountedRef.current) return;
+        setLoggedIn(!!session);
+        setEmail(mail);
+
+        if (uid) {
+          void fetchPlan(uid);
+        } else {
+          setPlan("free");
+          setHasPaymentIssue(false);
+          setCheckingPlan(false);
+        }
+
+        setSessionResolved(true);
       },
     );
 
     return () => {
+      mountedRef.current = false;
       listener.subscription.unsubscribe();
     };
   }, []);
@@ -169,7 +182,17 @@ export default function Header() {
       </Link>
 
       <div className="flex items-center gap-2">
-        {!loggedIn ? (
+        {!sessionResolved ? (
+          <div
+            className="flex items-center gap-2"
+            aria-busy="true"
+            aria-label="Oturum bilgisi yükleniyor"
+          >
+            <div className="hidden h-9 w-20 animate-pulse rounded-lg bg-white/[0.04] sm:block" />
+            <div className="h-9 w-24 animate-pulse rounded-lg bg-white/[0.04]" />
+            <div className="h-9 w-9 animate-pulse rounded-lg bg-white/[0.04]" />
+          </div>
+        ) : !loggedIn ? (
           <>
             <Link
               href="/support"
