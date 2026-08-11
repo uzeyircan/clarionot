@@ -2,10 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import DnaBackdrop from "@/components/DnaBackdrop";
+import Modal from "@/components/Modal";
+import Button from "@/components/Button";
+import Input from "@/components/Input";
 import { supabase } from "@/lib/supabase";
+import { NATIVE_BACK_EVENT } from "@/lib/nativeBack";
 import type { Item, WorkStatus } from "@/lib/types";
 import {
   applyThemeAccent,
@@ -70,6 +75,7 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [items, setItems] = useState<Item[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -92,6 +98,10 @@ export default function SettingsPage() {
   const [pushMessage, setPushMessage] = useState<string | null>(null);
   const [hasPushSubscription, setHasPushSubscription] = useState(false);
   const [pushTesting, setPushTesting] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteEmailInput, setDeleteEmailInput] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const groupMap = useMemo(() => {
     return new Map(groups.map((group) => [group.id, group.title]));
@@ -577,6 +587,86 @@ export default function SettingsPage() {
     );
   };
 
+  // Android donanım geri tuşu: modal açıkken yalnızca modalı kapatsın,
+  // sayfa aynı basışta geri gitmesin (bkz. NativeBackController,
+  // dashboard/page.tsx ve Header.tsx'teki aynı desen). Silme isteği
+  // sürerken geri tuşu modalı kapatmaz — kullanıcı sonucu görmeden
+  // ayrılmasın diye.
+  useEffect(() => {
+    if (!deleteModalOpen) return;
+
+    const onNativeBack = (event: Event) => {
+      if (event.defaultPrevented) return;
+      // Modal açıkken bu basışı her koşulda claim ediyoruz ki
+      // NativeBackController sayfa geçmişinde geri gitmesin veya
+      // uygulamayı minimize etmesin. Silme isteği sürerken sadece
+      // modalı kapatmayı atlıyoruz.
+      event.preventDefault();
+      if (deleting) return;
+      setDeleteModalOpen(false);
+    };
+
+    window.addEventListener(NATIVE_BACK_EVENT, onNativeBack);
+    return () => window.removeEventListener(NATIVE_BACK_EVENT, onNativeBack);
+  }, [deleteModalOpen, deleting]);
+
+  const closeDeleteModal = () => {
+    if (deleting) return;
+    setDeleteModalOpen(false);
+    setDeleteEmailInput("");
+    setDeleteError(null);
+  };
+
+  const deleteEmailMatches =
+    deleteEmailInput.trim().length > 0 &&
+    deleteEmailInput.trim().toLowerCase() === email.trim().toLowerCase();
+
+  const handleDeleteAccount = async () => {
+    if (deleting || !deleteEmailMatches) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) {
+        setDeleteError("Oturum bulunamadı. Lütfen tekrar giriş yap.");
+        setDeleting(false);
+        return;
+      }
+
+      const response = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ confirmationEmail: deleteEmailInput.trim() }),
+      });
+
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok || !json?.ok) {
+        setDeleteError(
+          "Hesap silinemedi. Lütfen tekrar dene ya da destek ile iletişime geç.",
+        );
+        setDeleting(false);
+        return;
+      }
+
+      // Başarı: burada `deleting`i geri almıyoruz — sayfa /login'e
+      // yönlendirilirken modalın tekrar etkileşime açılmasını istemiyoruz.
+      await supabase.auth.signOut();
+      router.replace("/login");
+    } catch {
+      setDeleteError(
+        "Hesap silinemedi. Lütfen tekrar dene ya da destek ile iletişime geç.",
+      );
+      setDeleting(false);
+    }
+  };
+
   const activeThemePreset =
     THEME_PRESETS.find((preset) => preset.id === themeAccent) ??
     THEME_PRESETS[0];
@@ -983,7 +1073,88 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+
+        <section className="mt-6 rounded-xl border border-red-900/40 bg-red-950/10 p-6 backdrop-blur-2xl">
+          <h2 className="text-lg font-bold text-red-200">Tehlikeli Alan</h2>
+          <div className="mt-4 rounded-lg border border-red-900/30 bg-red-950/20 p-4">
+            <h3 className="text-sm font-semibold text-red-100">
+              Hesabı kalıcı olarak sil
+            </h3>
+            <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-6 text-red-200/85">
+              <li>
+                Notların, bağlantıların, grupların, ayarların, eklenti
+                bağlantıların ve bildirim kayıtların kalıcı olarak silinir.
+              </li>
+              <li>Bu işlem geri alınamaz.</li>
+              <li>Aktif Pro aboneliğin varsa hemen iptal edilir.</li>
+              <li>Otomatik ücret iadesi yapılmaz.</li>
+            </ul>
+
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => setDeleteModalOpen(true)}
+              className="mt-4 min-h-[44px] w-full sm:w-auto"
+            >
+              Hesabı kalıcı olarak sil
+            </Button>
+          </div>
+        </section>
       </div>
+
+      <Modal
+        open={deleteModalOpen}
+        title="Hesabı kalıcı olarak sil"
+        onClose={closeDeleteModal}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm leading-6 text-[#bccabb]">
+            Bu işlem geri alınamaz. Devam etmek için hesap e-postanı ({email
+              || "-"}) aşağıya tam olarak yaz.
+          </p>
+
+          <div>
+            <div className="mb-1 text-xs text-neutral-400">E-posta</div>
+            <Input
+              type="email"
+              value={deleteEmailInput}
+              onChange={(e) => setDeleteEmailInput(e.target.value)}
+              disabled={deleting}
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              placeholder={email || "e-posta adresin"}
+            />
+          </div>
+
+          {deleteError ? (
+            <div className="rounded-lg border border-red-900/40 bg-red-950/30 p-3 text-sm text-red-200">
+              {deleteError}
+            </div>
+          ) : null}
+
+          <div className="sticky bottom-0 -mx-4 -mb-4 mt-2 flex items-center justify-end gap-2 border-t border-white/10 bg-[#07090d]/95 px-4 py-3 pb-[calc(0.75rem+var(--safe-bottom))] backdrop-blur-xl">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={closeDeleteModal}
+              disabled={deleting}
+              className="min-h-[44px] sm:min-h-0"
+            >
+              Vazgeç
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={handleDeleteAccount}
+              disabled={!deleteEmailMatches || deleting}
+              className="min-h-[44px] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+            >
+              {deleting ? "Siliniyor..." : "Kalıcı olarak sil"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </main>
   );
 }

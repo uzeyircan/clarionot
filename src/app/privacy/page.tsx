@@ -68,7 +68,7 @@ const sections = [
       "Kaydettiğin içerikler, hesabında tuttuğun sürece saklanır. Çalışma alanından tekil kayıtları silebilirsin.",
       "Bir grubu sildiğinde, o gruptaki kayıtlar silinmez; Inbox'a taşınır.",
       "Ayarlar sayfasından kayıtlarını Markdown, JSON veya CSV olarak dışa aktarabilirsin.",
-      "Hesabın veya tüm verilerin için silme talebi göndermek istersen bizimle e-posta üzerinden iletişime geçebilirsin.",
+      "Hesabını ve tüm verilerini Ayarlar → Tehlikeli Alan bölümünden uygulama içinden kalıcı olarak silebilirsin; bu işlem geri alınamaz ve aktif Pro aboneliğini de hemen iptal eder. Bunun yerine bizimle e-posta üzerinden de iletişime geçebilirsin.",
     ],
   },
   {
