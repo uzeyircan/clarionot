@@ -567,18 +567,77 @@ function SiteNav({
   );
 }
 
+function randomInRange(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
 function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
   const ref = useRef<HTMLElement | null>(null);
+  // Global CSS (html/body height:100% + overflow-x:hidden) makes <body>,
+  // not window, the element that actually scrolls — pin the scroll
+  // container explicitly so scroll-linked motion values track real scroll.
+  const scrollContainerRef = useRef<HTMLElement | null>(
+    typeof document !== "undefined" ? document.body : null,
+  );
   const { scrollYProgress } = useScroll({
     target: ref,
+    container: scrollContainerRef,
     offset: ["start start", "end start"],
   });
 
-  const yOne = useTransform(scrollYProgress, [0, 1], [0, -90]);
-  const yTwo = useTransform(scrollYProgress, [0, 1], [0, 84]);
-  const yThree = useTransform(scrollYProgress, [0, 1], [0, -46]);
   const scale = useTransform(scrollYProgress, [0, 1], [1, 0.94]);
-  const opacity = useTransform(scrollYProgress, [0, 0.82], [1, 0]);
+
+  // Each floating card — including the "Bugün" mockup panel — scatters off
+  // in its own direction as the page scrolls past the hero. The exact
+  // vector is randomized per page load (within a per-card quadrant so they
+  // still fly apart from each other rather than colliding) — defaults below
+  // match the cards' original static layout so there's no flash before the
+  // effect runs.
+  const [scatter, setScatter] = useState([
+    { x: 0, y: -90, rotate: 0 },
+    { x: 0, y: 84, rotate: 0 },
+    { x: 0, y: -46, rotate: 0 },
+    { x: 0, y: 0, rotate: 0 },
+  ]);
+
+  useEffect(() => {
+    setScatter([
+      {
+        x: randomInRange(-220, -120),
+        y: randomInRange(-260, -140),
+        rotate: randomInRange(-30, -12),
+      },
+      {
+        x: randomInRange(140, 240),
+        y: randomInRange(-80, 60),
+        rotate: randomInRange(12, 34),
+      },
+      {
+        x: randomInRange(-160, 40),
+        y: randomInRange(160, 260),
+        rotate: randomInRange(-24, 20),
+      },
+      {
+        x: randomInRange(-180, 180),
+        y: randomInRange(-220, 220),
+        rotate: randomInRange(-20, 20),
+      },
+    ]);
+  }, []);
+
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.35, 0.6], [1, 1, 0]);
+  const xCard0 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[0].x]);
+  const yCard0 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[0].y]);
+  const rotateCard0 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[0].rotate]);
+  const xCard1 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[1].x]);
+  const yCard1 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[1].y]);
+  const rotateCard1 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[1].rotate]);
+  const xCard2 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[2].x]);
+  const yCard2 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[2].y]);
+  const rotateCard2 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[2].rotate]);
+  const xCard3 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[3].x]);
+  const yCard3 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[3].y]);
+  const rotateCard3 = useTransform(scrollYProgress, [0, 0.6], [0, scatter[3].rotate]);
 
   return (
     <section
@@ -630,10 +689,13 @@ function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
         </motion.div>
 
         <motion.div
-          style={{ opacity, scale }}
+          style={{ scale }}
           className="relative mx-auto h-[520px] w-full max-w-[560px] lg:h-[650px]"
         >
-          <motion.div style={{ y: yOne }} className="absolute left-1 top-16 sm:left-4">
+          <motion.div
+            style={{ x: xCard0, y: yCard0, rotate: rotateCard0, opacity: cardOpacity }}
+            className="absolute left-1 top-16 sm:left-4"
+          >
             <FloatingCard
               label="Note"
               title="Lansman cümlesi"
@@ -641,7 +703,10 @@ function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
               accent="cyan"
             />
           </motion.div>
-          <motion.div style={{ y: yTwo }} className="absolute right-0 top-44 z-10">
+          <motion.div
+            style={{ x: xCard1, y: yCard1, rotate: rotateCard1, opacity: cardOpacity }}
+            className="absolute right-0 top-44 z-10"
+          >
             <FloatingCard
               label="Link"
               title="Hafıza tasarımı"
@@ -649,7 +714,10 @@ function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
               accent="violet"
             />
           </motion.div>
-          <motion.div style={{ y: yThree }} className="absolute bottom-14 left-10 sm:left-20">
+          <motion.div
+            style={{ x: xCard2, y: yCard2, rotate: rotateCard2, opacity: cardOpacity }}
+            className="absolute bottom-14 left-10 sm:left-20"
+          >
             <FloatingCard
               label="Geri döndü"
               title="Unutuldu ama işe yarıyor"
@@ -657,34 +725,38 @@ function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
               accent="mint"
             />
           </motion.div>
-          <motion.div
-            animate={{ rotate: [0, 3, 0], y: [0, -10, 0] }}
-            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-[32px] border border-white/10 bg-white/[0.045] shadow-[0_40px_160px_rgba(80,190,255,0.18)] backdrop-blur-2xl"
-          >
-            <div className="absolute inset-6 rounded-2xl border border-white/8 bg-[#07090d]/70 p-5">
-              <div className="mb-5 flex items-center justify-between">
-                <span className="text-xs font-medium text-white/42">Bugün</span>
-                <span className="rounded-lg bg-cyan-300/12 px-2 py-1 text-xs text-cyan-100">
-                  3 geri dönüş
-                </span>
-              </div>
-              <div className="space-y-3">
-                {["Fiyat notu", "Araştırma linki", "Toplantı fikri"].map((item, index) => (
-                  <div
-                    key={item}
-                    className="rounded-lg border border-white/8 bg-white/[0.045] p-3"
-                  >
-                    <div className="h-2 w-20 rounded-full bg-white/20" />
-                    <div
-                      className="mt-3 h-2 rounded-full bg-white/10"
-                      style={{ width: `${72 - index * 10}%` }}
-                    />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <motion.div style={{ x: xCard3, y: yCard3, rotate: rotateCard3, opacity: cardOpacity }}>
+              <motion.div
+                animate={{ rotate: [0, 3, 0], y: [0, -10, 0] }}
+                transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                className="relative h-72 w-72 rounded-[32px] border border-white/10 bg-white/[0.045] shadow-[0_40px_160px_rgba(80,190,255,0.18)] backdrop-blur-2xl"
+              >
+                <div className="absolute inset-6 rounded-2xl border border-white/8 bg-[#07090d]/70 p-5">
+                  <div className="mb-5 flex items-center justify-between">
+                    <span className="text-xs font-medium text-white/42">Bugün</span>
+                    <span className="rounded-lg bg-cyan-300/12 px-2 py-1 text-xs text-cyan-100">
+                      3 geri dönüş
+                    </span>
                   </div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
+                  <div className="space-y-3">
+                    {["Fiyat notu", "Araştırma linki", "Toplantı fikri"].map((item, index) => (
+                      <div
+                        key={item}
+                        className="rounded-lg border border-white/8 bg-white/[0.045] p-3"
+                      >
+                        <div className="h-2 w-20 rounded-full bg-white/20" />
+                        <div
+                          className="mt-3 h-2 rounded-full bg-white/10"
+                          style={{ width: `${72 - index * 10}%` }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          </div>
         </motion.div>
       </div>
     </section>
