@@ -3,12 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  motion,
-  useMotionTemplate,
-  useScroll,
-  useTransform,
-} from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import {
   useEffect,
   useMemo,
@@ -22,6 +17,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useProPrice } from "@/lib/useProPrice";
 import { useIsNativeApp } from "@/lib/useIsNativeApp";
+import NoteScrollStory from "@/components/landing/NoteScrollStory";
 
 const CHROME_STORE_URL =
   "https://chromewebstore.google.com/detail/clarionot-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
@@ -78,24 +74,6 @@ const features = [
     title: "Pro Hafıza Katmanı",
     copy: "Eklentiyle hızlı yakalama, sınırsız kayıt ve daha güçlü bir üretkenlik akışı.",
     eyebrow: "Pro",
-  },
-];
-
-const storyCards = [
-  {
-    title: "Geçen haftadan kalan okuma",
-    meta: "Okuma listesi",
-    body: "Ürün yönünü değiştirirken ekiplerin bağlamı nasıl koruduğuna dair not.",
-  },
-  {
-    title: "Fiyatlandırma fikri",
-    meta: "Ürün",
-    body: "Çok kaydedip az geri dönen kullanıcılar için hatırlatma ve grupları birlikte anlat.",
-  },
-  {
-    title: "Kullanıcı cümlesi",
-    meta: "Araştırma",
-    body: "Her şeyi kaydediyorum, sonra kaydettiğim yerin içinde tekrar kaybediyorum.",
   },
 ];
 
@@ -361,7 +339,7 @@ export default function HomePage() {
     <main className="min-h-screen overflow-hidden bg-[#030406] text-white selection:bg-cyan-300/25">
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="theme-hero-glow absolute inset-0" />
-        <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:72px_72px]" />
+        <div className="absolute inset-0 opacity-[0.05] [background:radial-gradient(60%_45%_at_50%_0%,rgba(107,251,154,0.10),transparent_70%)]" />
       </div>
 
       <SiteNav
@@ -378,7 +356,7 @@ export default function HomePage() {
         logout={logout}
       />
       <HeroSection primaryCTA={primaryCTA} />
-      <StorySection />
+      <NoteScrollStory />
       <FeaturesSection />
       <DashboardShowcase />
       <ExtensionFlow
@@ -746,79 +724,6 @@ function FloatingCard({
       <h3 className="text-lg font-semibold tracking-[-0.02em] text-white">{title}</h3>
       <p className="mt-3 text-sm leading-6 text-white/58">{body}</p>
     </motion.article>
-  );
-}
-
-function StorySection() {
-  const ref = useRef<HTMLElement | null>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"],
-  });
-
-  const blur = useTransform(scrollYProgress, [0.15, 0.45, 0.72], [0, 14, 0]);
-  const y = useTransform(scrollYProgress, [0.12, 0.48, 0.78], [80, -120, 0]);
-  const scale = useTransform(scrollYProgress, [0.15, 0.48, 0.78], [1, 0.86, 1]);
-  const opacity = useTransform(scrollYProgress, [0.1, 0.42, 0.72], [1, 0.24, 1]);
-  const filter = useMotionTemplate`blur(${blur}px)`;
-
-  return (
-    <section id="story" ref={ref} className="relative px-5 py-28 sm:px-8 lg:py-40">
-      <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
-        <motion.div
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-20%" }}
-          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.1 } } }}
-        >
-          <motion.p variants={fadeUp} className="text-sm font-medium text-cyan-200/80">
-            Kaybolma ve geri dönüş
-          </motion.p>
-          <motion.h2
-            variants={fadeUp}
-            className="mt-4 text-balance text-4xl font-semibold tracking-[-0.04em] text-white sm:text-6xl"
-          >
-            Arşiv büyür. Uzun süredir açmadığın kayıtlar yeniden görünür olur.
-          </motion.h2>
-          <motion.p variants={fadeUp} className="mt-6 max-w-xl text-lg leading-8 text-white/58">
-            Kaydetmek işin sadece yarısı. ClarioNot, uzun süredir açmadığın
-            kayıtları Unutulanlar bölümünde yeniden karşına çıkarır.
-          </motion.p>
-        </motion.div>
-
-        <div className="relative min-h-[560px]">
-          <div className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-cyan-200/30 to-transparent" />
-          {storyCards.map((card, index) => (
-            <motion.article
-              key={card.title}
-              className="absolute left-1/2 w-[min(92vw,520px)] -translate-x-1/2 rounded-xl border border-white/10 bg-[#070a0e]/82 p-5 shadow-2xl shadow-black/50 backdrop-blur-xl"
-              transition={{ delay: index * 0.08 }}
-              initial={{ rotate: index === 0 ? -4 : index === 1 ? 3 : -1 }}
-              animate={{ rotate: index === 0 ? -2 : index === 1 ? 2 : 1 }}
-              viewport={{ once: false }}
-              style={{
-                y,
-                scale,
-                opacity,
-                filter,
-                top: `${index * 112 + 80}px`,
-              }}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <span className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/48">
-                  {card.meta}
-                </span>
-                <span className="text-xs text-cyan-100/70">sonra döner</span>
-              </div>
-              <h3 className="mt-5 text-xl font-semibold tracking-[-0.02em] text-white">
-                {card.title}
-              </h3>
-              <p className="mt-3 text-sm leading-6 text-white/56">{card.body}</p>
-            </motion.article>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
