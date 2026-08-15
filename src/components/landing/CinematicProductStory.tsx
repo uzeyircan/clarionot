@@ -1,13 +1,12 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   motion,
-  useMotionTemplate,
   useReducedMotion,
   useScroll,
-  useTransform,
   type MotionStyle,
+  type MotionValue,
 } from "framer-motion";
 
 type StoryPhase = {
@@ -54,11 +53,84 @@ const STORY_PHASES: StoryPhase[] = [
     id: "continue",
     eyebrow: "Devam et",
     headline: "Kaydet. Unut. ClarioNot hatırlatsın.",
+    sub: "İlgini çeken şeyleri kaydet. ClarioNot ihtiyaç duyduğunda yeniden önüne getirsin.",
   },
 ];
 
 const staticGlow =
   "0 0 0 1px color-mix(in srgb, var(--clarionot-accent) 38%, transparent), 0 0 40px color-mix(in srgb, var(--clarionot-accent-2) 26%, transparent)";
+
+// Piecewise-linear interpolation against explicit [progress, value] keyframes,
+// evaluated fresh from a single progress number every call.
+function lerpKeyframes(p: number, points: [number, number][]): number {
+  if (p <= points[0][0]) return points[0][1];
+  for (let i = 0; i < points.length - 1; i++) {
+    const [x0, y0] = points[i];
+    const [x1, y1] = points[i + 1];
+    if (p <= x1) return x1 === x0 ? y1 : y0 + ((p - x0) / (x1 - x0)) * (y1 - y0);
+  }
+  return points[points.length - 1][1];
+}
+
+// The text crossfade previously derived each phase's opacity from its own
+// useTransform(scrollYProgress, ...) chain. Framer updates those derived
+// motion values independently as scroll events arrive, and under this app's
+// custom body-scroll container (see AnimatedStage below) some of those
+// independent chains could fall behind others, so two adjacent phases'
+// opacities stopped matching a single shared progress value and both stayed
+// partially visible instead of one cleanly winning — the "Düzenle"/"Kaydet"
+// double-exposure. Polling scrollYProgress.get() once per frame and computing
+// every phase's opacity from that SAME number in one pass makes that
+// impossible: there is exactly one snapshot per frame, so every phase is
+// always evaluated against the same progress, never a stale one.
+//
+// The rAF loop is only allowed to run while `target` (the story's scroll
+// wrapper) actually intersects the viewport, via IntersectionObserver — this
+// hook is only ever mounted with prefers-reduced-motion off in the first
+// place (see CinematicProductStory below, which renders AnimatedStage only
+// in that branch), so there's nothing extra to gate for that case, but a
+// user scrolled down to Pricing/Footer would otherwise leave this frame
+// polling forever for a section that's off-screen and not being rendered
+// differently either way.
+function useLiveProgress(
+  scrollYProgress: MotionValue<number>,
+  target: { current: HTMLElement | null },
+) {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const node = target.current;
+    if (!node) return;
+
+    let frame: number | null = null;
+    const tick = () => {
+      setProgress(scrollYProgress.get());
+      frame = requestAnimationFrame(tick);
+    };
+    const stop = () => {
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
+        frame = null;
+      }
+    };
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        if (frame === null) frame = requestAnimationFrame(tick);
+      } else {
+        stop();
+      }
+    });
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+      stop();
+    };
+  }, [scrollYProgress, target]);
+
+  return progress;
+}
 
 export default function CinematicProductStory({
   primaryCTA,
@@ -99,6 +171,35 @@ function PhaseCopy({ phase }: { phase: StoryPhase }) {
   );
 }
 
+// The animated stage's closing beat. It reuses the same left-aligned
+// PhaseCopy layout as every other phase (rather than a separately centered
+// "final scene") so it can live in the same absolutely-positioned text
+// stack and crossfade cleanly instead of compositing against it.
+function FinalPhaseCopy({
+  primaryCTA,
+  chromeStoreUrl,
+}: {
+  primaryCTA: ReactNode;
+  chromeStoreUrl: string;
+}) {
+  return (
+    <>
+      <PhaseCopy phase={STORY_PHASES[5]} />
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+        {primaryCTA}
+        <a
+          href={chromeStoreUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-6 py-3 text-sm font-semibold text-white/82 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
+        >
+          ClarioNot Clip&apos;i Ekle
+        </a>
+      </div>
+    </>
+  );
+}
+
 function AnimatedStage({
   primaryCTA,
   chromeStoreUrl,
@@ -120,70 +221,131 @@ function AnimatedStage({
     offset: ["start start", "end end"],
   });
 
-  // --- text crossfade, one motion value per phase (phase F is handled by
-  // FinalScene separately, since it's a different compositional beat) ---
-  const textCapture = useTransform(scrollYProgress, [0, 0.12, 0.15], [1, 1, 0]);
-  const textClip = useTransform(
-    scrollYProgress,
-    [0.13, 0.17, 0.32, 0.35],
-    [0, 1, 1, 0],
-  );
-  const textOrganize = useTransform(
-    scrollYProgress,
-    [0.33, 0.37, 0.52, 0.55],
-    [0, 1, 1, 0],
-  );
-  const textForget = useTransform(
-    scrollYProgress,
-    [0.53, 0.57, 0.72, 0.75],
-    [0, 1, 1, 0],
-  );
-  const textRemember = useTransform(scrollYProgress, [0.73, 0.77, 0.9], [0, 1, 1]);
+  // --- text crossfade. All six phases are computed from ONE polled
+  // progress number (see useLiveProgress above) rather than six independent
+  // motion-value chains, so they can never desync from each other. Each
+  // phase has an explicit enter/hold/exit interval and every interval's
+  // tail lands exactly on (or before) the next phase's head, so at most two
+  // phases overlap and only for a ~2-3% sliver of scroll progress — never
+  // three or more at once. The final phase (textFinal) is part of this same
+  // sequence (not a separately-fading overlay), so it can't double-expose
+  // against the story the way a competing opacity ramp on a separate
+  // overlay could. ---
+  const liveProgress = useLiveProgress(scrollYProgress, sectionRef);
+  const textCapture = lerpKeyframes(liveProgress, [
+    [0, 1],
+    [0.1, 1],
+    [0.13, 0],
+  ]);
+  const textClip = lerpKeyframes(liveProgress, [
+    [0.11, 0],
+    [0.14, 1],
+    [0.27, 1],
+    [0.3, 0],
+  ]);
+  const textOrganize = lerpKeyframes(liveProgress, [
+    [0.28, 0],
+    [0.31, 1],
+    [0.45, 1],
+    [0.48, 0],
+  ]);
+  const textForget = lerpKeyframes(liveProgress, [
+    [0.46, 0],
+    [0.49, 1],
+    [0.63, 1],
+    [0.66, 0],
+  ]);
+  const textRemember = lerpKeyframes(liveProgress, [
+    [0.64, 0],
+    [0.67, 1],
+    [0.83, 1],
+    [0.86, 0],
+  ]);
+  const textFinal = lerpKeyframes(liveProgress, [
+    [0.85, 0],
+    [0.9, 1],
+    [1, 1],
+  ]);
+  // The final layer sits absolutely-positioned in the same stack as every
+  // other phase; without this it would stay hit-testable (its buttons
+  // clickable) even while fully transparent and scrolled out of view.
+  const finalPointerEvents: "auto" | "none" = textFinal > 0.5 ? "auto" : "none";
 
-  // --- browser scene (phases A/B) ---
-  const browserOpacity = useTransform(
-    scrollYProgress,
-    [0, 0.03, 0.38, 0.44],
-    [0, 1, 1, 0],
-  );
-  const browserScale = useTransform(scrollYProgress, [0, 0.05], [0.97, 1]);
+  // --- browser scene (phases A/B). Also driven off liveProgress: this used
+  // to run on its own useTransform chain, which is what let it stay stuck
+  // showing the browser mockup well into "Unut" instead of handing off to
+  // the dashboard — the same independent-chain desync as the text bug
+  // above, just on the scene side instead of the copy side. ---
+  const browserOpacity = lerpKeyframes(liveProgress, [
+    [0, 0],
+    [0.03, 1],
+    [0.26, 1],
+    [0.3, 0],
+  ]);
+  const browserScale = lerpKeyframes(liveProgress, [
+    [0, 0.97],
+    [0.05, 1],
+  ]);
 
-  // --- abstract dashboard scene (phases C/D/E) ---
-  const dashboardOpacity = useTransform(
-    scrollYProgress,
-    [0.36, 0.42, 0.9, 0.95],
-    [0, 1, 1, 0],
-  );
+  // --- dashboard scene (phase C onward). It fades in once as the browser
+  // scene hands off and then simply stays — it IS the final product
+  // composition, just settled, rather than a second scene that has to be
+  // swapped out for a separate "final" mockup. ---
+  const dashboardOpacity = lerpKeyframes(liveProgress, [
+    [0.26, 0],
+    [0.3, 1],
+  ]);
 
-  // --- the single item that travels through the whole story. Position
-  // only moves once (B -> C, landing at its resting slot); everything
-  // after that is opacity/scale/glow so beats never fight over transform
-  // ownership. ---
-  const itemOpacity = useTransform(
-    scrollYProgress,
-    [0.15, 0.2, 0.35, 0.55, 0.62, 0.75, 0.8, 0.9],
-    [0, 1, 1, 1, 0.55, 0.55, 1, 1],
-  );
-  const itemX = useTransform(scrollYProgress, [0.15, 0.35], [-70, 0]);
-  const itemY = useTransform(scrollYProgress, [0.15, 0.35], [-90, 0]);
-  const itemRotate = useTransform(scrollYProgress, [0.15, 0.35], [-5, 0]);
-  const itemScale = useTransform(
-    scrollYProgress,
-    [0.15, 0.35, 0.55, 0.75],
-    [0.72, 1, 0.94, 1],
-  );
+  // --- the single item that travels through the story: settles into the
+  // dashboard once (matching the browser -> dashboard handoff), dims
+  // during "forget", brightens during "remember", then fades out by 0.86
+  // as it hands off to the highlighted row inside the dashboard itself —
+  // it never lingers frozen into the final composition. ---
+  const itemOpacity = lerpKeyframes(liveProgress, [
+    [0.28, 0],
+    [0.33, 1],
+    [0.48, 1],
+    [0.66, 0.5],
+    [0.7, 1],
+    [0.83, 1],
+    [0.86, 0],
+  ]);
+  const itemX = lerpKeyframes(liveProgress, [
+    [0.26, -70],
+    [0.33, 0],
+  ]);
+  const itemY = lerpKeyframes(liveProgress, [
+    [0.26, -90],
+    [0.33, 0],
+  ]);
+  const itemRotate = lerpKeyframes(liveProgress, [
+    [0.26, -5],
+    [0.33, 0],
+  ]);
+  const itemScale = lerpKeyframes(liveProgress, [
+    [0.26, 0.72],
+    [0.33, 1],
+    [0.66, 0.94],
+    [0.7, 1],
+  ]);
 
   // Phase E ("Unutulanlar" resurfacing) gets the story's one deliberate
-  // highlight — a restrained mint/teal glow, not a cyberpunk wash.
-  const glowPct1 = useTransform(scrollYProgress, [0.75, 0.85, 0.9], [0, 38, 38]);
-  const glowPct2 = useTransform(scrollYProgress, [0.75, 0.85, 0.9], [0, 26, 26]);
-  const glowShadow = useMotionTemplate`0 0 0 1px color-mix(in srgb, var(--clarionot-accent) ${glowPct1}%, transparent), 0 0 40px color-mix(in srgb, var(--clarionot-accent-2) ${glowPct2}%, transparent)`;
-
-  // --- the two-column "in progress" composition fades out as the final
-  // scene fades in on top of it. ---
-  const storyOpacity = useTransform(scrollYProgress, [0.9, 0.95], [1, 0]);
-  const finalOpacity = useTransform(scrollYProgress, [0.9, 0.96], [0, 1]);
-  const finalScale = useTransform(scrollYProgress, [0.9, 0.97], [0.97, 1]);
+  // highlight — a restrained mint/teal glow, not a cyberpunk wash. It
+  // ramps in during "remember" and then holds all the way through the
+  // final phase, so the handoff from the floating card (which fades out
+  // at 0.86) to the highlighted dashboard row (which keeps the same glow)
+  // reads as one continuous beat instead of two competing effects.
+  const glowPct1 = lerpKeyframes(liveProgress, [
+    [0.66, 0],
+    [0.8, 38],
+    [1, 38],
+  ]);
+  const glowPct2 = lerpKeyframes(liveProgress, [
+    [0.66, 0],
+    [0.8, 26],
+    [1, 26],
+  ]);
+  const glowShadow = `0 0 0 1px color-mix(in srgb, var(--clarionot-accent) ${glowPct1}%, transparent), 0 0 40px color-mix(in srgb, var(--clarionot-accent-2) ${glowPct2}%, transparent)`;
 
   return (
     <div
@@ -191,11 +353,8 @@ function AnimatedStage({
       className="relative h-[260vh] sm:h-[300vh] lg:h-[340vh]"
     >
       <div className="story-stage-height sticky top-0 flex items-center overflow-hidden px-5 sm:px-8">
-        <motion.div
-          style={{ opacity: storyOpacity }}
-          className="mx-auto grid w-full max-w-7xl gap-14 lg:grid-cols-[0.85fr_1.15fr] lg:items-center"
-        >
-          <div className="relative min-h-[200px] sm:min-h-[220px] lg:min-h-[260px]">
+        <div className="mx-auto grid w-full max-w-7xl gap-14 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+          <div className="relative min-h-[200px] sm:min-h-[220px] lg:min-h-[300px]">
             <motion.div style={{ opacity: textCapture }} className="absolute inset-0">
               <PhaseCopy phase={STORY_PHASES[0]} />
             </motion.div>
@@ -211,13 +370,22 @@ function AnimatedStage({
             <motion.div style={{ opacity: textRemember }} className="absolute inset-0">
               <PhaseCopy phase={STORY_PHASES[4]} />
             </motion.div>
+            <motion.div
+              style={{ opacity: textFinal, pointerEvents: finalPointerEvents }}
+              className="absolute inset-0"
+            >
+              <FinalPhaseCopy primaryCTA={primaryCTA} chromeStoreUrl={chromeStoreUrl} />
+            </motion.div>
           </div>
 
           <div className="relative mx-auto h-[380px] w-full max-w-md sm:h-[420px]">
             <BrowserScene
               style={{ opacity: browserOpacity, scale: browserScale }}
             />
-            <AbstractDashboardScene style={{ opacity: dashboardOpacity }} />
+            <AbstractDashboardScene
+              style={{ opacity: dashboardOpacity }}
+              highlightStyle={{ boxShadow: glowShadow }}
+            />
             <FloatingItemCard
               style={{
                 opacity: itemOpacity,
@@ -229,16 +397,7 @@ function AnimatedStage({
               }}
             />
           </div>
-        </motion.div>
-
-        <motion.div
-          style={{ opacity: finalOpacity, scale: finalScale }}
-          className="pointer-events-none absolute inset-0 flex items-center justify-center px-5 sm:px-8"
-        >
-          <div className="pointer-events-auto">
-            <FinalScene primaryCTA={primaryCTA} chromeStoreUrl={chromeStoreUrl} />
-          </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
@@ -275,7 +434,13 @@ function BrowserScene({ style }: { style: MotionStyle }) {
   );
 }
 
-function AbstractDashboardScene({ style }: { style: MotionStyle }) {
+function AbstractDashboardScene({
+  style,
+  highlightStyle,
+}: {
+  style: MotionStyle;
+  highlightStyle: MotionStyle;
+}) {
   return (
     <motion.div
       style={style}
@@ -295,11 +460,26 @@ function AbstractDashboardScene({ style }: { style: MotionStyle }) {
             Inbox
           </span>
           <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/58">
-            Araştırma
+            Unutulanlar
           </span>
         </div>
-        <div className="p-5">
-          <div className="h-28 rounded-lg border border-dashed border-white/12 bg-white/[0.02]" />
+        <div className="space-y-2.5 p-4">
+          <div className="rounded-lg border border-white/8 bg-white/[0.035] p-3">
+            <p className="text-xs font-medium text-white/72">Claude Code notları</p>
+            <p className="mt-1 text-[11px] text-white/38">docs.clarionot.com</p>
+          </div>
+          <motion.div
+            style={highlightStyle}
+            className="rounded-lg border border-white/10 bg-gradient-to-br from-cyan-300/14 to-white/[0.035] p-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-white/85">Retention analizi</p>
+              <span className="shrink-0 rounded-md bg-cyan-300/12 px-1.5 py-0.5 text-[10px] text-cyan-100">
+                Geri döndü
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-white/42">makale.com</p>
+          </motion.div>
         </div>
       </div>
     </motion.div>
