@@ -17,7 +17,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useProPrice } from "@/lib/useProPrice";
 import { useIsNativeApp } from "@/lib/useIsNativeApp";
-import NoteScrollStory from "@/components/landing/NoteScrollStory";
+import CinematicProductStory from "@/components/landing/CinematicProductStory";
 
 const CHROME_STORE_URL =
   "https://chromewebstore.google.com/detail/clarionot-clip/iadmjpgdbncmblmjbgbiljaobnlhgomo?authuser=0&hl=tr";
@@ -336,7 +336,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#030406] text-white selection:bg-cyan-300/25">
+    <main className="min-h-screen bg-[#030406] text-white selection:bg-cyan-300/25">
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="theme-hero-glow absolute inset-0" />
         <div className="absolute inset-0 opacity-[0.05] [background:radial-gradient(60%_45%_at_50%_0%,rgba(107,251,154,0.10),transparent_70%)]" />
@@ -356,7 +356,7 @@ export default function HomePage() {
         logout={logout}
       />
       <HeroSection primaryCTA={primaryCTA} />
-      <NoteScrollStory />
+      <CinematicProductStory primaryCTA={primaryCTA} chromeStoreUrl={CHROME_STORE_URL} />
       <FeaturesSection />
       <DashboardShowcase />
       <ExtensionFlow

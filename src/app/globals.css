@@ -253,6 +253,11 @@ a {
     linear-gradient(180deg, #030406 0%, #071014 44%, #030406 100%);
 }
 
+.story-stage-height {
+  height: 100vh;
+  height: 100svh;
+}
+
 .theme-hero-glow {
   background:
     radial-gradient(
