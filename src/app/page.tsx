@@ -642,7 +642,7 @@ function HeroSection({ primaryCTA }: { primaryCTA: ReactNode }) {
   return (
     <section
       ref={ref}
-      className="relative flex min-h-screen items-center px-5 pb-24 pt-32 sm:px-8 lg:pt-40"
+      className="relative flex min-h-screen items-center overflow-x-clip px-5 pb-24 pt-32 sm:px-8 lg:pt-40"
     >
       <div className="mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[1.02fr_0.98fr]">
         <motion.div
