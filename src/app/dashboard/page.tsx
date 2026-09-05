@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Suspense,
@@ -9,40 +9,38 @@ import {
   useCallback,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import type { Item, ItemType, WorkStatus } from "@/lib/types";
+import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
-import Modal from "@/components/Modal";
-import Textarea from "@/components/Textarea";
-import TagInput from "@/components/TagInput";
-import ItemCard from "@/components/ItemCard";
-import Header from "@/components/Header";
 import DnaBackdrop from "@/components/DnaBackdrop";
 import { NATIVE_BACK_EVENT } from "@/lib/nativeBack";
 import { useIsNativeApp } from "@/lib/useIsNativeApp";
+import {
+  WORK_STATUS_META,
+  baseDateOf,
+  emptyDraft,
+  isActivelySnoozed,
+  type ForgottenSegment,
+  type Group,
+  type ItemDraft,
+  type WorkStatusFilter,
+} from "@/lib/items";
+import DashboardTopbar from "@/components/dashboard/DashboardTopbar";
+import DesktopSidebar from "@/components/dashboard/DesktopSidebar";
+import MobileBottomNav from "@/components/dashboard/MobileBottomNav";
+import MobileGroupsSheet from "@/components/dashboard/MobileGroupsSheet";
+import DashboardViewHeader from "@/components/dashboard/DashboardViewHeader";
+import SelectionActionBar from "@/components/dashboard/SelectionActionBar";
+import UnifiedItemList from "@/components/dashboard/UnifiedItemList";
+import ItemDetailSheet from "@/components/dashboard/ItemDetailSheet";
+import DashboardFilterSheet from "@/components/dashboard/DashboardFilterSheet";
+import WeeklySummarySheet from "@/components/dashboard/WeeklySummarySheet";
+import CreateItemModal from "@/components/dashboard/CreateItemModal";
+import { ExtensionStatusSidebarFooter } from "@/components/dashboard/ExtensionStatus";
 
-type Draft = {
-  id?: string;
-  type: ItemType;
-  title: string;
-  content: string;
-  tags: string[];
-  note?: string;
-  group_id?: string | null;
-};
-
-const emptyDraft = (type: ItemType): Draft => ({
-  type,
-  title: "",
-  content: "",
-  note: "",
-  tags: [],
-  group_id: null,
-});
-
-type Group = { id: string; title: string; created_at?: string };
+type ItemTypeFilter = "all" | "note" | "link";
 
 type ClipUsage =
   | { plan: "pro"; unlimited: true }
@@ -53,35 +51,6 @@ type ClipUsage =
       limit: number;
       remaining: number;
     };
-
-type WorkStatusFilter = "all" | WorkStatus;
-type ForgottenSegment = "all" | "7" | "30" | "90" | "today" | "snoozed";
-
-const WORK_STATUS_META: Record<
-  WorkStatus,
-  { label: string; shortLabel: string; description: string }
-> = {
-  later: {
-    label: "Sonra",
-    shortLabel: "Sonra",
-    description: "Henüz işleme alınmamış kayıtlar",
-  },
-  today: {
-    label: "Bugün bak",
-    shortLabel: "Bugün",
-    description: "Bugün dönmek istediğin kayıtlar",
-  },
-  doing: {
-    label: "İşleniyor",
-    shortLabel: "İşleniyor",
-    description: "Üzerinde çalıştığın kayıtlar",
-  },
-  done: {
-    label: "Tamamlandı",
-    shortLabel: "Bitti",
-    description: "Okunmuş veya sonuca bağlanmış kayıtlar",
-  },
-};
 
 type ToastState = {
   type: "ok" | "err";
@@ -110,41 +79,42 @@ function DashboardPageInner() {
   const [openOnboarding, setOpenOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
 
-  // ✅ extension durumu (DB token var mı?)
   const [extConnected, setExtConnected] = useState<boolean>(false);
-  // ✅ bu tarayıcıda gerçekten canlı mı?
   const [extLiveHere, setExtLiveHere] = useState<boolean>(false);
   const [extChecking, setExtChecking] = useState<boolean>(true);
+  const [openExtensionPanel, setOpenExtensionPanel] = useState(false);
 
-  // ✅ Eklenti kartındaki aylık kullanım hakkı (GET /api/clip/usage'tan gelir)
   const [clipUsage, setClipUsage] = useState<ClipUsage | null>(null);
   const [clipUsageLoading, setClipUsageLoading] = useState<boolean>(true);
   const [clipUsageError, setClipUsageError] = useState<boolean>(false);
 
-  const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
   const [forgottenSort, setForgottenSort] = useState<"oldest" | "newest">(
     "oldest",
   );
   const [forgottenSegment, setForgottenSegment] =
     useState<ForgottenSegment>("all");
 
-  // ✅ Pro durumu DB’den
   const [isPro, setIsPro] = useState<boolean | null>(null);
-
-  // ✅ Pro için Forgotten eşiği (DB kalıcı)
   const [proForgottenDays, setProForgottenDays] = useState<30 | 60 | 90>(30);
 
   const [q, setQ] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [activeType, setActiveType] = useState<ItemTypeFilter>("all");
+  const [activeTags, setActiveTags] = useState<string[]>([]);
   const [activeWorkStatus, setActiveWorkStatus] =
     useState<WorkStatusFilter>("all");
   const [openAdd, setOpenAdd] = useState(false);
-  const [openQuickAdd, setOpenQuickAdd] = useState(false);
   const [openDetail, setOpenDetail] = useState(false);
-  const [draft, setDraft] = useState<Draft>(emptyDraft("link"));
+  const [draft, setDraft] = useState<ItemDraft>(emptyDraft("link"));
   const [err, setErr] = useState<string | null>(null);
 
-  // ✅ Toast
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [openFilterSheet, setOpenFilterSheet] = useState(false);
+  const [openWeeklySummarySheet, setOpenWeeklySummarySheet] = useState(false);
+  const [openMobileGroupsSheet, setOpenMobileGroupsSheet] = useState(false);
+  const [sidebarGroupsExpanded, setSidebarGroupsExpanded] = useState(true);
+
   const [toast, setToast] = useState<ToastState>(null);
   const normalizeAiError = (message?: string | null) => {
     if (!message) return "AI işlemi şu anda kullanılamıyor";
@@ -259,8 +229,12 @@ function DashboardPageInner() {
 
       if (quickSearch) {
         event.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          searchInputRef.current.select();
+        } else {
+          setMobileSearchOpen(true);
+        }
         return;
       }
 
@@ -277,18 +251,15 @@ function DashboardPageInner() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // ✅ Drag UI state
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<
     null | "inbox" | { groupId: string }
   >(null);
 
-  // ✅ Groups
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<
     string | "all" | "inbox" | "forgotten"
   >("all");
-  // ✅ AI Category filter
   const [activeAiCategory, setActiveAiCategory] = useState<
     | "all"
     | "documentation"
@@ -299,13 +270,11 @@ function DashboardPageInner() {
     | "pricing"
     | "other"
   >("all");
-  // ✅ Create group modal
   const [openGroupModal, setOpenGroupModal] = useState(false);
   const [groupTitle, setGroupTitle] = useState("");
   const [savingGroup, setSavingGroup] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
-  // ✅ Rename modal
   const [openRenameModal, setOpenRenameModal] = useState(false);
   const [renameGroupId, setRenameGroupId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
@@ -313,16 +282,7 @@ function DashboardPageInner() {
   const [paymentIssue, setPaymentIssue] = useState<boolean>(false);
   const [portalLoading, setPortalLoading] = useState(false);
 
-  // ✅ Collapse state
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
-    inbox_notes: false,
-    inbox_links: false,
-  });
-  const toggleCollapsed = (key: string) =>
-    setCollapsed((p) => ({ ...p, [key]: !p[key] }));
-
   const [forgottenSelection, setForgottenSelection] = useState<string[]>([]);
-  // ✅ AI Enhance selection
   const [aiSelection, setAiSelection] = useState<string[]>([]);
   const [aiEnhancing, setAiEnhancing] = useState(false);
   const [groupEnhancing, setGroupEnhancing] = useState(false);
@@ -331,7 +291,6 @@ function DashboardPageInner() {
     okCount: number;
     failCount: number;
   } | null>(null);
-  // ✅ Free: 7 gün sabit, Pro: 30/60/90 seçilebilir
   const forgottenDays = isPro === true ? proForgottenDays : 7;
   const FORGOTTEN_MS = forgottenDays * 24 * 60 * 60 * 1000;
   const [aiProgress, setAiProgress] = useState<{
@@ -345,29 +304,17 @@ function DashboardPageInner() {
   );
   const isForgotten = useCallback(
     (it: any) => {
-      // ✅ Snooze: süre bitmediyse unutulanlarda GÖSTERME
       if (it.snoozed_until) {
         const until = new Date(it.snoozed_until).getTime();
         if (Date.now() < until) return false;
       }
 
-      const base = it.last_viewed_at
-        ? new Date(it.last_viewed_at)
-        : new Date(it.created_at);
-
-      return Date.now() - base.getTime() > FORGOTTEN_MS;
+      return Date.now() - baseDateOf(it).getTime() > FORGOTTEN_MS;
     },
     [FORGOTTEN_MS],
   );
 
-  const isActivelySnoozed = useCallback((it: any) => {
-    if (!it?.snoozed_until) return false;
-    return new Date(it.snoozed_until).getTime() > Date.now();
-  }, []);
-
-  const baseDateOf = (it: any) => new Date(it.last_viewed_at ?? it.created_at);
-
-  const daysSinceBase = (it: any) => {
+  const daysSinceBaseOf = (it: any) => {
     const time = baseDateOf(it).getTime();
     if (!Number.isFinite(time)) return 0;
     return Math.max(0, Math.floor((Date.now() - time) / (24 * 60 * 60 * 1000)));
@@ -395,14 +342,12 @@ function DashboardPageInner() {
 
     const nowIso = new Date().toISOString();
 
-    // ✅ optimistic UI: anında güncelle
     setItems((prev: any) =>
       prev.map((it: any) =>
         it.id === itemId ? { ...it, last_viewed_at: nowIso } : it,
       ),
     );
 
-    // ✅ debounce: DB spam olmasın
     const prevTimer = viewTimersRef.current[itemId];
     if (prevTimer) window.clearTimeout(prevTimer);
 
@@ -434,7 +379,6 @@ function DashboardPageInner() {
       if (error) throw error;
 
       if (!data) {
-        // ilk kez giren kullanıcı → default ayarı oluştur
         const { error: insErr } = await supabase
           .from("user_settings")
           .upsert(
@@ -496,9 +440,7 @@ function DashboardPageInner() {
       setIsPro(false);
     }
   };
-  // ✅ Eklenti kartındaki dinamik kullanım hakkını sunucudan çeker.
-  // Kimlik doğrulama mevcut kalıpla aynı: Supabase access token Bearer
-  // header'da gönderilir, user_id istemciden hiç geçilmez.
+
   const fetchClipUsage = useCallback(async () => {
     setClipUsageLoading(true);
     setClipUsageError(false);
@@ -567,6 +509,7 @@ function DashboardPageInner() {
       setPortalLoading(false);
     }
   };
+
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       if (e.source !== window) return;
@@ -574,7 +517,6 @@ function DashboardPageInner() {
 
       const data = (e.data ?? {}) as any;
 
-      // ✅ extension hazır
       if (
         data.source === "clarionot-extension" &&
         data.type === "EXTENSION_READY"
@@ -585,20 +527,18 @@ function DashboardPageInner() {
         return;
       }
 
-      // ✅ Kaydetme bildirimi (content script window.postMessage ile yollayacak)
       if (data?.type === "CLARIONOT_SAVED_UI") {
         showToast("ok", "✅ Eklenti ile kaydedildi");
-        if (userId) load(userId); // listeyi yenile
-        fetchClipUsage(); // ✅ eklenti kartındaki kalan hakkı güncelle
+        if (userId) load(userId);
+        fetchClipUsage();
         return;
       }
     }
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [userId, fetchClipUsage]); // load userId ile çalışıyor
+  }, [userId, fetchClipUsage]);
 
-  // auth gate
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id ?? null;
@@ -624,7 +564,6 @@ function DashboardPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  // ✅ Extension: bu tarayıcıda canlı mı? (PING/PONG)
   const pingExtension = async () => {
     const PING = "CLARIONOT_PING";
     const PONG = "CLARIONOT_PONG";
@@ -636,9 +575,7 @@ function DashboardPageInner() {
       }, 1200);
 
       function onMsg(e: MessageEvent) {
-        // sadece bu sayfanın kendi mesajları
         if (e.source !== window) return;
-
         if ((e.data as any)?.type !== PONG) return;
 
         window.clearTimeout(t);
@@ -688,8 +625,6 @@ function DashboardPageInner() {
       const isLive = !!seen && new Date(seen).getTime() >= cutoffMs;
 
       setExtConnected(true);
-
-      // isLive'ı şimdilik sadece not olarak tutuyorsun
       void isLive;
 
       return true;
@@ -706,7 +641,7 @@ function DashboardPageInner() {
       const { data, error } = await supabase
         .from("items")
         .select("*")
-        .eq("user_id", uid) // ✅ net filtre
+        .eq("user_id", uid)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -723,7 +658,7 @@ function DashboardPageInner() {
     const { data, error } = await supabase
       .from("groups")
       .select("id,title,created_at")
-      .eq("user_id", uid) // ✅ net filtre
+      .eq("user_id", uid)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -739,7 +674,6 @@ function DashboardPageInner() {
     };
   }, []);
 
-  // onboarding
   useEffect(() => {
     if (!userId) return;
     const key = `clarionot:onboarding:v1:${userId}`;
@@ -750,26 +684,17 @@ function DashboardPageInner() {
     }
   }, [userId]);
 
-  // initial load
   useEffect(() => {
     if (!userId) return;
 
     let cancelled = false;
 
-    // 1) Data load (pro durumundan bağımsız)
     load(userId);
     loadGroups(userId);
 
-    // 2) Extension check: Free de Pro da eklentiyi bağlayabiliyor
-    // (Free ayda 30 kayıtla sınırlı, Pro sınırsız) — plan farkı burada
-    // değil /api/clip'te uygulanıyor.
     const run = async () => {
-      // Platform henüz çözülmediyse (isNativeApp geçici olarak "false"
-      // görünüyor olabilir) hiçbir DB/ping isteği atma — bekle.
       if (!isPlatformResolved) return;
 
-      // Native uygulamada tarayıcı eklentisi hiç kullanılamaz; DB/ping
-      // isteklerini boşuna atmayalım.
       if (isNativeApp) {
         setExtChecking(false);
         setExtConnected(false);
@@ -777,14 +702,13 @@ function DashboardPageInner() {
         return;
       }
 
-      // isPro henüz belli değilse (null) hiçbir şey yapma
       if (isPro == null) return;
 
       if (cancelled) return;
       setExtChecking(true);
 
       try {
-        const hasToken = await checkExtension(userId); // DB kontrol
+        const hasToken = await checkExtension(userId);
         if (cancelled) return;
 
         if (!hasToken) {
@@ -795,8 +719,6 @@ function DashboardPageInner() {
         const live = await pingExtensionWithRetry(3, 300);
         if (cancelled) return;
 
-        // 🔥 Kritik: ping bazen false döner ama extension aslında çalışıyordur.
-        // Zaten EXTENSION_READY aldıysan false ile ezme.
         setExtLiveHere((prev) => (live ? true : prev));
       } catch {
         if (cancelled) return;
@@ -813,13 +735,8 @@ function DashboardPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [userId, isPro, isNativeApp, isPlatformResolved]); // load/loadGroups/ping/check fonksiyonların stable değilse useCallback yap
+  }, [userId, isPro, isNativeApp, isPlatformResolved]);
 
-  // ✅ Eklenti kartı: sayfa açıldığında kalan kullanım hakkını çek.
-  // Native uygulamada bu kart hiç gösterilmiyor, isteği de atmaya gerek yok.
-  // Platform çözülmeden (isPlatformResolved=false) hiçbir istek atma —
-  // aksi halde native cihazda ilk render'da isNativeApp henüz "false"
-  // görünürken bu fetch yanlışlıkla tetiklenebilir.
   useEffect(() => {
     if (!userId || !isPlatformResolved || isNativeApp) return;
     fetchClipUsage();
@@ -832,13 +749,18 @@ function DashboardPageInner() {
   }, [activeGroupId, isPro]);
 
   useEffect(() => {
+    if (isPro !== true) {
+      setSelectionMode(false);
+      setAiSelection([]);
+    }
+  }, [isPro]);
+
+  useEffect(() => {
     if (activeGroupId !== "forgotten") {
       setForgottenSegment("all");
     }
   }, [activeGroupId]);
 
-  // ✅ Android donanım geri tuşu: açık modal/dialog varsa yalnızca onu kapat,
-  // sayfa aynı basışta geri gitmesin (bkz. NativeBackController).
   useEffect(() => {
     const closeTopmostDialog = () => {
       if (openOnboarding) {
@@ -853,6 +775,22 @@ function DashboardPageInner() {
         setOpenAdd(false);
         return true;
       }
+      if (openFilterSheet) {
+        setOpenFilterSheet(false);
+        return true;
+      }
+      if (openWeeklySummarySheet) {
+        setOpenWeeklySummarySheet(false);
+        return true;
+      }
+      if (openMobileGroupsSheet) {
+        setOpenMobileGroupsSheet(false);
+        return true;
+      }
+      if (openExtensionPanel) {
+        setOpenExtensionPanel(false);
+        return true;
+      }
       if (openRenameModal) {
         setOpenRenameModal(false);
         return true;
@@ -861,17 +799,10 @@ function DashboardPageInner() {
         setOpenGroupModal(false);
         return true;
       }
-      if (openQuickAdd) {
-        setOpenQuickAdd(false);
-        return true;
-      }
       return false;
     };
 
     const onNativeBack = (event: Event) => {
-      // Header'ın kullanıcı menüsü aynı basışta bu event'i bizden önce
-      // claim etmiş olabilir (bkz. Header.tsx) — böyle bir durumda iki UI'ı
-      // birden kapatmayalım.
       if (event.defaultPrevented) return;
       if (closeTopmostDialog()) {
         event.preventDefault();
@@ -884,9 +815,12 @@ function DashboardPageInner() {
     openOnboarding,
     openDetail,
     openAdd,
+    openFilterSheet,
+    openWeeklySummarySheet,
+    openMobileGroupsSheet,
+    openExtensionPanel,
     openRenameModal,
     openGroupModal,
-    openQuickAdd,
   ]);
 
   const groupCounts = useMemo(() => {
@@ -910,7 +844,7 @@ function DashboardPageInner() {
     };
 
     for (const it of items as any[]) {
-      const age = daysSinceBase(it);
+      const age = daysSinceBaseOf(it);
       const status = (it.work_status ?? "later") as WorkStatus;
 
       if (isActivelySnoozed(it)) counts.snoozed += 1;
@@ -924,13 +858,8 @@ function DashboardPageInner() {
     }
 
     return counts;
-  }, [items, isActivelySnoozed, isForgotten]);
-
-  useEffect(() => {
-    if (searchParams.get("view") === "forgotten") {
-      setActiveGroupId("forgotten");
-    }
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, isForgotten]);
 
   const aiCategoryCounts = useMemo(() => {
     const counts: Record<string, number> = { all: 0 };
@@ -977,14 +906,14 @@ function DashboardPageInner() {
 
     const forgottenItems = (items as any[])
       .filter((it) => isForgotten(it) && (it.work_status ?? "later") !== "done")
-      .sort((a, b) => daysSinceBase(b) - daysSinceBase(a));
+      .sort((a, b) => daysSinceBaseOf(b) - daysSinceBaseOf(a));
 
     const activeItems = (items as any[])
       .filter((it) => {
         const status = it.work_status ?? "later";
         return status === "today" || status === "doing";
       })
-      .sort((a, b) => daysSinceBase(b) - daysSinceBase(a));
+      .sort((a, b) => daysSinceBaseOf(b) - daysSinceBaseOf(a));
 
     const suggestions = [...activeItems, ...forgottenItems].filter(
       (item, index, list) => list.findIndex((it) => it.id === item.id) === index,
@@ -998,7 +927,6 @@ function DashboardPageInner() {
     };
   }, [items, isForgotten]);
 
-  // ✅ Search + group filter (+ forgotten) + AI category filter
   const filteredItems = useMemo(() => {
     const s = q.trim().toLowerCase();
 
@@ -1013,11 +941,20 @@ function DashboardPageInner() {
           return inTitle || inContent || inTags;
         });
 
-    // ✅ AI category filter (applies after search)
+    const afterType =
+      activeType === "all" ? base : base.filter((it: any) => it.type === activeType);
+
+    const afterTags =
+      activeTags.length === 0
+        ? afterType
+        : afterType.filter((it: any) =>
+            (it.tags ?? []).some((t: string) => activeTags.includes(t)),
+          );
+
     const afterAi =
       activeAiCategory === "all"
-        ? base
-        : base.filter((it: any) => {
+        ? afterTags
+        : afterTags.filter((it: any) => {
             const c = String(it.ai_category ?? "other").toLowerCase();
             return c === activeAiCategory;
           });
@@ -1036,29 +973,29 @@ function DashboardPageInner() {
         return afterWorkStatus.filter((it: any) => isActivelySnoozed(it));
       }
 
-      const forgottenItems = afterWorkStatus.filter((it: any) =>
+      const forgottenItemsList = afterWorkStatus.filter((it: any) =>
         isForgotten(it),
       );
 
       if (forgottenSegment === "today") {
-        return forgottenItems.filter(
+        return forgottenItemsList.filter(
           (it: any) => (it.work_status ?? "later") === "today",
         );
       }
 
       if (forgottenSegment === "7") {
-        return forgottenItems.filter((it: any) => daysSinceBase(it) >= 7);
+        return forgottenItemsList.filter((it: any) => daysSinceBaseOf(it) >= 7);
       }
 
       if (forgottenSegment === "30") {
-        return forgottenItems.filter((it: any) => daysSinceBase(it) >= 30);
+        return forgottenItemsList.filter((it: any) => daysSinceBaseOf(it) >= 30);
       }
 
       if (forgottenSegment === "90") {
-        return forgottenItems.filter((it: any) => daysSinceBase(it) >= 90);
+        return forgottenItemsList.filter((it: any) => daysSinceBaseOf(it) >= 90);
       }
 
-      return forgottenItems;
+      return forgottenItemsList;
     }
 
     if (activeGroupId === "inbox")
@@ -1070,10 +1007,11 @@ function DashboardPageInner() {
   }, [
     items,
     q,
+    activeType,
+    activeTags,
     activeGroupId,
     forgottenSegment,
     isForgotten,
-    isActivelySnoozed,
     activeAiCategory,
     activeWorkStatus,
   ]);
@@ -1099,31 +1037,100 @@ function DashboardPageInner() {
     return sorted;
   }, [filteredItems, activeGroupId, forgottenSort, searchParams]);
 
-  const { notes, links } = useMemo(() => {
-    return {
-      notes: finalItems.filter((it) => it.type === "note"),
-      links: finalItems.filter((it) => it.type === "link"),
-    };
-  }, [finalItems]);
+  const totalNoteCount = useMemo(
+    () => items.filter((it) => it.type === "note").length,
+    [items],
+  );
+  const totalLinkCount = useMemo(
+    () => items.filter((it) => it.type === "link").length,
+    [items],
+  );
 
-  // ✅ All view için gruplama
-  const notesByGroup = useMemo(() => {
-    const map: Record<string, Item[]> = { inbox: [] };
-    for (const it of notes) {
-      const gid = (it as any).group_id ? String((it as any).group_id) : "inbox";
-      (map[gid] ||= []).push(it);
-    }
-    return map;
-  }, [notes]);
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) (it.tags ?? []).forEach((t) => set.add(t));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "tr"));
+  }, [items]);
 
-  const linksByGroup = useMemo(() => {
-    const map: Record<string, Item[]> = { inbox: [] };
-    for (const it of links) {
-      const gid = (it as any).group_id ? String((it as any).group_id) : "inbox";
-      (map[gid] ||= []).push(it);
+  const openItemLive = useMemo(
+    () => items.find((it) => it.id === draft.id) ?? null,
+    [items, draft.id],
+  );
+
+  const primaryNav = useMemo<"home" | "today" | "forgotten" | "groups">(() => {
+    if (activeGroupId === "forgotten") return "forgotten";
+    if (activeGroupId !== "all") return "groups";
+    if (activeWorkStatus === "today") return "today";
+    return "home";
+  }, [activeGroupId, activeWorkStatus]);
+
+  // "today" is the mandatory baseline work-status while primaryNav is Today,
+  // not a user-applied advanced filter — it must not inflate the filter count.
+  const advancedFilterCount = useMemo(() => {
+    let n = 0;
+    if (activeAiCategory !== "all") n += 1;
+    if (activeTags.length > 0) n += 1;
+    const isTodayBaseline = primaryNav === "today" && activeWorkStatus === "today";
+    if (activeWorkStatus !== "all" && !isTodayBaseline) n += 1;
+    return n;
+  }, [activeWorkStatus, activeAiCategory, activeTags, primaryNav]);
+
+  const viewTitle = useMemo(() => {
+    if (activeGroupId === "forgotten") return "Unutulanlar";
+    if (activeGroupId === "inbox") return "Inbox";
+    if (activeGroupId !== "all") {
+      return groups.find((g) => g.id === activeGroupId)?.title ?? "Grup";
     }
-    return map;
-  }, [links]);
+    return activeWorkStatus === "today" ? "Bugün" : "Ana sayfa";
+  }, [activeGroupId, activeWorkStatus, groups]);
+
+  // Shared baseline for every primary-nav destination: advanced/view-local
+  // filters (type, tags, AI category) never carry over between Home, Today,
+  // Forgotten and a Group/Inbox — only the primary nav scope itself persists.
+  const resetViewLocalFilters = useCallback(() => {
+    setActiveType("all");
+    setActiveTags([]);
+    setActiveAiCategory("all");
+  }, []);
+
+  const navHome = useCallback(() => {
+    setActiveGroupId("all");
+    setActiveWorkStatus("all");
+    resetViewLocalFilters();
+  }, [resetViewLocalFilters]);
+  const navToday = useCallback(() => {
+    setActiveGroupId("all");
+    setActiveWorkStatus("today");
+    resetViewLocalFilters();
+  }, [resetViewLocalFilters]);
+  const navForgotten = useCallback(() => {
+    setActiveGroupId("forgotten");
+    setActiveWorkStatus("all");
+    setForgottenSegment("all");
+    resetViewLocalFilters();
+  }, [resetViewLocalFilters]);
+  const selectGroup = useCallback(
+    (id: string) => {
+      setActiveGroupId(id);
+      setActiveWorkStatus("all");
+      resetViewLocalFilters();
+    },
+    [resetViewLocalFilters],
+  );
+  const onChangeGroupFilter = useCallback(
+    (id: string) => {
+      if (id === "all") navHome();
+      else selectGroup(id);
+    },
+    [navHome, selectGroup],
+  );
+
+  useEffect(() => {
+    if (searchParams.get("view") === "forgotten") {
+      navForgotten();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const ungroupedItems = useMemo(() => {
     return items.filter((it: any) => !it.group_id);
@@ -1132,10 +1139,8 @@ function DashboardPageInner() {
   const openNew = (type: ItemType) => {
     setDraft(emptyDraft(type));
     setOpenAdd(true);
-    setOpenQuickAdd(false);
   };
 
-  // ✅ Group silme
   const deleteGroup = async (groupId: string) => {
     if (!userId) return;
 
@@ -1144,12 +1149,11 @@ function DashboardPageInner() {
     );
     if (!ok) return;
 
-    const groupTitle = groups.find((g) => g.id === groupId)?.title ?? "Grup";
+    const groupTitleValue = groups.find((g) => g.id === groupId)?.title ?? "Grup";
 
     try {
       setErr(null);
 
-      // 1) DB: önce item'ları inbox'a taşı
       const { error: moveErr } = await supabase
         .from("items")
         .update({ group_id: null, updated_at: new Date().toISOString() })
@@ -1158,7 +1162,6 @@ function DashboardPageInner() {
 
       if (moveErr) throw moveErr;
 
-      // 2) DB: sonra group'u sil
       const { error: delErr } = await supabase
         .from("groups")
         .delete()
@@ -1167,12 +1170,11 @@ function DashboardPageInner() {
 
       if (delErr) throw delErr;
 
-      // 3) UI refresh (en temiz)
       if (activeGroupId === groupId) setActiveGroupId("inbox");
       await loadGroups(userId);
       await load(userId);
 
-      showToast("ok", `🗑️ "${groupTitle}" silindi (Inbox’a taşındı)`);
+      showToast("ok", `🗑️ "${groupTitleValue}" silindi (Inbox’a taşındı)`);
     } catch (e: any) {
       setErr(e?.message ?? "Grup silinemedi.");
       showToast("err", e?.message ?? "Grup silinemedi ❌");
@@ -1277,7 +1279,6 @@ function DashboardPageInner() {
         }
       }
 
-      // ✅ user_id yine gönderiyoruz (DB default da olsa sorun değil)
       const payload: any = {
         user_id: userId,
         type: draft.type,
@@ -1296,6 +1297,7 @@ function DashboardPageInner() {
 
         if (countErr) throw countErr;
 
+        const freeLimit = Number(process.env.NEXT_PUBLIC_FREE_LIMIT ?? 50);
         if ((count ?? 0) >= freeLimit) {
           const msg = `Free planda en fazla ${freeLimit} kayıt ekleyebilirsin. Pro’ya geç.`;
           setErr(msg);
@@ -1340,10 +1342,10 @@ function DashboardPageInner() {
     if (!focusedItem) return;
 
     focusedQueryHandledRef.current = focusedItemId;
-    setActiveGroupId("forgotten");
-    setForgottenSegment("all");
+    navForgotten();
     openItem(focusedItem);
     router.replace("/dashboard?view=forgotten");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, router, searchParams]);
 
   const updateItem = async () => {
@@ -1378,14 +1380,13 @@ function DashboardPageInner() {
     }
   };
 
-  const removeItem = async () => {
+  const removeItemById = async (itemId: string) => {
     setErr(null);
     try {
       if (!userId) {
         showToast("err", "Oturum bulunamadı ❌");
         return;
       }
-      if (!draft.id) return;
 
       const ok = confirm("Silmek istiyor musun?");
       if (!ok) return;
@@ -1393,12 +1394,12 @@ function DashboardPageInner() {
       const { error } = await supabase
         .from("items")
         .delete()
-        .eq("id", draft.id)
+        .eq("id", itemId)
         .eq("user_id", userId);
 
       if (error) throw error;
 
-      setOpenDetail(false);
+      if (openDetail && draft.id === itemId) setOpenDetail(false);
       await load(userId);
       showToast("ok", "🗑️ Silindi");
     } catch (e: any) {
@@ -1406,6 +1407,7 @@ function DashboardPageInner() {
       showToast("err", e?.message ?? "Silinemedi ❌");
     }
   };
+
   const undoAi = async (itemId: string) => {
     try {
       if (!userId) {
@@ -1436,9 +1438,10 @@ function DashboardPageInner() {
       showToast("ok", "AI geri alındı ✅");
       await load(userId);
     } catch (e: any) {
-      showToast("err", `${normalizeAiError(e?.message) } ❌`);
+      showToast("err", `${normalizeAiError(e?.message)} ❌`);
     }
   };
+
   const regenerateAi = async (itemId: string) => {
     try {
       if (!userId) {
@@ -1456,7 +1459,6 @@ function DashboardPageInner() {
 
       setRegeneratingItemId(itemId);
 
-      // anlık UI feedback
       setItems((prev: any) =>
         prev.map((it: any) =>
           it.id === itemId
@@ -1487,6 +1489,7 @@ function DashboardPageInner() {
       setAiProgress(null);
     }
   };
+
   const enhanceSelected = async () => {
     try {
       if (!isPro) {
@@ -1570,6 +1573,7 @@ function DashboardPageInner() {
       window.setTimeout(() => setAiProgress(null), 1200);
     }
   };
+
   const createGroupAndAssign = async () => {
     try {
       if (!userId) {
@@ -1620,6 +1624,7 @@ function DashboardPageInner() {
       setSavingGroup(false);
     }
   };
+
   const enhanceCurrentGroup = async () => {
     try {
       if (!isPro) {
@@ -1718,9 +1723,111 @@ function DashboardPageInner() {
       window.setTimeout(() => setGroupProgress(null), 1200);
     }
   };
-  // ===========================
-  // ✅ DRAG & DROP
-  // ===========================
+
+  const bulkMoveToInbox = async () => {
+    if (!userId || forgottenSelection.length === 0) return;
+    try {
+      setBulkLoading(true);
+      const { error } = await supabase
+        .from("items")
+        .update({ group_id: null, updated_at: new Date().toISOString() })
+        .in("id", forgottenSelection)
+        .eq("user_id", userId);
+      if (error) throw error;
+      setForgottenSelection([]);
+      await load(userId);
+      showToast("ok", "Inbox’a taşındı ✅");
+    } catch (e: any) {
+      showToast("err", e?.message ?? "Inbox’a alınamadı ❌");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const bulkDeleteSelected = async () => {
+    if (!userId || forgottenSelection.length === 0) return;
+    const ok = confirm(`${forgottenSelection.length} kayıt silinecek. Emin misin?`);
+    if (!ok) return;
+    try {
+      setBulkLoading(true);
+      const { error } = await supabase
+        .from("items")
+        .delete()
+        .in("id", forgottenSelection)
+        .eq("user_id", userId);
+      if (error) throw error;
+      setForgottenSelection([]);
+      await load(userId);
+      showToast("ok", "Silindi 🗑️");
+    } catch (e: any) {
+      showToast("err", e?.message ?? "Silinemedi ❌");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const bulkSnoozeSelected = async (days: number) => {
+    if (!userId || forgottenSelection.length === 0) return;
+    if (![7, 14, 30].includes(days)) return;
+    try {
+      setBulkLoading(true);
+      const untilIso = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase
+        .from("items")
+        .update({ snoozed_until: untilIso, updated_at: new Date().toISOString() })
+        .in("id", forgottenSelection)
+        .eq("user_id", userId);
+      if (error) throw error;
+      setForgottenSelection([]);
+      await load(userId);
+      showToast("ok", `Ertelendi (${days} gün) ⏳`);
+    } catch (e: any) {
+      showToast("err", e?.message ?? "Ertele kaydedilemedi ❌");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const updateProForgottenDays = async (value: 30 | 60 | 90) => {
+    if (!userId) return;
+    setProForgottenDays(value);
+
+    const { error } = await supabase
+      .from("user_settings")
+      .update({ forgotten_days: value })
+      .eq("user_id", userId);
+
+    if (error) {
+      showToast("err", "Ayar kaydedilemedi ❌");
+      fetchUserSettings(userId);
+    } else {
+      showToast("ok", "Ayar kaydedildi ✅");
+    }
+  };
+
+  // Clearing advanced filters restores the *current* primary view's
+  // baseline — it must never drop the mandatory Today work status or move
+  // the user out of Today/Forgotten/a group.
+  const clearAdvancedFilters = () => {
+    setActiveAiCategory("all");
+    setActiveTags([]);
+    if (primaryNav !== "today") {
+      setActiveWorkStatus("all");
+    }
+  };
+
+  const clearAllForEmptyState = () => {
+    clearAdvancedFilters();
+    setActiveType("all");
+    setQ("");
+  };
+
+  const toggleTag = (tag: string) => {
+    setActiveTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
+  };
+
   const onDragStartItem = (itemId: string) => (e: React.DragEvent) => {
     setDraggingItemId(itemId);
     e.dataTransfer.setData("text/plain", itemId);
@@ -1738,7 +1845,6 @@ function DashboardPageInner() {
     const prevGroupId =
       (items as any[]).find((x) => x.id === itemId)?.group_id ?? null;
 
-    // optimistic
     setItems((prev: any) =>
       prev.map((it: any) =>
         it.id === itemId ? { ...it, group_id: groupId } : it,
@@ -1752,7 +1858,6 @@ function DashboardPageInner() {
       .eq("user_id", userId);
 
     if (error) {
-      // rollback
       setItems((prev: any) =>
         prev.map((it: any) =>
           it.id === itemId ? { ...it, group_id: prevGroupId } : it,
@@ -1783,8 +1888,8 @@ function DashboardPageInner() {
       try {
         if (target === "inbox") await moveItemToGroup(itemId, null);
         else await moveItemToGroup(itemId, target.groupId);
-      } catch (err: any) {
-        showToast("err", err?.message ?? "Taşıma başarısız ❌");
+      } catch (e: any) {
+        showToast("err", e?.message ?? "Taşıma başarısız ❌");
       } finally {
         setDraggingItemId(null);
       }
@@ -1794,1609 +1899,317 @@ function DashboardPageInner() {
   };
 
   const inboxDrop = makeDropHandlers("inbox");
-  const dropZoneClass = (isOver: boolean) =>
-    isOver
-      ? "outline outline-2 outline-cyan-300/50 bg-cyan-300/10 border-cyan-300/30"
-      : "";
-  const AiLoadingInline = ({ text }: { text: string }) => (
-    <div className="flex items-center gap-2 text-xs text-sky-300">
-      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-sky-400/30 border-t-sky-300" />
-      <span>{text}</span>
-    </div>
+
+  const isDropTarget = useCallback(
+    (target: "inbox" | { groupId: string }) => {
+      if (dragOverTarget === null) return false;
+      if (target === "inbox") return dragOverTarget === "inbox";
+      return (
+        typeof dragOverTarget === "object" &&
+        dragOverTarget.groupId === target.groupId
+      );
+    },
+    [dragOverTarget],
   );
 
-  const EmptyState = ({
-    title,
-    text,
-    actionLabel,
-    onAction,
-  }: {
-    title: string;
-    text: string;
-    actionLabel?: string;
-    onAction?: () => void;
-  }) => (
-    <div className="rounded-xl border border-dashed border-white/12 bg-white/[0.035] p-5 text-sm text-white/56 backdrop-blur-xl sm:p-6">
-      <div className="text-base font-semibold tracking-[-0.02em] text-white">
-        {title}
-      </div>
-      <p className="mt-2 max-w-md text-sm leading-6 text-white/52">{text}</p>
-      {actionLabel && onAction ? (
-        <button
-          type="button"
-          onClick={onAction}
-          className="mt-4 rounded-lg border border-white/12 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-white/[0.08]"
-        >
-          {actionLabel}
-        </button>
-      ) : null}
-    </div>
+  const selectionKind: "forgotten" | "ai" =
+    activeGroupId === "forgotten" ? "forgotten" : "ai";
+  const selectedIds = selectionKind === "forgotten" ? forgottenSelection : aiSelection;
+
+  const toggleSelectedId = useCallback(
+    (id: string, checked: boolean) => {
+      if (selectionKind === "forgotten") {
+        setForgottenSelection((prev) =>
+          checked ? [...prev, id] : prev.filter((x) => x !== id),
+        );
+      } else {
+        setAiSelection((prev) =>
+          checked ? [...prev, id] : prev.filter((x) => x !== id),
+        );
+      }
+    },
+    [selectionKind],
   );
 
-  // ✅ Draggable wrapper
-  const DraggableWrap = ({ it }: { it: any }) => {
-    const isForgottenMode = activeGroupId === "forgotten";
-    const canBulk = isPro === true && isForgottenMode;
-    const canAiSelect = isPro === true && !isForgottenMode; // unutulanlar modunda karışmasın
-    const aiChecked = aiSelection.includes(it.id);
-    const hasActiveSnooze =
-      !!(it as any).snoozed_until &&
-      new Date((it as any).snoozed_until).getTime() > Date.now();
-
-    const toggleAi = (next: boolean) => {
-      setAiSelection((prev) =>
-        next ? [...prev, it.id] : prev.filter((x) => x !== it.id),
-      );
-    };
-    const checked = forgottenSelection.includes(it.id);
-    const workStatus = ((it as any).work_status ?? "later") as WorkStatus;
-
-    const toggle = (next: boolean) => {
-      setForgottenSelection((prev) =>
-        next ? [...prev, it.id] : prev.filter((x) => x !== it.id),
-      );
-    };
-
-    return (
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
-        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-        className="relative"
-      >
-        {canBulk ? (
-          <>
-            {/* Bigger hit-area */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggle(!checked);
-              }}
-              className="absolute top-2 left-2 z-20 h-9 w-9 rounded-lg
-                       bg-neutral-950/70 border border-neutral-800
-                       hover:bg-neutral-900 flex items-center justify-center"
-              title="Seç"
-            >
-              <span
-                className={`h-5 w-5 rounded border flex items-center justify-center
-                          ${
-                            checked
-                              ? "bg-cyan-300/20 border-cyan-300/50"
-                              : "border-neutral-600"
-                          }`}
-              >
-                {checked ? "✓" : ""}
-              </span>
-            </button>
-
-            {/* Keyboard/Screen reader için gerçek checkbox */}
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={(e) => toggle(e.target.checked)}
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-              className="sr-only"
-              aria-label="Seç"
-            />
-          </>
-        ) : null}
-        {canAiSelect ? (
-          <>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleAi(!aiChecked);
-              }}
-              className="absolute top-2 right-2 z-20 h-9 w-9 rounded-lg
-                       bg-neutral-950/70 border border-neutral-800
-                       hover:bg-neutral-900 flex items-center justify-center"
-              title="AI işlemi için seç"
-            >
-              <span
-                className={`h-5 w-5 rounded border flex items-center justify-center
-                          ${
-                            aiChecked
-                              ? "bg-sky-500/20 border-sky-500/50"
-                              : "border-neutral-600"
-                          }`}
-              >
-                {aiChecked ? "✓" : ""}
-              </span>
-            </button>
-
-            <input
-              type="checkbox"
-              checked={aiChecked}
-              onChange={(e) => toggleAi(e.target.checked)}
-              onClick={(e) => e.stopPropagation()}
-              className="sr-only"
-              aria-label="AI işlemi için seç"
-            />
-          </>
-        ) : null}
-        <div
-          draggable={!isForgottenMode}
-          onDragStart={!isForgottenMode ? onDragStartItem(it.id) : undefined}
-          onDragEnd={!isForgottenMode ? onDragEndItem : undefined}
-          className={`cursor-grab ${
-            draggingItemId === it.id ? "opacity-60 scale-[0.99]" : ""
-          } ${checked ? "ring-2 ring-cyan-300/35" : ""} ${
-            aiChecked ? "ring-2 ring-sky-500/30" : ""
-          }`}
-        >
-          <ItemCard
-            item={it}
-            onOpen={openItem}
-            onUndoAi={undoAi}
-            onRegenerateAi={regenerateAi}
-            canUndoAi={
-              !!(
-                (it as any).ai_prev_summary ||
-                ((it as any).ai_prev_tags &&
-                  (it as any).ai_prev_tags.length > 0) ||
-                (it as any).ai_prev_category
-              )
-            }
-            className={`${canBulk ? "pl-12" : ""} ${canAiSelect ? "pr-12" : ""}`}
-          />
-          <div className="mt-2 flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-white/38">
-                  İşleme durumu
-                </div>
-                <div className="mt-0.5 text-xs text-white/52">
-                  {WORK_STATUS_META[workStatus].description}
-                </div>
-              </div>
-
-              <select
-                value={workStatus}
-                onChange={(e) => {
-                  void setWorkStatusForItem(it.id, e.target.value as WorkStatus);
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="h-9 rounded-lg border border-white/10 bg-[#07090d] px-3 text-xs font-semibold text-white/82 outline-none focus:border-cyan-200/50"
-                title="Bu kaydın işleme durumunu seç"
-              >
-                {Object.entries(WORK_STATUS_META).map(([key, meta]) => (
-                  <option key={key} value={key}>
-                    {meta.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-white/38">
-                Hızlı aksiyonlar
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void setWorkStatusForItem(it.id, "today");
-                  }}
-                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/78 transition hover:bg-white/[0.08]"
-                >
-                  Bugün
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void setWorkStatusForItem(it.id, "done");
-                  }}
-                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/78 transition hover:bg-white/[0.08]"
-                >
-                  Bitti
-                </button>
-                {[7, 14, 30].map((days) => (
-                  <button
-                    key={days}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void setSnoozeForItem(it.id, days);
-                    }}
-                    className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/78 transition hover:bg-white/[0.08]"
-                  >
-                    {days}g
-                  </button>
-                ))}
-                {hasActiveSnooze ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void setSnoozeForItem(it.id, null);
-                    }}
-                    className="rounded-lg border border-amber-300/18 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/15"
-                  >
-                    Sıfırla
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    );
+  const toggleSelectionMode = () => {
+    setSelectionMode((prev) => {
+      const next = !prev;
+      if (!next) {
+        setForgottenSelection([]);
+        setAiSelection([]);
+      }
+      return next;
+    });
   };
 
+  const hasActiveFilters =
+    advancedFilterCount > 0 || activeType !== "all" || q.trim().length > 0;
+
+  // Today/Forgotten get a dedicated empty-state copy for their *baseline*
+  // (no extra filters applied) — the generic "no results" message + Clear
+  // filters button only ever appears once the user has added a real filter.
+  const emptyStateOverride = hasActiveFilters
+    ? null
+    : primaryNav === "today"
+      ? {
+          title: "Bugün için kayıt yok",
+          description: "Bugüne aldığın kayıtlar burada görünür.",
+        }
+      : primaryNav === "forgotten"
+        ? {
+            title: "Unutulan kayıt yok",
+            description:
+              "Uzun süredir açmadığın kayıtlar zamanla burada listelenecek.",
+          }
+        : null;
+
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#030406] pb-[calc(7rem+var(--safe-bottom))] text-white selection:bg-cyan-300/25">
-      <DnaBackdrop className="fixed opacity-20" />
+    <main className="relative min-h-screen overflow-x-clip bg-[#030406] pb-[calc(10.5rem+var(--safe-bottom))] text-white selection:bg-cyan-300/25 lg:pb-10">
+      <DnaBackdrop className="fixed opacity-10" />
       <div className="theme-page-glow pointer-events-none fixed inset-0" />
-      <div className="pointer-events-none fixed inset-0 opacity-[0.075] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:72px_72px]" />
-      <div className="theme-topbar fixed inset-x-0 top-0 z-50 px-6 pb-4 pt-[calc(1rem+var(--safe-top))] safe-x">
-        <div className="mx-auto max-w-7xl">
-          <Header />
-        </div>
-      </div>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-10 pt-[calc(6rem+var(--safe-top))] safe-x sm:px-6">
-        <motion.section
-          initial={{ opacity: 0, y: 24, filter: "blur(10px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-white/[0.045] p-5 shadow-[0_40px_120px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:p-6"
-        >
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-100">
-                Pulse Çalışma Alanı
-              </div>
-              <h1 className="mt-3 max-w-3xl text-2xl font-semibold tracking-[-0.03em] text-white sm:hidden">
-                Kayıtların
-              </h1>
-              <h1 className="mt-3 hidden max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-white sm:block sm:text-5xl">
-                Kayıtlarını düzenle, geri getir, kullan.
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-5 text-white/58 sm:hidden">
-                Notlarını ve linklerini tek yerden yönet.
-              </p>
-              <p className="mt-4 hidden max-w-2xl text-sm leading-6 text-white/58 sm:block">
-                Linkler ve notlar akışta kalır; arama, gruplar, unutulanlar ve
-                AI işlemleri ayrı katmanlarda çalışır.
-              </p>
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:flex sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => openNew("note")}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/82 transition hover:bg-white/[0.08] hover:text-white"
-                >
-                  + Yeni not
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openNew("link")}
-                  className="accent-gradient inline-flex min-h-[44px] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold transition hover:opacity-90"
-                >
-                  + Yeni link
-                </button>
-              </div>
-            </div>
+      <DashboardTopbar
+        q={q}
+        onChangeQ={setQ}
+        searchInputRef={searchInputRef}
+        mobileSearchOpen={mobileSearchOpen}
+        onToggleMobileSearch={() => setMobileSearchOpen((v) => !v)}
+        onOpenCreate={() => openNew("link")}
+      />
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 lg:min-w-[520px]">
-              {[
-                ["Toplam", items.length],
-                ["Not", notes.length],
-                ["Link", links.length],
-                ["Unutulan", groupCounts["forgotten"] ?? 0],
-              ].map(([label, value]) => (
-                <div
-                  key={label}
-                  className="rounded-xl border border-white/10 bg-black/20 p-3 sm:p-4"
-                >
-                  <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/40">
-                    {label}
-                  </div>
-                  <div className="mt-1 text-xl font-semibold text-cyan-100 sm:mt-2 sm:text-2xl">
-                    {value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.section>
-
-        {isPro === true && paymentIssue ? (
-          <div className="mt-4 rounded-xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100 backdrop-blur-xl">
-            <div className="font-semibold text-amber-100">
-              Ödeme sorunu tespit edildi
-            </div>
-            <div className="mt-1 text-amber-200/90">
-              Kartınızdan ödeme alınamadı. Pro erişiminiz dönem sonuna kadar
-              devam edebilir; ama sorun çözülmezse askıya alınabilir.
-            </div>
+      {isPro === true && paymentIssue ? (
+        <div className="relative z-40 mt-[calc(4.5rem+var(--safe-top))] px-4 safe-x sm:px-6">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300/25 bg-amber-300/10 px-4 py-2 text-xs text-amber-100">
+            <span>Ödeme sorunu tespit edildi — Pro erişimin dönem sonuna kadar sürebilir.</span>
             <button
               onClick={openBillingPortal}
               disabled={portalLoading}
-              className="mt-3 rounded-full bg-amber-200 px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
+              className="rounded-full bg-amber-200 px-3 py-1 font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
             >
               {portalLoading ? "Açılıyor..." : "Kartı güncelle"}
             </button>
           </div>
-        ) : null}
-
-        {isPro === false && isPlatformResolved && !isNativeApp ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/58 backdrop-blur-xl">
-            Tarayıcı eklentisiyle sağ tıkla kaydet — Free planda ayda 30
-            kayıt. Sınırsız kullanım için{" "}
-            <a className="font-semibold text-cyan-100 underline decoration-cyan-200/30" href="/pro">
-              Pro planı gör
-            </a>
-          </div>
-        ) : null}
-
-        {/* ✅ Forgotten Upsell (Free users) */}
-        {isPro === false && activeGroupId === "forgotten" ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-xl">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="text-sm font-semibold text-white">
-                  Unutulanlar: Free ve Pro
-                </div>
-                <div className="mt-1 text-xs text-white/56">
-                  Ücretsiz planda{" "}
-                  <span className="text-neutral-200 font-semibold">7+</span>{" "}
-                  gündür bakmadıkların burada görünür. Pro’da{" "}
-                  <span className="text-neutral-200 font-semibold">
-                    30 / 60 / 90+
-                  </span>{" "}
-                  seçip kontrolü eline alırsın.
-                </div>
-              </div>
-
-              <a
-                href="/pro"
-                className="accent-gradient inline-flex items-center justify-center rounded-lg px-4 py-2 text-xs font-semibold transition hover:opacity-90"
-              >
-                Pro’ya geç
-              </a>
-            </div>
-          </div>
-        ) : null}
-
-        {/* ✅ Extension card: Free (kalan kullanım hakkı) + Pro (sınırsız) — native uygulamada gösterilmez */}
-        {isPro !== null && isPlatformResolved && !isNativeApp ? (
-          <div className="mt-4 rounded-xl border border-cyan-200/18 bg-cyan-200/[0.055] p-4 backdrop-blur-xl">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="text-sm font-semibold text-white">
-                  Tarayıcı Eklentisi
-                  {!clipUsageLoading && !clipUsageError && clipUsage ? (
-                    clipUsage.unlimited ? (
-                      <span className="ml-1.5 text-xs font-normal text-cyan-200/70">
-                        (Sınırsız)
-                      </span>
-                    ) : (
-                      <span
-                        className={`ml-1.5 text-xs font-normal ${
-                          clipUsage.remaining <= 5
-                            ? "text-amber-300/80"
-                            : "text-cyan-200/70"
-                        }`}
-                      >
-                        (
-                        {clipUsage.remaining > 0
-                          ? `${clipUsage.remaining} kullanım hakkı kaldı`
-                          : "kullanım hakkın kalmadı"}
-                        )
-                      </span>
-                    )
-                  ) : null}
-                </div>
-
-                {extChecking ? (
-                  <div className="text-xs text-white/56">
-                    Kontrol ediliyor…
-                  </div>
-                ) : extLiveHere ? (
-                  <div className="text-xs text-cyan-100">
-                    ✅ Bu tarayıcıda aktif
-                  </div>
-                ) : extConnected ? (
-                  <div className="text-xs text-amber-300">
-                    ⚠️ Bağlı görünüyor ama bu tarayıcıda aktif değil
-                  </div>
-                ) : (
-                  <div className="text-xs text-rose-300">
-                    ❌ Eklenti bağlı değil
-                  </div>
-                )}
-              </div>
-
-              {extChecking ? (
-                <button
-                  disabled
-                  className="inline-flex cursor-not-allowed items-center justify-center rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs font-semibold text-white/40"
-                >
-                  Kontrol ediliyor…
-                </button>
-              ) : extLiveHere ? (
-                <button
-                  onClick={() => router.push("/extension/connect")}
-                  className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/82 transition hover:bg-white/[0.08]"
-                >
-                  Yeniden bağla
-                </button>
-              ) : (
-                <a
-                  href="/extension/connect"
-                  className="accent-gradient inline-flex items-center justify-center rounded-lg px-4 py-2 text-xs font-semibold transition hover:opacity-90"
-                >
-                  Bağla
-                </a>
-              )}
-            </div>
-
-            {!extChecking && !extLiveHere ? (
-              <div className="mt-2 text-xs text-white/46">
-                Sağ tık → “ClarioNot’a Kaydet” ile tek tık kaydeder.
-              </div>
-            ) : null}
-
-            {!clipUsageLoading &&
-            !clipUsageError &&
-            clipUsage &&
-            !clipUsage.unlimited &&
-            clipUsage.remaining <= 0 ? (
-              <div className="mt-2">
-                <a
-                  href="/pro"
-                  className="text-[11px] font-semibold text-cyan-100 underline decoration-cyan-200/30"
-                >
-                  Sınırsız kullanım için Pro’ya geç
-                </a>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {/* ✅ Groups bar + Drop zones */}
-        <motion.section
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08, duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
-          className="mt-6 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] shadow-[0_28px_90px_rgba(0,0,0,0.28)] backdrop-blur-2xl"
-        >
-          <div className="grid gap-0 lg:grid-cols-[1.05fr_1.35fr]">
-            <div className="border-b border-white/10 p-5 sm:p-6 lg:border-b-0 lg:border-r lg:border-white/10">
-              <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
-                Haftalık özet
-              </div>
-              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-white">
-                Bu hafta neye dönmeli?
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-white/56">
-                Clarionot, kaydettiklerini pasif arşivden çıkarıp bu haftanın
-                küçük çalışma listesine taşır.
-              </p>
-
-              <div className="mt-5 grid grid-cols-3 gap-2">
-                {[
-                  ["Yeni", weeklyPulse.savedThisWeek],
-                  ["Biten", weeklyPulse.doneThisWeek],
-                  ["Bekleyen", weeklyPulse.forgottenCount],
-                ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="rounded-lg border border-white/10 bg-black/20 p-3"
-                  >
-                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/38">
-                      {label}
-                    </div>
-                    <div className="mt-1 text-xl font-semibold text-cyan-100">
-                      {value}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveGroupId("forgotten");
-                    setActiveWorkStatus("all");
-                  }}
-                  className="accent-gradient inline-flex items-center justify-center rounded-lg px-4 py-2 text-xs font-semibold transition hover:opacity-90"
-                >
-                  Unutulanları aç
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveWorkStatus("today");
-                    setActiveGroupId("all");
-                  }}
-                  className="inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/82 transition hover:bg-white/[0.08] hover:text-white"
-                >
-                  Bugünün kuyruğu
-                </button>
-              </div>
-            </div>
-
-            <div className="p-5 sm:p-6">
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
-                  Gündeme alınacaklar
-                </div>
-                <div className="mt-1 text-xs text-white/46">
-                  En uzun süredir bekleyen veya zaten işleme alınmış kayıtlar.
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-3">
-                {weeklyPulse.focusItems.length === 0 ? (
-                  <div className="rounded-lg border border-white/10 bg-black/20 p-4 text-sm text-white/56">
-                    Bu hafta gündeme alınacak eski kayıt yok. Yeni not veya link
-                    kaydettiğinde burada öneriler oluşur.
-                  </div>
-                ) : (
-                  weeklyPulse.focusItems.map((item: any) => {
-                    const status = (item.work_status ?? "later") as WorkStatus;
-                    const age = daysSinceBase(item);
-
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex flex-col gap-3 rounded-lg border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => openItem(item)}
-                          className="min-w-0 text-left"
-                        >
-                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/38">
-                            <span>{item.type === "link" ? "Link" : "Not"}</span>
-                            <span>·</span>
-                            <span>{age === 0 ? "Bugün" : `${age} gün`}</span>
-                            <span>·</span>
-                            <span className="text-cyan-100">
-                              {WORK_STATUS_META[status].shortLabel}
-                            </span>
-                          </div>
-                          <div className="mt-1 line-clamp-2 text-sm font-semibold text-white">
-                            {item.title || "Başlıksız kayıt"}
-                          </div>
-                        </button>
-
-                        <div className="flex shrink-0 gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void setWorkStatusForItem(item.id, "today")
-                            }
-                            className="rounded-lg border border-cyan-200/18 bg-cyan-200/10 px-3 py-2 text-xs font-semibold text-cyan-50 transition hover:bg-cyan-200/15"
-                          >
-                            Bugün
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void setWorkStatusForItem(item.id, "done")
-                            }
-                            className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/[0.08]"
-                          >
-                            Bitti
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-        </motion.section>
-
-        <motion.section
-          initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
-          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.28)] backdrop-blur-2xl"
-        >
-          <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.35 }}
-              transition={{ duration: 0.4, delay: 0.05 }}
-              className="xl:col-span-2"
-            >
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
-                    Görünüm
-                  </div>
-                  <div className="mt-1 text-xs text-white/46">
-                    Kayıtları kapsam, inbox, unutulanlar veya grup bazında süz.
-                  </div>
-                </div>
-                <div className="hidden text-xs text-white/42 sm:block">
-                  {finalItems.length} kayıt gösteriliyor
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setActiveGroupId("all")}
-                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                  activeGroupId === "all"
-                    ? "bg-white text-[#030406]"
-                    : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
-                }`}
-              >
-                Tümü
-              </button>
-
-              {/* ✅ Forgotten PILL */}
-              <button
-                onClick={() => setActiveGroupId("forgotten")}
-                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                  activeGroupId === "forgotten"
-                    ? "bg-white text-[#030406]"
-                    : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
-                }`}
-                title={
-                  isPro === true
-                    ? `${proForgottenDays}+ gündür açılmayan kayıtlar`
-                    : "Ücretsiz: 7+ gün | Pro: 30/60/90 seç"
-                }
-              >
-                Unutulanlar{" "}
-                <span
-                  className={
-                    activeGroupId === "forgotten"
-                      ? "text-[#030406]/70"
-                      : "text-cyan-100"
-                  }
-                >
-                  ({groupCounts["forgotten"] ?? 0})
-                </span>
-              </button>
-
-              {/* ✅ Pro: 30/60/90 seçilebilir (DB kalıcı) */}
-              {activeGroupId === "forgotten" ? (
-                <div className="flex items-center gap-2">
-                  <div className="text-[11px] text-neutral-500">Eşik</div>
-
-                  {isPro === true ? (
-                    <select
-                      value={proForgottenDays}
-                      onChange={async (e) => {
-                        if (!userId) return;
-                        const value = Number(e.target.value) as 30 | 60 | 90;
-                        setProForgottenDays(value);
-
-                        const { error } = await supabase
-                          .from("user_settings")
-                          .update({ forgotten_days: value })
-                          .eq("user_id", userId);
-
-                        if (error) {
-                          showToast("err", "Ayar kaydedilemedi ❌");
-                          fetchUserSettings(userId);
-                        } else {
-                          showToast("ok", "Ayar kaydedildi ✅");
-                        }
-                      }}
-                      className="rounded-lg border border-white/10 bg-[#07090d] px-3 py-2 text-xs text-white/82 outline-none focus:border-cyan-200/50"
-                    >
-                      <option value={30}>30+</option>
-                      <option value={60}>60+</option>
-                      <option value={90}>90+</option>
-                    </select>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => (window.location.href = "/pro")}
-                      className="rounded-lg border border-white/10 bg-[#07090d] px-3 py-2 text-xs text-white/58 hover:bg-white/[0.06]"
-                      title="30 / 60 / 90 gün seçmek Pro’da"
-                    >
-                      7+ gün <span className="ml-1">🔒</span>
-                    </button>
-                  )}
-                </div>
-              ) : null}
-
-              {activeGroupId === "forgotten" ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {[
-                    ["all", "Tümü", forgottenSegmentCounts.all],
-                    ["7", "7+ gün", forgottenSegmentCounts["7"]],
-                    ["30", "30+ gün", forgottenSegmentCounts["30"]],
-                    ["90", "90+ gün", forgottenSegmentCounts["90"]],
-                    ["today", "Bugün bak", forgottenSegmentCounts.today],
-                    ["snoozed", "Ertelenenler", forgottenSegmentCounts.snoozed],
-                  ].map(([key, label, count]) => {
-                    const active = forgottenSegment === key;
-
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() =>
-                          setForgottenSegment(key as ForgottenSegment)
-                        }
-                        className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
-                          active
-                            ? "accent-gradient"
-                            : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
-                        }`}
-                      >
-                        {label}{" "}
-                        <span className={active ? "opacity-70" : "accent-text-2"}>
-                          ({count})
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {/* ✅ Forgotten aksiyonları */}
-              {/* ✅ Forgotten aksiyonları (Action Bar) */}
-              {activeGroupId === "forgotten" && isPro === true ? (
-                <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    {/* Sol: seçili info */}
-                    <div className="flex items-center gap-2 text-xs text-white/58">
-                      <span className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-1">
-                        Seçili:{" "}
-                        <span className="text-neutral-100 font-semibold">
-                          {forgottenSelection.length}
-                        </span>
-                      </span>
-
-                      {forgottenSelection.length === 0 ? (
-                        <span className="text-neutral-500">
-                          (Aksiyonlar için en az 1 kayıt seç)
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {/* Sağ: aksiyonlar */}
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        disabled={
-                          forgottenSelection.length === 0 || bulkLoading
-                        }
-                        onClick={async () => {
-                          if (!userId) return;
-                          if (forgottenSelection.length === 0) return;
-
-                          try {
-                            setBulkLoading(true);
-
-                            const { error } = await supabase
-                              .from("items")
-                              .update({
-                                group_id: null,
-                                updated_at: new Date().toISOString(),
-                              })
-                              .in("id", forgottenSelection)
-                              .eq("user_id", userId);
-
-                            if (error) throw error;
-
-                            setForgottenSelection([]);
-                            await load(userId);
-                            showToast("ok", "Inbox’a taşındı ✅");
-                          } catch (e: any) {
-                            showToast(
-                              "err",
-                              e?.message ?? "Inbox’a alınamadı ❌",
-                            );
-                          } finally {
-                            setBulkLoading(false);
-                          }
-                        }}
-                        className={`rounded-xl border px-3 py-1 text-xs transition ${
-                          forgottenSelection.length === 0 || bulkLoading
-                            ? "border-neutral-900 bg-neutral-950 text-neutral-600 cursor-not-allowed"
-                            : "border-neutral-800 bg-neutral-950 text-neutral-300 hover:bg-neutral-900"
-                        }`}
-                      >
-                        Inbox’a al
-                      </button>
-
-                      <button
-                        disabled={
-                          forgottenSelection.length === 0 || bulkLoading
-                        }
-                        onClick={async () => {
-                          if (!userId) return;
-                          if (forgottenSelection.length === 0) return;
-
-                          const ok = confirm(
-                            `${forgottenSelection.length} kayıt silinecek. Emin misin?`,
-                          );
-                          if (!ok) return;
-
-                          try {
-                            setBulkLoading(true);
-
-                            const { error } = await supabase
-                              .from("items")
-                              .delete()
-                              .in("id", forgottenSelection)
-                              .eq("user_id", userId);
-
-                            if (error) throw error;
-
-                            setForgottenSelection([]);
-                            await load(userId);
-                            showToast("ok", "Silindi 🗑️");
-                          } catch (e: any) {
-                            showToast("err", e?.message ?? "Silinemedi ❌");
-                          } finally {
-                            setBulkLoading(false);
-                          }
-                        }}
-                        className={`rounded-xl border px-3 py-1 text-xs transition ${
-                          forgottenSelection.length === 0 || bulkLoading
-                            ? "border-red-950/40 bg-red-950/10 text-red-400/40 cursor-not-allowed"
-                            : "border-red-900/40 bg-red-950/40 text-red-300 hover:bg-red-900/40"
-                        }`}
-                      >
-                        Sil
-                      </button>
-
-                      {/* ✅ Ertele dropdown (7/14/30 buton çöplüğünü kaldırdık) */}
-                      <select
-                        disabled={
-                          forgottenSelection.length === 0 || bulkLoading
-                        }
-                        defaultValue=""
-                        onChange={async (e) => {
-                          if (!userId) return;
-                          const v = Number(e.target.value);
-                          e.currentTarget.value = ""; // seçimi resetle (UI temiz kalsın)
-
-                          if (![7, 14, 30].includes(v)) return;
-
-                          try {
-                            setBulkLoading(true);
-
-                            const untilIso = new Date(
-                              Date.now() + v * 24 * 60 * 60 * 1000,
-                            ).toISOString();
-
-                            const { error } = await supabase
-                              .from("items")
-                              .update({
-                                snoozed_until: untilIso,
-                                updated_at: new Date().toISOString(),
-                              })
-                              .in("id", forgottenSelection)
-                              .eq("user_id", userId);
-
-                            if (error) throw error;
-
-                            setForgottenSelection([]);
-                            await load(userId);
-                            showToast("ok", `Ertelendi (${v} gün) ⏳`);
-                          } catch (e2: any) {
-                            showToast(
-                              "err",
-                              e2?.message ?? "Ertele kaydedilemedi ❌",
-                            );
-                          } finally {
-                            setBulkLoading(false);
-                          }
-                        }}
-                        className={`rounded-xl border px-3 py-1 text-xs transition ${
-                          forgottenSelection.length === 0 || bulkLoading
-                            ? "border-neutral-900 bg-neutral-950 text-neutral-600 cursor-not-allowed"
-                            : "border-neutral-800 bg-neutral-950 text-neutral-300 hover:bg-neutral-900"
-                        }`}
-                        title="Seçili kayıtları belirli süre gizle"
-                      >
-                        <option value="">Ertele ▼</option>
-                        <option value={7}>7 gün</option>
-                        <option value={14}>14 gün</option>
-                        <option value={30}>30 gün</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* ✅ Inbox PILL (drop zone) */}
-              <button
-                type="button"
-                onClick={() => setActiveGroupId("inbox")}
-                {...inboxDrop}
-                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                  activeGroupId === "inbox"
-                    ? "bg-white text-[#030406]"
-                    : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
-                } ${
-                  dragOverTarget === "inbox"
-                    ? "outline outline-2 outline-cyan-300/50 bg-cyan-300/10 border-cyan-300/30"
-                    : ""
-                }`}
-                title="Item’ları buraya sürükleyip Inbox’a alabilirsin"
-              >
-                Inbox{" "}
-                <span
-                  className={
-                    activeGroupId === "inbox"
-                      ? "text-[#030406]/70"
-                      : "text-cyan-100"
-                  }
-                >
-                  ({groupCounts["inbox"] ?? 0})
-                </span>
-              </button>
-
-              {groups.map((g) => {
-                const drop = makeDropHandlers({ groupId: g.id });
-                const isOver =
-                  dragOverTarget !== null &&
-                  typeof dragOverTarget === "object" &&
-                  dragOverTarget.groupId === g.id;
-
-                const isActive = activeGroupId === g.id;
-                const count = groupCounts[g.id] ?? 0;
-
-                return (
-                  <div
-                    key={g.id}
-                    {...drop}
-                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition ${
-                      isActive
-                        ? "bg-white text-[#030406]"
-                        : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
-                    } ${
-                      isOver
-                        ? "outline outline-2 outline-cyan-300/50 bg-cyan-300/10 border-cyan-300/30"
-                        : ""
-                    }`}
-                    title="Item’ları buraya sürükleyip gruba taşı"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setActiveGroupId(g.id)}
-                      className="flex items-center gap-2"
-                    >
-                      <span className="max-w-[140px] truncate">{g.title}</span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] ${
-                          isActive
-                            ? "bg-black/10 text-[#030406]/70"
-                            : "bg-black/20 text-cyan-100"
-                        }`}
-                      >
-                        {count}
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openRename(g);
-                      }}
-                      className="text-[11px] text-neutral-500 hover:text-neutral-200"
-                      title="Grubu yeniden adlandır"
-                    >
-                      ✎
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteGroup(g.id);
-                      }}
-                      className="text-[11px] text-neutral-500 hover:text-red-400"
-                      title="Grubu sil"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                );
-              })}
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.35 }}
-              transition={{ duration: 0.4, delay: 0.12 }}
-              className="border-t border-white/10 pt-4 xl:border xl:border-white/10 xl:bg-black/10 xl:p-4 xl:rounded-xl xl:h-full"
-            >
-              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
-                    İşleme kuyruğu
-                  </div>
-                  <div className="mt-1 text-xs text-white/46">
-                    Kaydettiklerini pasif arşiv yerine küçük bir çalışma akışına al.
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {[
-                  ["all", "Hepsi", "Tüm durumlar"],
-                  ...(
-                    Object.entries(WORK_STATUS_META) as Array<
-                      [WorkStatus, (typeof WORK_STATUS_META)[WorkStatus]]
-                    >
-                  ).map(([key, meta]) => [key, meta.label, meta.description]),
-                ].map(([key, label, description]) => {
-                  const statusKey = key as WorkStatusFilter;
-                  const active = activeWorkStatus === statusKey;
-
-                  return (
-                    <button
-                      key={statusKey}
-                      type="button"
-                      onClick={() => setActiveWorkStatus(statusKey)}
-                      className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
-                        active
-                          ? "accent-gradient"
-                          : "bg-white/[0.055] text-white/68 hover:bg-white/[0.09]"
-                      }`}
-                      title={String(description)}
-                    >
-                      {label}{" "}
-                      <span
-                        className={
-                          active ? "opacity-70" : "accent-text-2"
-                        }
-                      >
-                        ({workStatusCounts[statusKey] ?? 0})
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.35 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-              className="border-t border-white/10 pt-4 xl:border xl:border-white/10 xl:bg-black/10 xl:p-4 xl:rounded-xl xl:h-full"
-            >
-              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <div className="text-[11px] font-bold uppercase tracking-[0.32em] text-cyan-100">
-                    Araçlar
-                  </div>
-                  <div className="mt-1 text-xs text-white/46">
-                    Grup oluştur, AI kategorisi seç, toplu AI işlemlerini başlat.
-                  </div>
-                </div>
-                <div className="text-xs text-white/42">
-                  Arama tüm başlık, içerik ve etiketlerde çalışır. Kısayol:
-                  Ctrl/⌘ + K veya /
-                </div>
-              </div>
-
-              <div className="flex w-full flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setOpenGroupModal(true)}
-                  className="h-9 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-xs font-semibold text-cyan-100 transition hover:bg-white/[0.08]"
-                >
-                  + Grup
-                </button>
-
-                <select
-                  value={activeAiCategory}
-                  onChange={(e) => setActiveAiCategory(e.target.value as any)}
-                  className="h-9 w-[150px] shrink-0 rounded-lg border border-white/10 bg-[#07090d] px-3 text-sm text-white/82 outline-none focus:border-cyan-200/50"
-                  title="AI kategorisine göre filtrele"
-                >
-                  <option value="all">
-                    AI: Tümü ({aiCategoryCounts["all"] ?? 0})
-                  </option>
-                  <option value="documentation">
-                    📘 Docs ({aiCategoryCounts["documentation"] ?? 0})
-                  </option>
-                  <option value="tool">
-                    🛠 Tool ({aiCategoryCounts["tool"] ?? 0})
-                  </option>
-                  <option value="competitor">
-                    🥊 Competitor ({aiCategoryCounts["competitor"] ?? 0})
-                  </option>
-                  <option value="article">
-                    📰 Article ({aiCategoryCounts["article"] ?? 0})
-                  </option>
-                  <option value="inspiration">
-                    💡 Inspo ({aiCategoryCounts["inspiration"] ?? 0})
-                  </option>
-                  <option value="pricing">
-                    💵 Pricing ({aiCategoryCounts["pricing"] ?? 0})
-                  </option>
-                  <option value="other">
-                    📌 Other ({aiCategoryCounts["other"] ?? 0})
-                  </option>
-                </select>
-
-                {isPro === true ? (
-                  <button
-                    type="button"
-                    onClick={enhanceSelected}
-                    disabled={
-                      aiSelection.length === 0 ||
-                      aiEnhancing ||
-                      groupEnhancing ||
-                      !!regeneratingItemId
-                    }
-                    className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-semibold transition whitespace-nowrap ${
-                      aiSelection.length === 0 ||
-                      aiEnhancing ||
-                      groupEnhancing ||
-                      !!regeneratingItemId
-                        ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
-                        : "accent-border accent-soft accent-text hover:opacity-90"
-                    }`}
-                    title="Seçili kayıtlar için AI işlemlerini tekrar çalıştır"
-                  >
-                    {aiEnhancing
-                      ? "AI çalışıyor..."
-                      : `AI işle (${aiSelection.length})`}{" "}
-                  </button>
-                ) : null}
-
-                {isPro === true ? (
-                  <button
-                    type="button"
-                    onClick={enhanceCurrentGroup}
-                    disabled={
-                      groupEnhancing ||
-                      aiEnhancing ||
-                      !!regeneratingItemId ||
-                      activeGroupId === "all" ||
-                      activeGroupId === "forgotten"
-                    }
-                    className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-semibold transition whitespace-nowrap ${
-                      groupEnhancing ||
-                      aiEnhancing ||
-                      !!regeneratingItemId ||
-                      activeGroupId === "all" ||
-                      activeGroupId === "forgotten"
-                        ? "border-neutral-800 bg-neutral-950 text-neutral-600 cursor-not-allowed"
-                        : "border-cyan-200/18 bg-cyan-200/10 text-cyan-50 hover:bg-cyan-200/15"
-                    }`}
-                    title="Seçili grup veya Inbox içindeki tüm kayıtlar için AI çalıştır"
-                  >
-                    {groupEnhancing ? "Grup işleniyor..." : "Grubu AI ile işle"}
-                  </button>
-                ) : null}
-
-                <div className="relative flex-1 min-w-[120px] max-w-[220px]">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
-                    🔍
-                  </span>
-                  <input
-                    ref={searchInputRef}
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="Ara..."
-                    className="h-10 w-full rounded-lg border border-white/10 bg-[#07090d] pl-9 pr-3 text-sm text-white/82 placeholder:text-white/34 outline-none transition focus:border-cyan-200/50"
-                  />
-                </div>
-              </div>
-            </motion.div>
-          </div>
-          {aiEnhancing || groupEnhancing || regeneratingItemId ? (
-            <div className="accent-border accent-soft mt-3 rounded-xl border px-3 py-2">
-              <div className="flex flex-wrap items-center gap-3 w-full">
-                <AiLoadingInline
-                  text={
-                    regeneratingItemId
-                      ? "AI yeniden üretiliyor..."
-                      : groupEnhancing
-                        ? "Grup kayıtları AI ile işleniyor..."
-                        : "Seçili kayıtlar AI ile işleniyor..."
-                  }
-                />
-                {aiProgress ? (
-                  <div className="text-[11px] text-sky-200/80">
-                    {aiProgress.done}/{aiProgress.total} • başarılı:{" "}
-                    {aiProgress.okCount} • hata: {aiProgress.failCount}
-                  </div>
-                ) : groupProgress ? (
-                  <div className="text-[11px] text-sky-200/80">
-                    {groupProgress.okCount + groupProgress.failCount}/
-                    {groupProgress.total} • başarılı: {groupProgress.okCount} • hata:{" "}
-                    {groupProgress.failCount}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-900">
-                <div className="h-full w-1/3 animate-pulse rounded-full bg-sky-400/60" />
-              </div>
-            </div>
-          ) : null}
-
-          <div className="mt-3 text-xs text-white/46">
-            İpucu: Bir not veya link kartını sürükleyip Inbox ya da bir gruba bırak.
-          </div>
-        </motion.section>
-
-        <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* SOL: NOTLAR */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold tracking-[-0.02em] text-white">
-                📝 Notlar
-              </h2>
-              <Button variant="ghost" onClick={() => openNew("note")}>
-                + Not
-              </Button>
-            </div>
-
-            {loading ? (
-              <div className="text-sm text-neutral-400">Yükleniyor…</div>
-            ) : notes.length === 0 ? (
-              <EmptyState
-                title="Henüz not yok"
-                text="İlk notunu ekle; fikirler, kararlar ve kısa hatırlatmalar burada toparlansın."
-                actionLabel="Not ekle"
-                onAction={() => openNew("note")}
-              />
-            ) : activeGroupId === "all" ? (
-              <div className="space-y-4">
-                {/* Inbox notes section */}
-                <div
-                  {...inboxDrop}
-                  className={`rounded-xl border border-white/10 bg-white/[0.035] backdrop-blur-xl ${dropZoneClass(
-                    dragOverTarget === "inbox",
-                  )}`}
-                >
-                  <button
-                    onClick={() => toggleCollapsed("inbox_notes")}
-                    className="w-full flex items-center justify-between px-4 py-3 text-left"
-                  >
-                    <div className="text-xs font-semibold uppercase tracking-wider text-white/78">
-                      Inbox{" "}
-                      <span className="text-neutral-500">
-                        ({(notesByGroup["inbox"] ?? []).length})
-                      </span>
-                    </div>
-                    <div className="text-xs text-white/48">
-                      {collapsed["inbox_notes"] ? "▸" : "▾"}
-                    </div>
-                  </button>
-
-                  {!collapsed["inbox_notes"] ? (
-                <motion.div layout className="grid gap-3 p-4 pt-0">
-                  <AnimatePresence initial={false}>
-                    {(notesByGroup["inbox"] ?? []).map((it: any) => (
-                      <DraggableWrap key={it.id} it={it} />
-                    ))}
-                  </AnimatePresence>
-                  {(notesByGroup["inbox"] ?? []).length === 0 ? (
-                    <EmptyState
-                      title="Inbox notları boş"
-                      text="Group seçmeden eklediğin notlar burada görünür."
-                      actionLabel="Inbox’a not ekle"
-                      onAction={() => openNew("note")}
-                    />
-                  ) : null}
-                </motion.div>
-                  ) : null}
-                </div>
-
-                {/* Group sections */}
-                {groups.map((g) => {
-                  const list = notesByGroup[g.id] ?? [];
-                  if (list.length === 0) return null;
-
-                  const drop = makeDropHandlers({ groupId: g.id });
-                  const isOver =
-                    dragOverTarget !== null &&
-                    typeof dragOverTarget === "object" &&
-                    dragOverTarget.groupId === g.id;
-
-                  return (
-                    <div
-                      key={g.id}
-                      {...drop}
-                      className={`rounded-xl border border-white/10 bg-white/[0.035] backdrop-blur-xl ${dropZoneClass(
-                        isOver,
-                      )}`}
-                    >
-                      <button
-                        onClick={() => toggleCollapsed(`notes_${g.id}`)}
-                        className="w-full flex items-center justify-between px-4 py-3 text-left"
-                      >
-                        <div className="text-xs font-semibold uppercase tracking-wider text-white/78">
-                          {g.title}{" "}
-                          <span className="text-neutral-500">
-                            ({list.length})
-                          </span>
-                        </div>
-                        <div className="text-xs text-white/48">
-                          {collapsed[`notes_${g.id}`] ? "▸" : "▾"}
-                        </div>
-                      </button>
-
-                      {!collapsed[`notes_${g.id}`] ? (
-                        <motion.div layout className="grid gap-3 p-4 pt-0">
-                          <AnimatePresence initial={false}>
-                            {list.map((it: any) => (
-                              <DraggableWrap key={it.id} it={it} />
-                            ))}
-                          </AnimatePresence>
-                        </motion.div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <motion.div layout className="grid gap-3">
-                {notes.length ? (
-                  <AnimatePresence initial={false}>
-                    {notes.map((it: any) => (
-                      <DraggableWrap key={it.id} it={it} />
-                    ))}
-                  </AnimatePresence>
-                ) : (
-                  <EmptyState
-                    title="Bu filtrede not yok"
-                    text="Arama veya görünüm filtresini değiştirerek daha fazla kayıt görebilirsin."
-                  />
-                )}
-              </motion.div>
-            )}
-          </div>
-
-          {/* SAĞ: LİNKLER */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold tracking-[-0.02em] text-white">
-                🔗 Linkler
-              </h2>
-              <Button variant="ghost" onClick={() => openNew("link")}>
-                + Link
-              </Button>
-            </div>
-
-            {loading ? (
-              <div className="text-sm text-neutral-400">Yükleniyor…</div>
-            ) : links.length === 0 ? (
-              <EmptyState
-                title="Henüz link yok"
-                text="Bir kaynak, doküman veya fikir linki ekle; geri dönmek istediğin yerler burada toplansın."
-                actionLabel="Link ekle"
-                onAction={() => openNew("link")}
-              />
-            ) : activeGroupId === "all" ? (
-              <div className="space-y-4">
-                {/* Inbox links section */}
-                <div
-                  {...inboxDrop}
-                  className={`rounded-xl border border-white/10 bg-white/[0.035] backdrop-blur-xl ${dropZoneClass(
-                    dragOverTarget === "inbox",
-                  )}`}
-                >
-                  <button
-                    onClick={() => toggleCollapsed("inbox_links")}
-                    className="w-full flex items-center justify-between px-4 py-3 text-left"
-                  >
-                    <div className="text-xs font-semibold uppercase tracking-wider text-white/78">
-                      Inbox{" "}
-                      <span className="text-neutral-500">
-                        ({(linksByGroup["inbox"] ?? []).length})
-                      </span>
-                    </div>
-                    <div className="text-xs text-white/48">
-                      {collapsed["inbox_links"] ? "▸" : "▾"}
-                    </div>
-                  </button>
-
-                  {!collapsed["inbox_links"] ? (
-                    <motion.div layout className="grid gap-3 p-4 pt-0">
-                      <AnimatePresence initial={false}>
-                        {(linksByGroup["inbox"] ?? []).map((it: any) => (
-                          <DraggableWrap key={it.id} it={it} />
-                        ))}
-                      </AnimatePresence>
-                      {(linksByGroup["inbox"] ?? []).length === 0 ? (
-                        <EmptyState
-                          title="Inbox linkleri boş"
-                          text="Group seçmeden eklediğin linkler burada görünür."
-                          actionLabel="Inbox’a link ekle"
-                          onAction={() => openNew("link")}
-                        />
-                      ) : null}
-                    </motion.div>
-                  ) : null}
-                </div>
-
-                {/* Group sections */}
-                {groups.map((g) => {
-                  const list = linksByGroup[g.id] ?? [];
-                  if (list.length === 0) return null;
-
-                  const drop = makeDropHandlers({ groupId: g.id });
-                  const isOver =
-                    dragOverTarget !== null &&
-                    typeof dragOverTarget === "object" &&
-                    dragOverTarget.groupId === g.id;
-
-                  return (
-                    <div
-                      key={g.id}
-                      {...drop}
-                      className={`rounded-xl border border-white/10 bg-white/[0.035] backdrop-blur-xl ${dropZoneClass(
-                        isOver,
-                      )}`}
-                    >
-                      <button
-                        onClick={() => toggleCollapsed(`links_${g.id}`)}
-                        className="w-full flex items-center justify-between px-4 py-3 text-left"
-                      >
-                        <div className="text-xs font-semibold uppercase tracking-wider text-white/78">
-                          {g.title}{" "}
-                          <span className="text-neutral-500">
-                            ({list.length})
-                          </span>
-                        </div>
-                        <div className="text-xs text-white/48">
-                          {collapsed[`links_${g.id}`] ? "▸" : "▾"}
-                        </div>
-                      </button>
-
-                      {!collapsed[`links_${g.id}`] ? (
-                        <motion.div layout className="grid gap-3 p-4 pt-0">
-                          <AnimatePresence initial={false}>
-                            {list.map((it: any) => (
-                              <DraggableWrap key={it.id} it={it} />
-                            ))}
-                          </AnimatePresence>
-                        </motion.div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <motion.div layout className="grid gap-3">
-                {links.length ? (
-                  <AnimatePresence initial={false}>
-                    {links.map((it: any) => (
-                      <DraggableWrap key={it.id} it={it} />
-                    ))}
-                  </AnimatePresence>
-                ) : (
-                  <EmptyState
-                    title="Bu filtrede link yok"
-                    text="Arama veya görünüm filtresini değiştirerek daha fazla kayıt görebilirsin."
-                  />
-                )}
-              </motion.div>
-            )}
-          </div>
-        </section>
-      </div>
-
-      {/* ✅ CREATE GROUP MODAL */}
-      {/* Masaüstünde korunuyor; mobilde üstteki "Yeni not/Yeni link" düğmeleriyle
-          aynı işi tekrar ettiği için gizli. */}
-      <button
-        type="button"
-        onClick={() => setOpenQuickAdd((value) => !value)}
-        className="accent-gradient mobile-fab fixed z-40 hidden h-14 w-14 place-items-center rounded-xl text-3xl font-light shadow-[0_18px_60px_rgba(80,190,255,0.2)] transition hover:opacity-90 active:scale-95 md:grid"
-        aria-label="Yeni kayıt ekle"
-      >
-        {openQuickAdd ? "×" : "+"}
-      </button>
-
-      {openQuickAdd ? (
-        <div className="mobile-fab-menu fixed z-40 hidden w-48 overflow-hidden rounded-xl border border-white/10 bg-[#07090d]/95 p-2 shadow-2xl backdrop-blur-2xl md:block">
-          <button
-            type="button"
-            onClick={() => openNew("note")}
-            className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-sm font-semibold text-white/82 transition hover:bg-white/[0.06]"
-          >
-            <span>Yeni not</span>
-            <span className="text-cyan-100">+</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => openNew("link")}
-            className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-3 text-sm font-semibold text-white/82 transition hover:bg-white/[0.06]"
-          >
-            <span>Yeni link</span>
-            <span className="text-cyan-100">+</span>
-          </button>
         </div>
       ) : null}
 
-      <nav className="mobile-bottom-nav fixed bottom-0 left-0 z-40 flex w-full items-center justify-around border-t border-white/10 bg-[#030406]/82 px-4 safe-x shadow-2xl backdrop-blur-2xl md:hidden">
-        <button
-          type="button"
-          onClick={() => setActiveGroupId("inbox")}
-          className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest transition ${
-            activeGroupId === "inbox"
-              ? "scale-110 bg-cyan-200/10 text-cyan-100"
-              : "text-white/45 hover:bg-white/[0.06]"
-          }`}
-        >
-          <span className="text-lg">□</span>
-          Inbox
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveGroupId("forgotten")}
-          className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest transition ${
-            activeGroupId === "forgotten"
-              ? "scale-110 bg-cyan-200/10 text-cyan-100"
-              : "text-white/45 hover:bg-white/[0.06]"
-          }`}
-        >
-          <span className="text-lg">↺</span>
-          Unutulan
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveGroupId("all")}
-          className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest transition ${
-            activeGroupId === "all"
-              ? "scale-110 bg-cyan-200/10 text-cyan-100"
-              : "text-white/45 hover:bg-white/[0.06]"
-          }`}
-        >
-          <span className="text-lg">▣</span>
-          Tümü
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpenGroupModal(true)}
-          className="flex flex-col items-center justify-center rounded-xl px-4 py-1 text-[10px] uppercase tracking-widest text-white/45 transition hover:bg-white/[0.06]"
-        >
-          <span className="text-lg">+</span>
-          Grup
-        </button>
-      </nav>
+      <div
+        className={`relative z-10 mx-auto flex max-w-7xl gap-6 px-4 pb-10 safe-x sm:px-6 lg:max-w-[1200px] lg:gap-5 ${
+          mobileSearchOpen
+            ? "pt-[calc(9.5rem+var(--safe-top))] lg:pt-[calc(6rem+var(--safe-top))]"
+            : "pt-[calc(6rem+var(--safe-top))]"
+        }`}
+      >
+        <DesktopSidebar
+          primaryNav={primaryNav}
+          forgottenCount={groupCounts["forgotten"] ?? 0}
+          onNavHome={navHome}
+          onNavToday={navToday}
+          onNavForgotten={navForgotten}
+          groups={groups}
+          activeGroupId={activeGroupId}
+          onSelectGroup={selectGroup}
+          groupCounts={groupCounts}
+          groupsExpanded={sidebarGroupsExpanded}
+          onToggleGroupsExpanded={() => setSidebarGroupsExpanded((v) => !v)}
+          onOpenCreateGroup={() => setOpenGroupModal(true)}
+          onRenameGroup={openRename}
+          onDeleteGroup={deleteGroup}
+          inboxDrop={inboxDrop}
+          makeGroupDrop={(groupId) => makeDropHandlers({ groupId })}
+          isDropTarget={isDropTarget}
+          totalCount={items.length}
+          noteCount={totalNoteCount}
+          linkCount={totalLinkCount}
+          extension={
+            !isNativeApp && isPlatformResolved ? (
+              <ExtensionStatusSidebarFooter
+                extConnected={extConnected}
+                extLiveHere={extLiveHere}
+                extChecking={extChecking}
+                clipUsage={clipUsage}
+                clipUsageLoading={clipUsageLoading}
+                clipUsageError={clipUsageError}
+                onReconnect={() => router.push("/extension/connect")}
+                open={openExtensionPanel}
+                onOpen={() => setOpenExtensionPanel(true)}
+                onClose={() => setOpenExtensionPanel(false)}
+              />
+            ) : null
+          }
+        />
+
+        <div className="min-w-0 flex-1 space-y-4">
+          <DashboardViewHeader
+            title={viewTitle}
+            itemCount={finalItems.length}
+            activeType={activeType}
+            onChangeType={setActiveType}
+            advancedFilterCount={advancedFilterCount}
+            onOpenFilters={() => setOpenFilterSheet(true)}
+            showSelectionToggle={isPro === true}
+            selectionMode={selectionMode}
+            onToggleSelectionMode={toggleSelectionMode}
+            onOpenWeeklySummary={() => setOpenWeeklySummarySheet(true)}
+            isForgottenView={activeGroupId === "forgotten"}
+            forgottenSegment={forgottenSegment}
+            onChangeForgottenSegment={setForgottenSegment}
+            forgottenSegmentCounts={forgottenSegmentCounts}
+            isPro={isPro}
+            proForgottenDays={proForgottenDays}
+            onChangeProForgottenDays={updateProForgottenDays}
+            forgottenSort={forgottenSort}
+            onChangeForgottenSort={setForgottenSort}
+          />
+
+          {selectionMode && selectedIds.length > 0 ? (
+            <SelectionActionBar
+              mode={selectionKind}
+              selectedCount={selectedIds.length}
+              bulkLoading={bulkLoading}
+              onMoveToInbox={bulkMoveToInbox}
+              onDelete={bulkDeleteSelected}
+              onSnooze={bulkSnoozeSelected}
+              onEnhanceSelected={enhanceSelected}
+              aiEnhancing={aiEnhancing}
+            />
+          ) : null}
+
+          <UnifiedItemList
+            items={finalItems}
+            totalItemsCount={items.length}
+            loading={loading}
+            err={err}
+            onRetry={() => userId && load(userId)}
+            onOpen={openItem}
+            isForgotten={isForgotten}
+            selectionMode={selectionMode}
+            selectedIds={selectedIds}
+            onToggleSelected={toggleSelectedId}
+            selectLabel={activeGroupId === "forgotten" ? "Seç" : "AI işlemi için seç"}
+            dragEnabled={activeGroupId !== "forgotten"}
+            draggingItemId={draggingItemId}
+            onDragStartItem={onDragStartItem}
+            onDragEndItem={onDragEndItem}
+            onSetWorkStatus={setWorkStatusForItem}
+            onSetSnooze={setSnoozeForItem}
+            onDelete={removeItemById}
+            onCreateNew={() => openNew("link")}
+            onClearFilters={clearAllForEmptyState}
+            hasActiveFilters={hasActiveFilters}
+            emptyStateOverride={emptyStateOverride}
+          />
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => openNew("link")}
+        aria-label="Yeni kayıt ekle"
+        className="mobile-fab accent-gradient fixed z-40 grid h-14 w-14 place-items-center rounded-2xl text-3xl font-light shadow-[0_18px_60px_rgba(80,190,255,0.25)] transition hover:opacity-90 active:scale-95 lg:hidden"
+      >
+        +
+      </button>
+
+      <MobileBottomNav
+        primaryNav={primaryNav}
+        forgottenCount={groupCounts["forgotten"] ?? 0}
+        onNavHome={navHome}
+        onNavToday={navToday}
+        onNavForgotten={navForgotten}
+        onOpenGroups={() => setOpenMobileGroupsSheet(true)}
+      />
+
+      <MobileGroupsSheet
+        open={openMobileGroupsSheet}
+        onClose={() => setOpenMobileGroupsSheet(false)}
+        groups={groups}
+        activeGroupId={activeGroupId}
+        groupCounts={groupCounts}
+        onSelectGroup={selectGroup}
+        onOpenCreateGroup={() => {
+          setOpenMobileGroupsSheet(false);
+          setOpenGroupModal(true);
+        }}
+        onRenameGroup={openRename}
+        onDeleteGroup={deleteGroup}
+      />
+
+      <DashboardFilterSheet
+        open={openFilterSheet}
+        onClose={() => setOpenFilterSheet(false)}
+        groups={groups}
+        activeGroupId={activeGroupId}
+        onChangeGroup={onChangeGroupFilter}
+        groupCounts={groupCounts}
+        activeWorkStatus={activeWorkStatus}
+        onChangeWorkStatus={setActiveWorkStatus}
+        workStatusCounts={workStatusCounts}
+        activeAiCategory={activeAiCategory}
+        onChangeAiCategory={(c) => setActiveAiCategory(c as typeof activeAiCategory)}
+        aiCategoryCounts={aiCategoryCounts}
+        allTags={allTags}
+        activeTags={activeTags}
+        onToggleTag={toggleTag}
+        onClearAll={clearAdvancedFilters}
+        activeFilterCount={advancedFilterCount}
+        isPro={isPro === true}
+        canEnhanceGroup={activeGroupId !== "all" && activeGroupId !== "forgotten"}
+        groupEnhancing={groupEnhancing}
+        onEnhanceGroup={enhanceCurrentGroup}
+        isForgottenView={activeGroupId === "forgotten"}
+        proForgottenDays={proForgottenDays}
+        onChangeProForgottenDays={updateProForgottenDays}
+        forgottenSort={forgottenSort}
+        onChangeForgottenSort={setForgottenSort}
+      />
+
+      <WeeklySummarySheet
+        open={openWeeklySummarySheet}
+        onClose={() => setOpenWeeklySummarySheet(false)}
+        savedThisWeek={weeklyPulse.savedThisWeek}
+        doneThisWeek={weeklyPulse.doneThisWeek}
+        forgottenCount={weeklyPulse.forgottenCount}
+        focusItems={weeklyPulse.focusItems}
+        onOpenItem={(item) => {
+          setOpenWeeklySummarySheet(false);
+          openItem(item);
+        }}
+        onSetWorkStatus={setWorkStatusForItem}
+        onOpenForgotten={() => {
+          setOpenWeeklySummarySheet(false);
+          navForgotten();
+        }}
+        onOpenToday={() => {
+          setOpenWeeklySummarySheet(false);
+          navToday();
+        }}
+      />
+
+      <CreateItemModal
+        open={openAdd}
+        draft={draft}
+        onChange={setDraft}
+        groups={groups}
+        saving={saving}
+        onClose={() => setOpenAdd(false)}
+        onSave={saveDraft}
+      />
+
+      <ItemDetailSheet
+        open={openDetail}
+        onClose={() => setOpenDetail(false)}
+        item={openItemLive}
+        draft={draft}
+        onChangeDraft={setDraft}
+        groups={groups}
+        onSave={updateItem}
+        onDelete={removeItemById}
+        onSetWorkStatus={setWorkStatusForItem}
+        onSetSnooze={setSnoozeForItem}
+        onRegenerateAi={regenerateAi}
+        onUndoAi={undoAi}
+        regeneratingItemId={regeneratingItemId}
+      />
 
       <Modal
         open={openGroupModal}
@@ -3424,7 +2237,7 @@ function DashboardPageInner() {
                 return (
                   <label
                     key={it.id}
-                    className="flex items-center gap-2 px-3 py-2 border-b border-neutral-900 text-sm text-neutral-200"
+                    className="flex items-center gap-2 border-b border-neutral-900 px-3 py-2 text-sm text-neutral-200"
                   >
                     <input
                       type="checkbox"
@@ -3439,8 +2252,7 @@ function DashboardPageInner() {
                       }}
                     />
                     <span className="truncate">
-                      {it.type === "note" ? "📝" : "🔗"}{" "}
-                      {it.title || it.content}
+                      {it.type === "note" ? "📝" : "🔗"} {it.title || it.content}
                     </span>
                   </label>
                 );
@@ -3465,7 +2277,6 @@ function DashboardPageInner() {
         </div>
       </Modal>
 
-      {/* ✅ RENAME MODAL */}
       <Modal
         open={openRenameModal}
         title="Grubu yeniden adlandır"
@@ -3492,7 +2303,6 @@ function DashboardPageInner() {
         </div>
       </Modal>
 
-      {/* ONBOARDING MODAL */}
       <Modal
         open={openOnboarding}
         title="Hoş geldin 👋"
@@ -3556,217 +2366,12 @@ function DashboardPageInner() {
         </div>
       </Modal>
 
-      {/* ADD MODAL */}
-      <Modal
-        open={openAdd}
-        title={draft.type === "link" ? "Link ekle" : "Not ekle"}
-        onClose={() => setOpenAdd(false)}
-      >
-        <div className="space-y-3">
-          <div>
-            <div className="mb-1 text-xs text-neutral-400">Başlık</div>
-            <Input
-              value={draft.title}
-              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-              placeholder={
-                draft.type === "link"
-                  ? "Örn: YouTube - React Hooks"
-                  : "Örn: Bugünkü notlar"
-              }
-            />
-          </div>
-
-          {draft.type === "link" ? (
-            <>
-              <div>
-                <div className="mb-1 text-xs text-neutral-400">URL</div>
-                <Input
-                  value={draft.content}
-                  onChange={(e) =>
-                    setDraft({ ...draft, content: e.target.value })
-                  }
-                  placeholder="https://..."
-                  inputMode="url"
-                />
-                <div className="mt-1 text-xs text-neutral-500">
-                  (http/https yoksa otomatik eklenecek)
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-1 text-xs text-neutral-400">
-                  Açıklama (opsiyonel)
-                </div>
-                <Textarea
-                  className="min-h-[90px] max-h-[22vh] overflow-y-auto sm:max-h-none"
-                  value={(draft as any).note ?? ""}
-                  onChange={(e) =>
-                    setDraft({ ...(draft as any), note: e.target.value } as any)
-                  }
-                  placeholder="Bu link neyle ilgili?"
-                />
-              </div>
-            </>
-          ) : (
-            <div>
-              <div className="mb-1 text-xs text-neutral-400">Not</div>
-              <Textarea
-                className="min-h-[180px] max-h-[32vh] overflow-y-auto sm:max-h-none"
-                value={draft.content}
-                onChange={(e) =>
-                  setDraft({ ...draft, content: e.target.value })
-                }
-                placeholder="Notunu yaz..."
-              />
-            </div>
-          )}
-
-          <div>
-            <div className="mb-1 text-xs text-neutral-400">
-              Grup (opsiyonel)
-            </div>
-            <select
-              value={draft.group_id ?? ""}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  group_id: e.target.value ? e.target.value : null,
-                })
-              }
-              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
-            >
-              <option value="">Inbox (grupsuz)</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <div className="mb-1 text-xs text-neutral-400">Etiketler</div>
-            <TagInput
-              value={draft.tags}
-              onChange={(tags) => setDraft({ ...draft, tags })}
-            />
-          </div>
-
-          <div className="sticky bottom-0 -mx-4 -mb-4 mt-2 flex justify-end gap-2 border-t border-white/10 bg-[#07090d]/95 px-4 py-3 pb-[calc(0.75rem+var(--safe-bottom))] backdrop-blur-xl">
-            <Button
-              variant="ghost"
-              onClick={() => setOpenAdd(false)}
-              className="min-h-[44px] sm:min-h-0"
-            >
-              İptal
-            </Button>
-            <Button
-              onClick={saveDraft}
-              disabled={saving}
-              className="min-h-[44px] sm:min-h-0"
-            >
-              {saving
-                ? draft.type === "link"
-                  ? "Başlık alınıyor…"
-                  : "Kaydediliyor…"
-                : "Kaydet"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* DETAIL MODAL */}
-      <Modal
-        open={openDetail}
-        title="Detay"
-        onClose={() => setOpenDetail(false)}
-      >
-        <div className="space-y-3">
-          <div className="text-xs text-neutral-400">
-            Tür: {draft.type === "link" ? "Link" : "Not"}
-          </div>
-
-          <div>
-            <div className="mb-1 text-xs text-neutral-400">Başlık</div>
-            <Input
-              value={draft.title}
-              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <div className="mb-1 text-xs text-neutral-400">İçerik</div>
-            <Textarea
-              className="max-h-[30vh] overflow-y-auto sm:max-h-none"
-              value={draft.content}
-              onChange={(e) => setDraft({ ...draft, content: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <div className="mb-1 text-xs text-neutral-400">Grup</div>
-            <select
-              value={draft.group_id ?? ""}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  group_id: e.target.value ? e.target.value : null,
-                })
-              }
-              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
-            >
-              <option value="">Inbox (grupsuz)</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <div className="mb-1 text-xs text-neutral-400">Etiketler</div>
-            <TagInput
-              value={draft.tags}
-              onChange={(tags) => setDraft({ ...draft, tags })}
-            />
-          </div>
-
-          <div className="sticky bottom-0 -mx-4 -mb-4 mt-2 flex items-center justify-between border-t border-white/10 bg-[#07090d]/95 px-4 py-3 pb-[calc(0.75rem+var(--safe-bottom))] backdrop-blur-xl">
-            <Button
-              variant="danger"
-              onClick={removeItem}
-              className="min-h-[44px] sm:min-h-0"
-            >
-              Sil
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setOpenDetail(false)}
-                className="min-h-[44px] sm:min-h-0"
-              >
-                Kapat
-              </Button>
-              <Button
-                onClick={updateItem}
-                className="min-h-[44px] sm:min-h-0"
-              >
-                Kaydet
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* ✅ ERR */}
       {err ? (
         <div className="mobile-toast fixed left-1/2 z-[120] -translate-x-1/2 rounded-xl border border-red-900/40 bg-red-950/60 px-4 py-2 text-sm text-red-200">
           {err}
         </div>
       ) : null}
 
-      {/* ✅ TOAST */}
       {toast ? (
         <div
           className={`mobile-toast fixed left-1/2 z-[120] -translate-x-1/2 rounded-xl border px-4 py-2 text-sm ${

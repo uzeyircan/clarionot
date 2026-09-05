@@ -59,6 +59,15 @@ a {
   padding-right: var(--safe-right);
 }
 
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 .mobile-bottom-nav {
   height: calc(5rem + var(--safe-bottom));
   padding-bottom: var(--safe-bottom);

@@ -38,7 +38,7 @@ export default function TagInput({ value, onChange, placeholder = "etiket ekle (
         ))}
       </div>
       <input
-        className="w-full rounded-xl bg-neutral-950 border border-neutral-800 px-3 py-2 text-sm outline-none focus:border-neutral-600"
+        className="w-full rounded-xl bg-neutral-950 border border-neutral-800 px-3 py-2 text-base outline-none focus:border-neutral-600 sm:text-sm"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder}

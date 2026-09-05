@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { NATIVE_BACK_EVENT } from "@/lib/nativeBack";
@@ -13,7 +13,7 @@ type PlanRow = {
   grace_until: string | null;
 };
 
-export default function Header() {
+export default function Header({ center }: { center?: ReactNode } = {}) {
   const router = useRouter();
 
   const [loggedIn, setLoggedIn] = useState(false);
@@ -180,6 +180,8 @@ export default function Header() {
         </span>
         <span className="hidden sm:inline">clarionot</span>
       </Link>
+
+      {center ? <div className="min-w-0 flex-1 px-3">{center}</div> : null}
 
       <div className="flex items-center gap-2">
         {!sessionResolved ? (
